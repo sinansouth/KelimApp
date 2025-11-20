@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Save, BarChart3, Clock, Brain, BookOpen, CheckCircle, XCircle, Edit2, Award, Bookmark, Target, Flame, TrendingUp } from 'lucide-react';
-import { getUserProfile, getUserStats, saveUserProfile, UserProfile as IUserProfile, UserStats, getMemorizedSet } from '../services/userService';
+import { Save, BarChart3, Clock, Brain, BookOpen, CheckCircle, XCircle, Edit2, Award, Bookmark, Target, Flame } from 'lucide-react';
+import { getUserProfile, getUserStats, saveUserProfile, UserProfile as IUserProfile, UserStats, getMemorizedSet, getNextDailyGoal } from '../services/userService';
 import { VOCABULARY } from '../data/vocabulary';
 import { UNIT_DATA, GradeLevel } from './TopicSelector';
 import { WordCard } from '../types';
@@ -108,11 +108,15 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
     ? Math.round(((stats?.quizCorrect || 0) / totalQuizAnswers) * 100) 
     : 0;
 
-  // Goal Calculations
-  const dailyProgress = (stats?.flashcardsViewed || 0) + totalQuizAnswers;
-  const goalTarget = stats?.dailyGoal || 5;
-  const goalPercentage = Math.min(100, Math.round((dailyProgress / goalTarget) * 100));
-  const streak = stats?.streak || 0;
+  // Daily Progress Calculation for Profile
+  const dailyProgress = {
+     current: (stats?.flashcardsViewed || 0) + (stats?.quizCorrect || 0) + (stats?.quizWrong || 0),
+     target: stats?.dailyGoal || 5,
+     streak: stats?.streak || 0
+  };
+  const goalPercent = Math.min(100, Math.round((dailyProgress.current / dailyProgress.target) * 100));
+  // Cap for display
+  const displayCurrent = Math.min(dailyProgress.current, dailyProgress.target);
 
   return (
     <div className="w-full max-w-3xl mx-auto p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -136,7 +140,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
 
         <div className="pt-16 pb-8 px-6 sm:px-8 text-center">
           {/* Profile Info Form */}
-          <form onSubmit={handleSave} className="mb-10">
+          <form onSubmit={handleSave} className="mb-6">
              {!isEditing ? (
                <div className="flex flex-col items-center">
                  <h2 className="text-2xl sm:text-3xl font-bold text-slate-800 dark:text-white mb-2">
@@ -154,31 +158,6 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
                  >
                    Profili Düzenle
                  </button>
-
-                 {/* Goal Info (Visible in View Mode) */}
-                 <div className="mt-8 w-full max-w-md text-left p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="text-indigo-600 dark:text-indigo-400" size={18} />
-                        <span className="font-bold text-indigo-700 dark:text-indigo-300 text-sm">Otomatik İlerleyen Hedef</span>
-                      </div>
-                      
-                      {/* Small Streak Badge */}
-                      {streak > 0 && (
-                        <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-md text-xs font-bold">
-                           <Flame size={12} className="fill-current" />
-                           <span>{streak} Gün Seri</span>
-                        </div>
-                      )}
-                    </div>
-                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                       Günlük hedefin <strong>5</strong> ile başlar. Hedefini tamamladığın her gün için, ertesi gün hedefin <strong>+5 artar</strong> (Maksimum 50). Eğer bir gün hedefi tamamlayamazsan, hedef tekrar 5'e döner.
-                    </p>
-                    <div className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-700">
-                       <Target size={14} />
-                       <span>Şu anki Hedefin: <span className="text-indigo-600 dark:text-indigo-400 text-sm">{goalTarget}</span></span>
-                    </div>
-                 </div>
                </div>
              ) : (
                <div className="max-w-md mx-auto space-y-6 animate-in fade-in">
@@ -288,47 +267,50 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
              )}
           </form>
 
-          {/* Statistics Section */}
-          <div className="border-t border-slate-100 dark:border-slate-800 pt-8">
-            
-            {/* Goal Progress Card */}
-            <div className="mb-8 bg-gradient-to-br from-fuchsia-500 to-purple-600 rounded-2xl p-5 text-white relative overflow-hidden shadow-lg shadow-purple-200 dark:shadow-none">
-               <div className="relative z-10">
-                  <div className="flex justify-between items-center mb-2">
-                     <div className="flex items-center gap-2">
-                        <Target className="text-purple-200" size={24} />
-                        <span className="font-bold text-purple-100 uppercase text-xs tracking-wider">Bugünkü Hedef</span>
-                     </div>
-                     <span className="font-bold text-xl">{dailyProgress} / {goalTarget}</span>
+          {/* Daily Goal Widget (Mirrored from TopicSelector) */}
+          <div className="mb-10">
+             <div className="max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full py-2 px-4 flex items-center justify-between gap-4 shadow-sm">
+               <div className="flex items-center gap-3 flex-grow">
+                  <div className="w-8 h-8 rounded-full bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
+                      <Target size={16} />
                   </div>
-                  
-                  <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden mb-2">
-                     <div 
-                       className="h-full bg-white transition-all duration-1000 ease-out rounded-full"
-                       style={{ width: `${goalPercentage}%` }}
-                     ></div>
-                  </div>
-                  
-                  <div className="flex justify-between items-end">
-                    <p className="text-xs text-purple-100 text-left opacity-90 max-w-[70%]">
-                       {dailyProgress >= goalTarget 
-                          ? `Harikasın! Hedefi tamamladın. Yarınki hedefin: ${Math.min(50, goalTarget + 5)} olacak! 🎉` 
-                          : `${goalTarget - dailyProgress} etkileşim daha gerekli.`}
-                    </p>
-                    
-                    {/* Horizontal Compact Streak Display */}
-                    <div className="flex items-center gap-2 bg-white/20 rounded-lg px-3 py-1.5 backdrop-blur-sm">
-                       <Flame size={16} className="text-orange-300 fill-orange-400/50" />
-                       <span className="text-sm font-bold text-white">{streak} Gün Seri</span>
-                    </div>
+                  <div className="flex flex-col w-full text-left">
+                      <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
+                        <span className="uppercase tracking-wider">Günlük Hedef</span>
+                        <span>{displayCurrent}/{dailyProgress.target}</span>
+                      </div>
+                      <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-1000"
+                          style={{ width: `${goalPercent}%` }}
+                        ></div>
+                      </div>
                   </div>
                </div>
-               <div className="absolute -right-5 -bottom-5 text-white opacity-10 transform rotate-12">
-                  <Flame size={100} />
+               
+               {/* Vertical Separator */}
+               <div className="w-px h-8 bg-slate-100 dark:bg-slate-800"></div>
+
+               {/* Streak */}
+               <div className="flex items-center gap-2 shrink-0">
+                  <Flame size={18} className={`${dailyProgress.streak > 0 ? 'text-orange-500 fill-orange-500' : 'text-slate-300 dark:text-slate-600'}`} />
+                  <div className="flex flex-col leading-none text-left">
+                     <span className={`text-sm font-black ${dailyProgress.streak > 0 ? 'text-slate-800 dark:text-white' : 'text-slate-400 dark:text-slate-500'}`}>{dailyProgress.streak}</span>
+                     <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 uppercase">Gün Seri</span>
+                  </div>
                </div>
             </div>
+             {dailyProgress.current >= dailyProgress.target && (
+               <div className="text-center mt-2 animate-in fade-in slide-in-from-bottom-1">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold">
+                     <CheckCircle size={12} /> Hedef Tamamlandı! Yarınki hedef: {getNextDailyGoal(dailyProgress.target)}
+                  </span>
+               </div>
+            )}
+          </div>
 
-
+          {/* Statistics Section */}
+          <div className="border-t border-slate-100 dark:border-slate-800 pt-8">
             <div className="flex items-center justify-center gap-2 mb-6">
               <BarChart3 className="text-indigo-600 dark:text-indigo-400" />
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">İstatistikler</h3>
@@ -354,41 +336,51 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
                </div>
             )}
 
-            {/* Big Stats Grid */}
+            {/* Big Stats Grid (Standardized) */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                {/* Total Memorized Card */}
-               <div className="p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 transition-colors flex items-center justify-between relative overflow-hidden">
-                  <div className="relative z-10 text-left">
-                    <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">
-                      {memorizedCount} <span className="text-sm text-slate-400 dark:text-slate-500 font-bold">/ {totalWords}</span>
-                    </div>
-                    <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide">Ezberlenen Kelime</div>
+               <div className="relative overflow-hidden p-5 bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 transition-colors h-32 flex flex-col justify-between group">
+                  <div className="flex justify-between items-start relative z-10">
+                     <div className="text-left">
+                        <div className="text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-wide mb-1">Ezberlediklerim</div>
+                        <div className="text-3xl font-black text-slate-800 dark:text-slate-100">
+                           {memorizedCount}
+                           <span className="text-sm text-slate-400 dark:text-slate-500 font-bold ml-1">/ {totalWords}</span>
+                        </div>
+                     </div>
+                     <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center">
+                        <Award size={20} />
+                     </div>
                   </div>
-                  <div className="relative z-10 w-10 h-10 bg-indigo-100 dark:bg-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-full flex items-center justify-center">
-                    <Award size={20} />
-                  </div>
-                  <div className="absolute bottom-0 left-0 h-1.5 bg-indigo-200 dark:bg-indigo-800 w-full">
+                  
+                  {/* Progress Bar */}
+                  <div className="relative z-10 w-full h-1.5 bg-indigo-200/50 dark:bg-indigo-800/50 rounded-full overflow-hidden mt-auto">
                      <div 
-                       className="h-full bg-indigo-600 dark:bg-indigo-400 transition-all duration-1000"
+                       className="h-full bg-indigo-600 dark:bg-indigo-400 transition-all duration-1000 rounded-full"
                        style={{ width: `${(memorizedCount / (totalWords || 1)) * 100}%` }}
                      ></div>
                   </div>
                </div>
 
                {/* Difficult Words (Bookmarks) Card */}
-               <div className="p-5 bg-orange-50 dark:bg-orange-900/20 rounded-2xl border border-orange-100 dark:border-orange-800/50 transition-colors flex items-center justify-between relative overflow-hidden">
-                  <div className="relative z-10 text-left">
-                    <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">
-                      {bookmarksCount} <span className="text-sm text-slate-400 dark:text-slate-500 font-bold">/ {totalWords}</span>
-                    </div>
-                    <div className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide">Zorlandığım (Favori)</div>
+               <div className="relative overflow-hidden p-5 bg-orange-50 dark:bg-orange-900/20 rounded-2xl border border-orange-100 dark:border-orange-800/50 transition-colors h-32 flex flex-col justify-between group">
+                  <div className="flex justify-between items-start relative z-10">
+                     <div className="text-left">
+                        <div className="text-xs font-bold text-orange-600 dark:text-orange-400 uppercase tracking-wide mb-1">Favorilerim</div>
+                        <div className="text-3xl font-black text-slate-800 dark:text-slate-100">
+                           {bookmarksCount}
+                           <span className="text-sm text-slate-400 dark:text-slate-500 font-bold ml-1">/ {totalWords}</span>
+                        </div>
+                     </div>
+                     <div className="w-10 h-10 bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center">
+                        <Bookmark size={20} />
+                     </div>
                   </div>
-                  <div className="relative z-10 w-10 h-10 bg-orange-100 dark:bg-orange-900/50 text-orange-600 dark:text-orange-400 rounded-full flex items-center justify-center">
-                    <Bookmark size={20} />
-                  </div>
-                  <div className="absolute bottom-0 left-0 h-1.5 bg-orange-200 dark:bg-orange-800 w-full">
+                  
+                  {/* Progress Bar */}
+                  <div className="relative z-10 w-full h-1.5 bg-orange-200/50 dark:bg-orange-800/50 rounded-full overflow-hidden mt-auto">
                      <div 
-                       className="h-full bg-orange-500 dark:bg-orange-400 transition-all duration-1000"
+                       className="h-full bg-orange-500 dark:bg-orange-400 transition-all duration-1000 rounded-full"
                        style={{ width: `${(bookmarksCount / (totalWords || 1)) * 100}%` }}
                      ></div>
                   </div>
@@ -403,7 +395,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
                     <BookOpen size={20} />
                   </div>
                   <div className="text-3xl font-black text-slate-800 dark:text-slate-100 mb-1">{stats?.flashcardsViewed || 0}</div>
-                  <div className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Bugün Bakılan</div>
+                  <div className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide">Çalışılan Kelime</div>
                </div>
 
                {/* Stat 2: Quiz Success */}

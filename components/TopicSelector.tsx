@@ -7,7 +7,7 @@ import {
   ListChecks, MousePointerClick
 } from 'lucide-react';
 import { VOCABULARY } from '../data/vocabulary';
-import { getMemorizedSet, getUserStats } from '../services/userService';
+import { getMemorizedSet, getUserStats, getNextDailyGoal } from '../services/userService';
 import { APP_TIPS } from '../data/tips';
 
 // Updated Grade Levels
@@ -398,7 +398,8 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                   <div className="flex flex-col w-full">
                       <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 dark:text-slate-400 mb-1">
                         <span className="uppercase tracking-wider">Günlük Hedef</span>
-                        <span>{dailyProgress.current}/{dailyProgress.target}</span>
+                        {/* Current capped at target for display */}
+                        <span>{Math.min(dailyProgress.current, dailyProgress.target)}/{dailyProgress.target}</span>
                       </div>
                       <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                         <div 
@@ -421,6 +422,15 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                   </div>
                </div>
             </div>
+            
+             {/* Goal Completion Message */}
+             {dailyProgress.current >= dailyProgress.target && (
+               <div className="text-center mt-2 animate-in fade-in slide-in-from-bottom-1">
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold">
+                     <CheckCircle size={12} /> Hedef Tamamlandı! Yarınki hedef: {getNextDailyGoal(dailyProgress.target)}
+                  </span>
+               </div>
+            )}
           </div>
 
           {/* Main Categories Grid */}

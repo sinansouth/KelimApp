@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WordCard } from '../types';
-import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, Filter, CheckCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, Filter, CheckCircle, Sparkles, BookmarkMinus, MinusCircle } from 'lucide-react';
 import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized } from '../services/userService';
 
 interface FlashcardDeckProps {
@@ -34,6 +34,27 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
+  
+  // Animation/Feedback State
+  const [feedback, setFeedback] = useState<{
+    visible: boolean;
+    type: 'success' | 'remove-memorized' | 'bookmark' | 'remove-bookmark';
+    message: string;
+  } | null>(null);
+  
+  const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Helper to trigger feedback
+  const triggerFeedback = (type: 'success' | 'remove-memorized' | 'bookmark' | 'remove-bookmark', message: string) => {
+      if (feedbackTimerRef.current) {
+          clearTimeout(feedbackTimerRef.current);
+      }
+      setFeedback({ visible: true, type, message });
+      feedbackTimerRef.current = setTimeout(() => {
+          setFeedback(null);
+          feedbackTimerRef.current = null;
+      }, 1200);
+  };
 
   // Reset when initialWords change (new unit selected)
   useEffect(() => {
@@ -42,6 +63,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     setIsShuffled(false);
     setIsFlipped(false);
     setFilterMode('all');
+    setFeedback(null);
   }, [initialWords]);
 
   // Determine which deck to show based on filter
@@ -71,8 +93,10 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     const newBookmarks = new Set(bookmarks);
     if (newBookmarks.has(word)) {
       newBookmarks.delete(word);
+      triggerFeedback('remove-bookmark', 'Favorilerden Çıkarıldı');
     } else {
       newBookmarks.add(word);
+      triggerFeedback('bookmark', 'Favorilere Eklendi');
     }
     setBookmarks(newBookmarks);
     localStorage.setItem('lgs_bookmarks', JSON.stringify([...newBookmarks]));
@@ -86,12 +110,13 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     if (newMemorized.has(word)) {
         newMemorized.delete(word);
         removeFromMemorized(word);
+        triggerFeedback('remove-memorized', 'Ezberlenenlerden Çıkarıldı');
     } else {
         newMemorized.add(word);
         addToMemorized(word);
+        triggerFeedback('success', 'Ezberlendi!');
     }
     setMemorized(newMemorized);
-    // We don't change navigation or flip state, just toggle the status
   };
 
   const setFilter = (mode: FilterMode) => {
@@ -109,6 +134,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       setIsFlipped(false);
       setTimeout(() => {
          setCurrentIndex(prev => prev + 1);
+         setFeedback(null); // Reset feedback immediately on slide
+         if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       }, 200);
     } else {
       onFinish();
@@ -118,12 +145,14 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   const handlePrev = () => {
     if (currentIndex > 0) {
       setIsFlipped(false);
+      setFeedback(null);
       setTimeout(() => setCurrentIndex(prev => prev - 1), 200);
     }
   };
 
   const handleRestart = () => {
     setIsFlipped(false);
+    setFeedback(null);
     setTimeout(() => {
        setCurrentIndex(0);
     }, 200);
@@ -131,6 +160,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
 
   const handleShuffle = () => {
     setIsFlipped(false);
+    setFeedback(null);
     setTimeout(() => {
       if (isShuffled) {
         setShuffledDeck(initialWords); // Restore original
@@ -299,8 +329,40 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         <div className={`relative w-full h-full transition-all duration-500 transform-style-3d shadow-xl hover:shadow-2xl rounded-3xl ${isFlipped ? 'rotate-y-180' : ''}`}>
           
           {/* FRONT SIDE */}
-          <div className="absolute w-full h-full backface-hidden bg-white dark:bg-slate-900 rounded-3xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-800 p-6 sm:p-10 transition-colors">
+          <div className="absolute w-full h-full backface-hidden bg-white dark:bg-slate-900 rounded-3xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-800 p-6 sm:p-10 transition-colors overflow-hidden">
             
+            {/* Feedback Animation Overlay */}
+            {feedback?.visible && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm animate-in fade-in duration-200 rounded-3xl">
+                <div className="relative">
+                   {/* Icon logic based on feedback.type */}
+                   {feedback.type === 'success' && (
+                       <>
+                           <CheckCircle size={80} className="text-green-500 fill-green-100 dark:fill-green-900 animate-[bounce_0.5s_infinite]" />
+                           <Sparkles className="absolute -top-4 -right-4 text-yellow-400 animate-spin" size={32} />
+                       </>
+                   )}
+                   {feedback.type === 'remove-memorized' && (
+                       <MinusCircle size={80} className="text-slate-400 fill-slate-100 dark:fill-slate-800" />
+                   )}
+                   {feedback.type === 'bookmark' && (
+                       <Bookmark size={80} className="text-yellow-500 fill-yellow-100 dark:fill-yellow-900 animate-[pulse_0.5s_ease-in-out]" />
+                   )}
+                   {feedback.type === 'remove-bookmark' && (
+                       <BookmarkMinus size={80} className="text-rose-500 fill-rose-100 dark:fill-rose-900" />
+                   )}
+                </div>
+                <span className={`text-2xl font-black mt-6 animate-in slide-in-from-bottom-2 duration-300 text-center px-4
+                    ${feedback.type === 'success' ? 'text-green-600 dark:text-green-400' : ''}
+                    ${feedback.type === 'remove-memorized' ? 'text-slate-500 dark:text-slate-400' : ''}
+                    ${feedback.type === 'bookmark' ? 'text-yellow-600 dark:text-yellow-400' : ''}
+                    ${feedback.type === 'remove-bookmark' ? 'text-rose-600 dark:text-rose-400' : ''}
+                `}>
+                    {feedback.message}
+                </span>
+              </div>
+            )}
+
             {/* Bookmark Toggle Icon (Left) */}
             <button 
               onClick={(e) => toggleBookmark(e, currentWord.english)}

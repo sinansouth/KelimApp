@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { WordCard } from '../types';
-import { CheckCircle, XCircle, RefreshCcw, ArrowLeft, Bookmark, Info } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCcw, ArrowLeft, Bookmark, Info, BookmarkMinus } from 'lucide-react';
 import { updateStats } from '../services/userService';
 
 interface QuizProps {
@@ -9,15 +9,17 @@ interface QuizProps {
   onRestart: () => void;
   onBack: () => void;
   onHome: () => void;
+  isBookmarkQuiz?: boolean;
 }
 
-const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack }) => {
+const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookmarkQuiz }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [isAnswered, setIsAnswered] = useState(false);
   const [showResults, setShowResults] = useState(false);
   const [autoBookmarked, setAutoBookmarked] = useState(false);
+  const [removedFromBookmarks, setRemovedFromBookmarks] = useState(false);
 
   // Generate questions from words
   const questions = useMemo(() => {
@@ -89,6 +91,25 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack }) => {
     if (isCorrect) {
       setScore((prev) => prev + 1);
       updateStats('quiz_correct');
+
+      // Remove from bookmarks if it is a bookmark quiz
+      if (isBookmarkQuiz) {
+        try {
+           const wordToRemove = currentQuestion.word;
+           const saved = localStorage.getItem('lgs_bookmarks');
+           if (saved) {
+              const currentBookmarks = new Set(JSON.parse(saved));
+              if (currentBookmarks.has(wordToRemove)) {
+                 currentBookmarks.delete(wordToRemove);
+                 localStorage.setItem('lgs_bookmarks', JSON.stringify([...currentBookmarks]));
+                 setRemovedFromBookmarks(true);
+              }
+           }
+        } catch (e) {
+           console.error("Failed to remove from bookmarks", e);
+        }
+     }
+
     } else {
       updateStats('quiz_wrong');
       // Wrong answer: Automatically add to bookmarks
@@ -114,6 +135,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack }) => {
       setSelectedOption(null);
       setIsAnswered(false);
       setAutoBookmarked(false);
+      setRemovedFromBookmarks(false);
     } else {
       setShowResults(true);
     }
@@ -202,6 +224,12 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack }) => {
             <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 text-xs font-bold animate-in fade-in zoom-in mt-2 sm:mt-0">
                <Bookmark size={12} className="fill-yellow-700 dark:fill-yellow-400" />
                Favorilere Eklendi
+            </span>
+          )}
+          {removedFromBookmarks && (
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 text-xs font-bold animate-in fade-in zoom-in mt-2 sm:mt-0">
+               <BookmarkMinus size={12} className="fill-red-700 dark:fill-red-400" />
+               Favorilerden Çıkarıldı
             </span>
           )}
         </h2>

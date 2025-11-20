@@ -27,6 +27,9 @@ const App: React.FC = () => {
   const [selectedStudyMode, setSelectedStudyMode] = useState<StudyMode | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitDef | null>(null);
 
+  // Quiz Type State
+  const [activeQuizType, setActiveQuizType] = useState<'standard' | 'bookmarks' | 'memorized' | 'custom'>('standard');
+
   // Empty Warning State
   const [emptyWarningType, setEmptyWarningType] = useState<'bookmarks' | 'memorized' | null>(null);
 
@@ -162,6 +165,7 @@ const App: React.FC = () => {
         activeWords = shuffled;
       }
       
+      setActiveQuizType('standard');
       newMode = AppMode.QUIZ;
     } else if (action === 'grammar') {
       newMode = AppMode.GRAMMAR;
@@ -186,6 +190,7 @@ const App: React.FC = () => {
 
         // Explicitly shuffle every time
         activeWords = shuffleArray(bookmarkedWords);
+        setActiveQuizType('bookmarks');
         newMode = AppMode.QUIZ;
         newTitle += ' (Favori Test)';
 
@@ -206,6 +211,7 @@ const App: React.FC = () => {
         
         // Explicitly shuffle every time
         activeWords = shuffleArray(memorizedWords);
+        setActiveQuizType('memorized');
         newMode = AppMode.QUIZ;
         newTitle += ' (Ezberlediklerimle Quiz)';
     }
@@ -223,6 +229,7 @@ const App: React.FC = () => {
         // For quiz, pass selected words. 
         // Distractors will come from 'allUnitWords' which is already set in handleStartModule
         setWords(shuffleArray(selectedWords));
+        setActiveQuizType('custom');
         setMode(AppMode.QUIZ);
       }
   };
@@ -268,7 +275,8 @@ const App: React.FC = () => {
           allWords={allUnitWords}
           onRestart={() => setMode(AppMode.QUIZ)} 
           onBack={handleGlobalBack}
-          onHome={handleGoHome} 
+          onHome={handleGoHome}
+          isBookmarkQuiz={activeQuizType === 'bookmarks'}
         />
       );
       break;
@@ -315,17 +323,17 @@ const App: React.FC = () => {
       
       {/* Global Sticky Header */}
       <header className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200 dark:border-slate-800 sticky top-0 z-50 supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-slate-900/60 transition-colors">
-        <div className="max-w-5xl mx-auto px-4 h-16 flex items-center justify-between">
+        <div className="max-w-5xl mx-auto px-4 h-14 flex items-center justify-between">
           
           {/* Left: Back Button or Logo */}
-          <div className="flex items-center gap-2 min-w-[80px]">
+          <div className="flex items-center gap-2 min-w-fit">
             {showBackButton ? (
               <button 
                 onClick={handleGlobalBack}
                 className="flex items-center gap-1 text-slate-600 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 hover:bg-slate-100 dark:hover:bg-slate-800 px-3 py-1.5 rounded-lg font-medium transition-all"
               >
-                <ChevronLeft size={20} />
-                <span>Geri</span>
+                <ChevronLeft size={18} />
+                <span className="text-sm">Geri</span>
               </button>
             ) : (
               <div 
@@ -335,7 +343,7 @@ const App: React.FC = () => {
                 <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-sm group-hover:scale-110 transition-transform duration-300">
                   <BookOpen size={18} strokeWidth={3} />
                 </div>
-                <span className="font-bold text-xl tracking-tight text-slate-800 dark:text-white hidden sm:block">Kelim<span className="text-indigo-600 dark:text-indigo-400">App</span></span>
+                <span className="font-bold text-xl tracking-tight text-slate-800 dark:text-white">Kelim<span className="text-indigo-600 dark:text-indigo-400">App</span></span>
               </div>
             )}
           </div>
@@ -349,36 +357,36 @@ const App: React.FC = () => {
           )}
 
           {/* Right: Actions */}
-          <div className="flex items-center gap-1 justify-end min-w-[80px]">
+          <div className="flex items-center gap-2 justify-end min-w-fit">
              
              <button
                onClick={toggleTheme}
-               className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+               className="flex items-center justify-center w-9 h-9 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
                title={darkMode ? "Aydınlık Mod" : "Karanlık Mod"}
              >
-               {darkMode ? <Sun size={20} /> : <Moon size={20} />}
+               {darkMode ? <Sun size={18} /> : <Moon size={18} />}
              </button>
 
              {mode !== AppMode.PROFILE && (
                <button
                  onClick={handleOpenProfile}
-                 className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all relative"
+                 className="flex items-center justify-center w-9 h-9 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all relative"
                  title="Profilim"
                >
                  {userProfile.avatar && userProfile.avatar !== '🦊' ? (
-                    <span className="text-lg">{userProfile.avatar}</span>
+                    <span className="text-base">{userProfile.avatar}</span>
                  ) : (
-                    <UserCircle size={24} />
+                    <UserCircle size={20} />
                  )}
                </button>
              )}
              
              <button 
                onClick={handleGoHome}
-               className="flex items-center justify-center w-10 h-10 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 dark:text-slate-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
+               className="flex items-center justify-center w-9 h-9 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-sm hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
                title="Ana Sayfa"
              >
-               <Home size={22} />
+               <Home size={20} />
              </button>
           </div>
         </div>

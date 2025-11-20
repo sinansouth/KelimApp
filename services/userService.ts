@@ -22,6 +22,19 @@ const STATS_KEY = 'lgs_user_stats';
 const THEME_KEY = 'lgs_theme';
 const MEMORIZED_KEY = 'lgs_memorized';
 
+// Goal progression steps: 5 -> 10 -> 15 -> 20 -> 30
+const GOAL_STEPS = [5, 10, 15, 20, 30];
+
+export const getNextDailyGoal = (currentGoal: number): number => {
+  const index = GOAL_STEPS.indexOf(currentGoal);
+  // If current goal isn't in list (e.g. legacy data), default to 5
+  if (index === -1) return 5;
+  // If at max (30), stay at max
+  if (index >= GOAL_STEPS.length - 1) return GOAL_STEPS[GOAL_STEPS.length - 1];
+  // Otherwise go to next step
+  return GOAL_STEPS[index + 1];
+};
+
 export const getUserProfile = (): UserProfile => {
   try {
     const stored = localStorage.getItem(PROFILE_KEY);
@@ -41,7 +54,12 @@ export const getUserStats = (): UserStats => {
   try {
     const stored = localStorage.getItem(STATS_KEY);
     const today = new Date();
-    const todayStr = today.toDateString(); 
+    const todayStr = today.toDateString();
+    
+    // Calculate yesterday for streak checking
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toDateString();
     
     const defaultStats: UserStats = { 
       flashcardsViewed: 0, 
@@ -65,48 +83,33 @@ export const getUserStats = (): UserStats => {
     if (parsedStats.lastGoalMetDate === undefined) parsedStats.lastGoalMetDate = null;
 
     // Check streak integrity on load
-    // If the last goal met date was BEFORE yesterday, the streak is broken.
     if (parsedStats.lastGoalMetDate) {
         const lastMet = new Date(parsedStats.lastGoalMetDate);
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
+        const checkDate = new Date();
+        checkDate.setDate(checkDate.getDate() - 1); // Yesterday
         
         // Reset time for accurate day comparison
         lastMet.setHours(0,0,0,0);
-        yesterday.setHours(0,0,0,0);
-        const todayDate = new Date();
-        todayDate.setHours(0,0,0,0);
+        checkDate.setHours(0,0,0,0);
 
-        // If last met was before yesterday (and not today), reset streak
-        if (lastMet < yesterday) {
+        // If last met was before yesterday, streak is broken
+        if (lastMet < checkDate) {
             parsedStats.streak = 0;
         }
     }
 
     // Check if date changed for daily progress reset
     if (parsedStats.date !== todayStr) {
-        // Calculate new goal based on previous day performance
-        const lastDate = new Date(parsedStats.date);
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
         
-        lastDate.setHours(0,0,0,0);
-        yesterday.setHours(0,0,0,0);
-        
-        const isConsecutiveDay = lastDate.getTime() === yesterday.getTime();
-        const totalInteractions = (parsedStats.flashcardsViewed || 0) + 
-                                  (parsedStats.quizCorrect || 0) + 
-                                  (parsedStats.quizWrong || 0);
-        
-        const previousGoal = parsedStats.dailyGoal;
+        // Logic for Goal Progression
         let newGoal = 5; // Default reset
-
-        // Logic: If user played yesterday AND met the goal -> Increase goal
-        if (isConsecutiveDay && totalInteractions >= previousGoal) {
-             newGoal = Math.min(50, previousGoal + 5);
+        
+        // If the user met the goal YESTERDAY, they progress to the next level
+        if (parsedStats.lastGoalMetDate === yesterdayStr) {
+            newGoal = getNextDailyGoal(parsedStats.dailyGoal);
         } else {
-             // Streak broken or goal not met -> Reset to 5
-             newGoal = 5;
+            // Streak broken or skipped a day, reset to 5
+            newGoal = 5;
         }
 
         const newStats: UserStats = {
@@ -114,8 +117,9 @@ export const getUserStats = (): UserStats => {
             quizCorrect: 0, 
             quizWrong: 0, 
             date: todayStr,
-            dailyGoal: newGoal,
-            streak: parsedStats.streak, // Preserve calculated streak
+            dailyGoal: newGoal, 
+            // If missed yesterday, streak is effectively 0 for the new day until calculated again
+            streak: parsedStats.lastGoalMetDate === yesterdayStr ? parsedStats.streak : 0,
             lastGoalMetDate: parsedStats.lastGoalMetDate
         };
 
@@ -162,9 +166,7 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong') =
           // First time or broken streak
           stats.streak = 1;
       } else {
-          // Missed some days, but just met goal today. 
-          // If lastGoalMetDate is older than yesterday, we reset to 1.
-          // (Logic handled in getUserStats but let's be safe)
+          // Missed some days, but just met goal today. Reset to 1.
           stats.streak = 1;
       }
       stats.lastGoalMetDate = todayStr;
