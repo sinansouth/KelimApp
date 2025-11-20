@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { WordCard } from '../types';
 import { CheckCircle, XCircle, RefreshCcw, ArrowLeft, Bookmark, Info, BookmarkMinus } from 'lucide-react';
-import { updateStats } from '../services/userService';
+import { updateStats, handleQuizResult } from '../services/userService';
 
 interface QuizProps {
   words: WordCard[];
@@ -87,6 +87,10 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookm
     setIsAnswered(true);
 
     const isCorrect = currentQuestion.options[index].isCorrect;
+
+    // --- UPDATE SRS SYSTEM ---
+    // This updates the spaced repetition status for the word regardless of quiz type
+    handleQuizResult(currentQuestion.word, isCorrect);
 
     if (isCorrect) {
       setScore((prev) => prev + 1);

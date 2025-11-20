@@ -9,7 +9,7 @@ import GrammarView from './components/GrammarView';
 import WordSelector from './components/WordSelector';
 import EmptyStateWarning from './components/EmptyStateWarning';
 import { BookOpen, Sparkles, Home, ChevronLeft, UserCircle, Sun, Moon } from 'lucide-react';
-import { getUserProfile, getTheme, saveTheme, getMemorizedSet } from './services/userService';
+import { getUserProfile, getTheme, saveTheme, getMemorizedSet, getDueWords } from './services/userService';
 
 const App: React.FC = () => {
   // --- Global State ---
@@ -28,7 +28,7 @@ const App: React.FC = () => {
   const [selectedUnit, setSelectedUnit] = useState<UnitDef | null>(null);
 
   // Quiz Type State
-  const [activeQuizType, setActiveQuizType] = useState<'standard' | 'bookmarks' | 'memorized' | 'custom'>('standard');
+  const [activeQuizType, setActiveQuizType] = useState<'standard' | 'bookmarks' | 'memorized' | 'custom' | 'review'>('standard');
 
   // Empty Warning State
   const [emptyWarningType, setEmptyWarningType] = useState<'bookmarks' | 'memorized' | null>(null);
@@ -119,34 +119,44 @@ const App: React.FC = () => {
   };
 
   const handleStartModule = (
-    action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select',
+    action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review',
     unit: UnitDef,
     quizCount?: number
   ) => {
     let unitWords: WordCard[] = [];
+    let allDistractors: WordCard[] = [];
+
     const isAllInOne = unit.id.endsWith('all') || unit.id === 'uAll';
 
-    // Logic to aggregate words if "ALL IN ONE" is selected
-    if (isAllInOne && selectedGrade) {
-       const units = UNIT_DATA[selectedGrade];
-       units.forEach(u => {
-          if (u.id !== unit.id && VOCABULARY[u.id]) {
-             unitWords = [...unitWords, ...VOCABULARY[u.id]];
-          }
-       });
+    if (action === 'review') {
+        // For Review mode, get words from SRS
+        unitWords = getDueWords();
+        // For review distractors, use everything in the app to ensure variety
+        allDistractors = Object.values(VOCABULARY).flat();
     } else {
-       unitWords = VOCABULARY[unit.id] || [];
+        // Standard Unit Logic
+        if (isAllInOne && selectedGrade) {
+            const units = UNIT_DATA[selectedGrade];
+            units.forEach(u => {
+                if (u.id !== unit.id && VOCABULARY[u.id]) {
+                    unitWords = [...unitWords, ...VOCABULARY[u.id]];
+                }
+            });
+        } else {
+            unitWords = VOCABULARY[unit.id] || [];
+        }
+        allDistractors = unitWords; // Use unit words as default distractors
     }
 
-    setAllUnitWords(unitWords); // Store all for distractors
+    setAllUnitWords(allDistractors); // Store for distractors
 
     let activeWords: WordCard[] = [];
     let newMode = AppMode.HOME;
-    let newTitle = isAllInOne ? unit.title : `${unit.unitNo} - ${unit.title}`;
+    let newTitle = action === 'review' ? 'Günlük Tekrar' : (isAllInOne ? unit.title : `${unit.unitNo} - ${unit.title}`);
 
-    // Check for empty unit content (skipped for Grammar as it has its own default)
+    // Check for empty unit content
     if (action !== 'grammar' && unitWords.length === 0 && action !== 'quiz-bookmarks' && action !== 'quiz-memorized') {
-      alert("Bu ünite için içerik henüz hazırlanmaktadır.");
+      alert("Bu ünite için içerik henüz hazırlanmaktadır veya tekrar edilecek kelime yok.");
       return;
     }
 
@@ -188,7 +198,6 @@ const App: React.FC = () => {
           return;
         }
 
-        // Explicitly shuffle every time
         activeWords = shuffleArray(bookmarkedWords);
         setActiveQuizType('bookmarks');
         newMode = AppMode.QUIZ;
@@ -209,11 +218,14 @@ const App: React.FC = () => {
              return;
         }
         
-        // Explicitly shuffle every time
         activeWords = shuffleArray(memorizedWords);
         setActiveQuizType('memorized');
         newMode = AppMode.QUIZ;
         newTitle += ' (Ezberlediklerimle Quiz)';
+    } else if (action === 'review') {
+        activeWords = shuffleArray(unitWords);
+        setActiveQuizType('review');
+        newMode = AppMode.QUIZ;
     }
 
     setWords(activeWords);

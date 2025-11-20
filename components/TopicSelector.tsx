@@ -4,10 +4,10 @@ import {
   School, Shapes, MessageCircle, Globe, Tv, Sun, Briefcase, Music, Heart, 
   MapPin, Film, Calendar, Zap, Smile, User, Utensils, Shirt, Home, Tent, 
   Quote, Play, BookType, CheckCircle, Layers, Flame, Baby, Award, PenTool,
-  ListChecks, MousePointerClick
+  ListChecks, MousePointerClick, RefreshCw
 } from 'lucide-react';
 import { VOCABULARY } from '../data/vocabulary';
-import { getMemorizedSet, getUserStats, getNextDailyGoal } from '../services/userService';
+import { getMemorizedSet, getUserStats, getNextDailyGoal, getDueWords } from '../services/userService';
 import { APP_TIPS } from '../data/tips';
 
 // Updated Grade Levels
@@ -36,7 +36,7 @@ interface TopicSelectorProps {
   onSelectGrade: (grade: GradeLevel | null) => void;
   onSelectMode: (mode: StudyMode | null) => void;
   onSelectUnit: (unit: UnitDef | null) => void;
-  onStartModule: (action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select', unit: UnitDef, count?: number) => void;
+  onStartModule: (action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review', unit: UnitDef, count?: number) => void;
   onGoHome: () => void;
 }
 
@@ -280,6 +280,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
 
   const [memorizedSet, setMemorizedSet] = useState<Set<string>>(new Set());
   const [dailyProgress, setDailyProgress] = useState({ current: 0, target: 5, streak: 0 });
+  const [dueReviewCount, setDueReviewCount] = useState(0);
   
   // Quiz Configuration State
   const [quizConfigMode, setQuizConfigMode] = useState(false);
@@ -303,6 +304,11 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
        target: stats.dailyGoal || 5,
        streak: stats.streak || 0
     });
+    
+    // Check for SRS Due words
+    const dueWords = getDueWords();
+    setDueReviewCount(dueWords.length);
+
     setQuizConfigMode(false);
   }, [selectedGrade, selectedUnit, selectedCategory]);
 
@@ -363,6 +369,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
 
   // Daily Goal Widget
   const goalPercent = Math.min(100, Math.round((dailyProgress.current / dailyProgress.target) * 100));
+
+  // Fake Unit for Review Button
+  const reviewUnitMock: UnitDef = { id: 'review', unitNo: 'SRS', title: 'Günlük Tekrar', icon: <RefreshCw /> };
 
   return (
     <div className="w-full max-w-5xl mx-auto px-4 py-6 animate-in fade-in duration-500">
@@ -432,6 +441,29 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                </div>
             )}
           </div>
+          
+          {/* Daily Review (SRS) Section - Only if items due */}
+          {dueReviewCount > 0 && (
+              <div className="max-w-md mx-auto mb-8 animate-in zoom-in duration-300">
+                 <button 
+                   onClick={() => onStartModule('review', reviewUnitMock)}
+                   className="w-full p-4 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl shadow-lg shadow-rose-200 dark:shadow-none text-white flex items-center justify-between group hover:scale-[1.02] transition-transform"
+                 >
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                            <RefreshCw className="group-hover:rotate-180 transition-transform duration-500" size={24} />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="font-bold text-lg">Günlük Tekrar</h3>
+                            <p className="text-pink-100 text-xs font-medium">{dueReviewCount} kelime seni bekliyor!</p>
+                        </div>
+                    </div>
+                    <div className="bg-white text-rose-600 px-3 py-1 rounded-full text-sm font-bold">
+                        Başla
+                    </div>
+                 </button>
+              </div>
+          )}
 
           {/* Main Categories Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
