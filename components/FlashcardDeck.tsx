@@ -44,13 +44,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     setFilterMode('all');
   }, [initialWords]);
 
-  // Track initial card view
-  useEffect(() => {
-    if (shuffledDeck.length > 0) {
-       updateStats('card_view');
-    }
-  }, [shuffledDeck]);
-
   // Determine which deck to show based on filter
   const activeDeck = useMemo(() => {
     let deck = shuffledDeck;
@@ -116,7 +109,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       setIsFlipped(false);
       setTimeout(() => {
          setCurrentIndex(prev => prev + 1);
-         updateStats('card_view');
       }, 200);
     } else {
       onFinish();
@@ -134,7 +126,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     setIsFlipped(false);
     setTimeout(() => {
        setCurrentIndex(0);
-       updateStats('card_view');
     }, 200);
   };
 
@@ -150,8 +141,15 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         setIsShuffled(true);
       }
       setCurrentIndex(0);
-      updateStats('card_view');
     }, 200);
+  };
+
+  const handleCardClick = () => {
+    if (!isFlipped) {
+      // Only count as viewed when user flips to see the back (meaning)
+      updateStats('card_view');
+    }
+    setIsFlipped(!isFlipped);
   };
 
   // -- RENDER --
@@ -297,7 +295,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       </div>
 
       {/* Card Container */}
-      <div className="perspective-1000 w-full aspect-[4/3] sm:aspect-[3/2] relative group cursor-pointer" onClick={() => setIsFlipped(!isFlipped)}>
+      <div className="perspective-1000 w-full aspect-[4/3] sm:aspect-[3/2] relative group cursor-pointer" onClick={handleCardClick}>
         <div className={`relative w-full h-full transition-all duration-500 transform-style-3d shadow-xl hover:shadow-2xl rounded-3xl ${isFlipped ? 'rotate-y-180' : ''}`}>
           
           {/* FRONT SIDE */}

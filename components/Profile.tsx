@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Save, BarChart3, Clock, Brain, BookOpen, CheckCircle, XCircle, Edit2, Award, Bookmark } from 'lucide-react';
-import { getUserProfile, getUserStats, saveUserProfile, UserProfile as IUserProfile, UserStats, getMemorizedSet, getTotalVocabularyCount } from '../services/userService';
+import { Save, BarChart3, Clock, Brain, BookOpen, CheckCircle, XCircle, Edit2, Award, Bookmark, Target, Flame, TrendingUp } from 'lucide-react';
+import { getUserProfile, getUserStats, saveUserProfile, UserProfile as IUserProfile, UserStats, getMemorizedSet } from '../services/userService';
 import { VOCABULARY } from '../data/vocabulary';
 import { UNIT_DATA, GradeLevel } from './TopicSelector';
+import { WordCard } from '../types';
 
 interface ProfileProps {
   onBack: () => void;
@@ -24,11 +25,8 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
 
-  useEffect(() => {
-    const userProfile = getUserProfile();
-    setProfile(userProfile);
-    setStats(getUserStats());
-    
+  // Helper to calculate stats based on total instances of cards
+  const calculateStats = (currentProfile: IUserProfile) => {
     const rawMemorizedSet = getMemorizedSet();
     let rawBookmarksSet = new Set<string>();
     try {
@@ -40,78 +38,64 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
       // ignore
     }
 
-    // Calculate Stats based on Grade if selected
-    let relevantWordSet = new Set<string>();
-    
-    // If user has a valid grade selected (4-8), filter words.
-    if (userProfile.grade && ['4','5','6','7','8'].includes(userProfile.grade)) {
-        const grade = userProfile.grade as GradeLevel;
+    let total = 0;
+    let mem = 0;
+    let book = 0;
+
+    const processList = (list: WordCard[]) => {
+        total += list.length;
+        list.forEach(w => {
+            if (rawMemorizedSet.has(w.english)) mem++;
+            if (rawBookmarksSet.has(w.english)) book++;
+        });
+    };
+
+    // Valid grade levels for filtering
+    const allGradeLevels = ['A1','A2','B1','B2','C1','C2','12','11','10','9','8','7','6','5','4','3','2'];
+
+    if (currentProfile.grade && allGradeLevels.includes(currentProfile.grade)) {
+        const grade = currentProfile.grade as GradeLevel;
         const units = UNIT_DATA[grade];
         if (units) {
           units.forEach(u => {
-             // Skip "ALL IN ONE" units to avoid double counting if they had their own vocabulary list, 
-             // but in our implementation they don't have a separate list in VOCABULARY, so we skip ID check or check existence.
-             // We only iterate standard units that have data in VOCABULARY.
+             // Skip 'uAll' or 'gXall' metadata units, only process real vocabulary keys
              if (VOCABULARY[u.id]) {
-                VOCABULARY[u.id].forEach(w => relevantWordSet.add(w.english));
+                processList(VOCABULARY[u.id]);
              }
           });
         }
     } else {
-        // If no grade is selected, count EVERYTHING in the app
+        // If no grade is selected (or invalid), count everything in the entire app
         Object.values(VOCABULARY).forEach(list => {
-           list.forEach(w => relevantWordSet.add(w.english));
+           processList(list);
         });
     }
 
-    const filteredMemorizedCount = [...rawMemorizedSet].filter(w => relevantWordSet.has(w)).length;
-    const filteredBookmarksCount = [...rawBookmarksSet].filter(w => relevantWordSet.has(w)).length;
+    setMemorizedCount(mem);
+    setBookmarksCount(book);
+    setTotalWords(total);
+  };
 
-    setMemorizedCount(filteredMemorizedCount);
-    setBookmarksCount(filteredBookmarksCount);
-    setTotalWords(relevantWordSet.size);
-
+  useEffect(() => {
+    const userProfile = getUserProfile();
+    setProfile(userProfile);
+    setStats(getUserStats());
+    calculateStats(userProfile);
   }, []);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
     saveUserProfile(profile);
+    
+    // Refresh stats
+    setStats(getUserStats());
+
     setShowSaved(true);
     setTimeout(() => setShowSaved(false), 2000);
     setIsEditing(false);
     
-    // Refresh stats immediately to reflect grade change
-    const rawMemorizedSet = getMemorizedSet();
-    let rawBookmarksSet = new Set<string>();
-    try {
-      const storedBookmarks = localStorage.getItem('lgs_bookmarks');
-      if (storedBookmarks) {
-         rawBookmarksSet = new Set(JSON.parse(storedBookmarks));
-      }
-    } catch (e) {
-      // ignore
-    }
-
-    let relevantWordSet = new Set<string>();
-    if (profile.grade && ['4','5','6','7','8'].includes(profile.grade)) {
-        const grade = profile.grade as GradeLevel;
-        const units = UNIT_DATA[grade];
-        if (units) {
-          units.forEach(u => {
-             if (VOCABULARY[u.id]) {
-                VOCABULARY[u.id].forEach(w => relevantWordSet.add(w.english));
-             }
-          });
-        }
-    } else {
-        Object.values(VOCABULARY).forEach(list => {
-           list.forEach(w => relevantWordSet.add(w.english));
-        });
-    }
-    
-    setMemorizedCount([...rawMemorizedSet].filter(w => relevantWordSet.has(w)).length);
-    setBookmarksCount([...rawBookmarksSet].filter(w => relevantWordSet.has(w)).length);
-    setTotalWords(relevantWordSet.size);
+    // Recalculate totals based on potentially new grade
+    calculateStats(profile);
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -123,6 +107,12 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
   const successRate = totalQuizAnswers > 0 
     ? Math.round(((stats?.quizCorrect || 0) / totalQuizAnswers) * 100) 
     : 0;
+
+  // Goal Calculations
+  const dailyProgress = (stats?.flashcardsViewed || 0) + totalQuizAnswers;
+  const goalTarget = stats?.dailyGoal || 5;
+  const goalPercentage = Math.min(100, Math.round((dailyProgress / goalTarget) * 100));
+  const streak = stats?.streak || 0;
 
   return (
     <div className="w-full max-w-3xl mx-auto p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300">
@@ -155,7 +145,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
                  <div className="flex items-center gap-3 text-slate-500 dark:text-slate-400 mb-6 font-medium">
                    <span>{profile.age ? `${profile.age} Yaş` : '- Yaş'}</span>
                    <span>•</span>
-                   <span>{profile.grade ? `${profile.grade}. Sınıf` : '-. Sınıf'}</span>
+                   <span>{profile.grade ? (['A1','A2','B1','B2','C1','C2'].includes(profile.grade) ? profile.grade : `${profile.grade}. Sınıf`) : '-. Sınıf'}</span>
                  </div>
                  <button 
                    type="button"
@@ -164,6 +154,31 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
                  >
                    Profili Düzenle
                  </button>
+
+                 {/* Goal Info (Visible in View Mode) */}
+                 <div className="mt-8 w-full max-w-md text-left p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-100 dark:border-indigo-800/50">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-2">
+                        <TrendingUp className="text-indigo-600 dark:text-indigo-400" size={18} />
+                        <span className="font-bold text-indigo-700 dark:text-indigo-300 text-sm">Otomatik İlerleyen Hedef</span>
+                      </div>
+                      
+                      {/* Small Streak Badge */}
+                      {streak > 0 && (
+                        <div className="flex items-center gap-1 bg-orange-100 dark:bg-orange-900/40 text-orange-600 dark:text-orange-400 px-2 py-0.5 rounded-md text-xs font-bold">
+                           <Flame size={12} className="fill-current" />
+                           <span>{streak} Gün Seri</span>
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                       Günlük hedefin <strong>5</strong> ile başlar. Hedefini tamamladığın her gün için, ertesi gün hedefin <strong>+5 artar</strong> (Maksimum 50). Eğer bir gün hedefi tamamlayamazsan, hedef tekrar 5'e döner.
+                    </p>
+                    <div className="mt-3 flex items-center gap-2 text-xs font-bold text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-800 p-2 rounded-lg border border-slate-100 dark:border-slate-700">
+                       <Target size={14} />
+                       <span>Şu anki Hedefin: <span className="text-indigo-600 dark:text-indigo-400 text-sm">{goalTarget}</span></span>
+                    </div>
+                 </div>
                </div>
              ) : (
                <div className="max-w-md mx-auto space-y-6 animate-in fade-in">
@@ -210,7 +225,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
                         />
                       </div>
                       <div className="flex-1">
-                        <label className="block text-xs font-bold text-slate-400 mb-1 uppercase ml-1">Sınıf</label>
+                        <label className="block text-xs font-bold text-slate-400 mb-1 uppercase ml-1">Seviye / Sınıf</label>
                         <select 
                           name="grade"
                           value={profile.grade}
@@ -218,11 +233,31 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
                           className="w-full p-3 border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 dark:text-white rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
                         >
                           <option value="">Seç</option>
-                          <option value="4">4. Sınıf</option>
-                          <option value="5">5. Sınıf</option>
-                          <option value="6">6. Sınıf</option>
-                          <option value="7">7. Sınıf</option>
-                          <option value="8">8. Sınıf</option>
+                          <optgroup label="İlkokul">
+                             <option value="2">2. Sınıf</option>
+                             <option value="3">3. Sınıf</option>
+                             <option value="4">4. Sınıf</option>
+                          </optgroup>
+                          <optgroup label="Ortaokul">
+                             <option value="5">5. Sınıf</option>
+                             <option value="6">6. Sınıf</option>
+                             <option value="7">7. Sınıf</option>
+                             <option value="8">8. Sınıf</option>
+                          </optgroup>
+                          <optgroup label="Lise">
+                             <option value="9">9. Sınıf</option>
+                             <option value="10">10. Sınıf</option>
+                             <option value="11">11. Sınıf</option>
+                             <option value="12">12. Sınıf</option>
+                          </optgroup>
+                          <optgroup label="Genel İngilizce">
+                             <option value="A1">A1 - Beginner</option>
+                             <option value="A2">A2 - Elementary</option>
+                             <option value="B1">B1 - Intermediate</option>
+                             <option value="B2">B2 - Upper Int.</option>
+                             <option value="C1">C1 - Advanced</option>
+                             <option value="C2">C2 - Proficient</option>
+                          </optgroup>
                         </select>
                       </div>
                     </div>
@@ -248,13 +283,52 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
 
              {showSaved && (
                <div className="mt-4 p-3 bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl text-sm font-bold animate-in zoom-in">
-                 Profil başarıyla güncellendi!
+                 Profil güncellendi!
                </div>
              )}
           </form>
 
           {/* Statistics Section */}
           <div className="border-t border-slate-100 dark:border-slate-800 pt-8">
+            
+            {/* Goal Progress Card */}
+            <div className="mb-8 bg-gradient-to-br from-fuchsia-500 to-purple-600 rounded-2xl p-5 text-white relative overflow-hidden shadow-lg shadow-purple-200 dark:shadow-none">
+               <div className="relative z-10">
+                  <div className="flex justify-between items-center mb-2">
+                     <div className="flex items-center gap-2">
+                        <Target className="text-purple-200" size={24} />
+                        <span className="font-bold text-purple-100 uppercase text-xs tracking-wider">Bugünkü Hedef</span>
+                     </div>
+                     <span className="font-bold text-xl">{dailyProgress} / {goalTarget}</span>
+                  </div>
+                  
+                  <div className="w-full bg-black/20 h-3 rounded-full overflow-hidden mb-2">
+                     <div 
+                       className="h-full bg-white transition-all duration-1000 ease-out rounded-full"
+                       style={{ width: `${goalPercentage}%` }}
+                     ></div>
+                  </div>
+                  
+                  <div className="flex justify-between items-end">
+                    <p className="text-xs text-purple-100 text-left opacity-90 max-w-[70%]">
+                       {dailyProgress >= goalTarget 
+                          ? `Harikasın! Hedefi tamamladın. Yarınki hedefin: ${Math.min(50, goalTarget + 5)} olacak! 🎉` 
+                          : `${goalTarget - dailyProgress} etkileşim daha gerekli.`}
+                    </p>
+                    
+                    {/* Horizontal Compact Streak Display */}
+                    <div className="flex items-center gap-2 bg-white/20 rounded-lg px-3 py-1.5 backdrop-blur-sm">
+                       <Flame size={16} className="text-orange-300 fill-orange-400/50" />
+                       <span className="text-sm font-bold text-white">{streak} Gün Seri</span>
+                    </div>
+                  </div>
+               </div>
+               <div className="absolute -right-5 -bottom-5 text-white opacity-10 transform rotate-12">
+                  <Flame size={100} />
+               </div>
+            </div>
+
+
             <div className="flex items-center justify-center gap-2 mb-6">
               <BarChart3 className="text-indigo-600 dark:text-indigo-400" />
               <h3 className="text-lg font-bold text-slate-800 dark:text-white">İstatistikler</h3>
@@ -264,7 +338,12 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
             {profile.grade ? (
                <div className="mb-6 flex justify-center">
                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 border border-indigo-100 dark:border-indigo-800/50 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase">
-                    <span>{profile.grade}. Sınıf İçeriği Gösteriliyor</span>
+                    <span>
+                        {['A1','A2','B1','B2','C1','C2'].includes(profile.grade) 
+                            ? `${profile.grade} Seviyesi Gösteriliyor` 
+                            : `${profile.grade}. Sınıf İçeriği Gösteriliyor`
+                        }
+                    </span>
                  </div>
                </div>
             ) : (
@@ -352,7 +431,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
             </div>
             
             <div className="mt-8 text-slate-400 dark:text-slate-500 text-xs flex items-center justify-center gap-1">
-              <Clock size={12} /> Çalışma istatistikleri her 24 saatte bir otomatik sıfırlanır. (Ezberlenenler hariç)
+              <Clock size={12} /> Çalışma istatistikleri her gün (00:00) otomatik sıfırlanır.
             </div>
           </div>
         </div>

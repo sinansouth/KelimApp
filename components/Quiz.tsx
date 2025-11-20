@@ -1,7 +1,6 @@
-
 import React, { useState, useMemo } from 'react';
 import { WordCard } from '../types';
-import { CheckCircle, XCircle, RefreshCcw, ArrowLeft, Bookmark } from 'lucide-react';
+import { CheckCircle, XCircle, RefreshCcw, ArrowLeft, Bookmark, Info } from 'lucide-react';
 import { updateStats } from '../services/userService';
 
 interface QuizProps {
@@ -208,7 +207,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack }) => {
         </h2>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 mb-8">
+      <div className="grid grid-cols-1 gap-3 mb-6">
         {currentQuestion.options.map((option, index) => {
           let buttonStyle = "bg-white dark:bg-slate-900 border-2 border-slate-100 dark:border-slate-800 hover:border-indigo-300 dark:hover:border-indigo-700 text-slate-700 dark:text-slate-200 shadow-sm";
           
@@ -243,6 +242,21 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack }) => {
           );
         })}
       </div>
+
+      {/* Explanation Section */}
+      {isAnswered && currentQuestion.explanation && (
+        <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-2xl animate-in fade-in slide-in-from-bottom-2 flex gap-4 items-start">
+            <div className="p-2 bg-blue-100 dark:bg-blue-800 rounded-lg text-blue-600 dark:text-blue-300 shrink-0">
+               <Info size={20} />
+            </div>
+            <div>
+               <h4 className="text-sm font-bold text-blue-700 dark:text-blue-300 uppercase mb-1">Bağlam</h4>
+               <p className="text-slate-700 dark:text-slate-200 font-medium">
+                 {currentQuestion.explanation}
+               </p>
+            </div>
+        </div>
+      )}
 
       {/* Bottom Action Bar */}
       <div className="h-20 flex items-center justify-center">
