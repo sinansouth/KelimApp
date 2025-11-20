@@ -1,3 +1,5 @@
+import { ReactNode } from 'react';
+
 export interface WordCard {
   english: string;
   turkish: string;
@@ -14,7 +16,8 @@ export enum AppMode {
   GRAMMAR = 'GRAMMAR',
   ERROR = 'ERROR',
   PROFILE = 'PROFILE',
-  EMPTY_WARNING = 'EMPTY_WARNING'
+  EMPTY_WARNING = 'EMPTY_WARNING',
+  CUSTOM_PRACTICE = 'CUSTOM_PRACTICE'
 }
 
 export interface QuizQuestion {
@@ -22,4 +25,9 @@ export interface QuizQuestion {
   options: string[];
   correctAnswerIndex: number;
   explanation: string;
+}
+
+export interface GrammarTopic {
+  title: string;
+  content: ReactNode;
 }

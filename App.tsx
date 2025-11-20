@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { WordCard, AppMode } from './types';
 import { VOCABULARY, getRandomWords } from './data/vocabulary';
-import TopicSelector, { GradeLevel, UnitDef, StudyMode, UNIT_DATA } from './components/TopicSelector';
+import TopicSelector, { GradeLevel, UnitDef, StudyMode, UNIT_DATA, CategoryType } from './components/TopicSelector';
 import FlashcardDeck from './components/FlashcardDeck';
 import Quiz from './components/Quiz';
 import Profile from './components/Profile';
 import GrammarView from './components/GrammarView';
+import WordSelector from './components/WordSelector';
 import EmptyStateWarning from './components/EmptyStateWarning';
 import { BookOpen, Sparkles, Home, ChevronLeft, UserCircle, Sun, Moon } from 'lucide-react';
 import { getUserProfile, getTheme, saveTheme, getMemorizedSet } from './services/userService';
@@ -21,6 +22,7 @@ const App: React.FC = () => {
   const [allUnitWords, setAllUnitWords] = useState<WordCard[]>([]);
 
   // Navigation/Selection State
+  const [selectedCategory, setSelectedCategory] = useState<CategoryType | null>(null);
   const [selectedGrade, setSelectedGrade] = useState<GradeLevel | null>(null);
   const [selectedStudyMode, setSelectedStudyMode] = useState<StudyMode | null>(null);
   const [selectedUnit, setSelectedUnit] = useState<UnitDef | null>(null);
@@ -39,6 +41,11 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, []);
+
+  // Scroll to top on navigation changes
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [mode, selectedGrade, selectedUnit, selectedStudyMode, selectedCategory]);
 
   const toggleTheme = () => {
     const newMode = !darkMode;
@@ -62,6 +69,7 @@ const App: React.FC = () => {
     }
 
     if (mode !== AppMode.HOME) {
+      // If in CUSTOM_PRACTICE (Word Selector), go back to unit view (HOME)
       setMode(AppMode.HOME);
       setWords([]);
       setAllUnitWords([]);
@@ -74,6 +82,8 @@ const App: React.FC = () => {
         setSelectedStudyMode(null);
       } else if (selectedGrade) {
         setSelectedGrade(null);
+      } else if (selectedCategory) {
+        setSelectedCategory(null);
       }
     }
   };
@@ -87,6 +97,7 @@ const App: React.FC = () => {
     setSelectedUnit(null);
     setSelectedStudyMode(null);
     setSelectedGrade(null);
+    setSelectedCategory(null);
   };
 
   const handleOpenProfile = () => {
@@ -94,9 +105,20 @@ const App: React.FC = () => {
     setTopicTitle('Profilim');
   };
 
+  // Fisher-Yates shuffle algorithm
+  const shuffleArray = <T,>(array: T[]): T[] => {
+    const newArray = [...array];
+    for (let i = newArray.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [newArray[i], newArray[j]] = [newArray[j], newArray[i]];
+    }
+    return newArray;
+  };
+
   const handleStartModule = (
-    action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar',
-    unit: UnitDef
+    action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select',
+    unit: UnitDef,
+    quizCount?: number
   ) => {
     let unitWords: WordCard[] = [];
     const isAllInOne = unit.id.endsWith('all') || unit.id === 'uAll';
@@ -126,25 +148,29 @@ const App: React.FC = () => {
     }
 
     if (action === 'study') {
-      // Always shuffle "All in One" or study mode
-      activeWords = [...unitWords].sort(() => Math.random() - 0.5);
+      // Always shuffle for study mode
+      activeWords = shuffleArray(unitWords);
       newMode = AppMode.FLASHCARDS;
     } else if (action === 'quiz') {
-      // Pick 20 random words for standard quiz, or up to 30 for All In One
-      const count = isAllInOne ? 30 : 20;
+      // Pick requested number of words or default (20/30)
+      const count = quizCount || (isAllInOne ? 30 : 20);
       
-      if (unitWords.length > count) {
-        // Custom shuffle for "All" since getRandomWords takes unitId, but here we have raw words
-        const shuffled = [...unitWords].sort(() => Math.random() - 0.5);
+      const shuffled = shuffleArray(unitWords);
+      if (shuffled.length > count) {
         activeWords = shuffled.slice(0, count);
       } else {
-        activeWords = [...unitWords].sort(() => Math.random() - 0.5);
+        activeWords = shuffled;
       }
       
       newMode = AppMode.QUIZ;
     } else if (action === 'grammar') {
       newMode = AppMode.GRAMMAR;
       newTitle += ' (Gramer)';
+    } else if (action === 'practice-select') {
+      // Go to custom word selection screen
+      activeWords = unitWords; // Pass all words to selector
+      newMode = AppMode.CUSTOM_PRACTICE;
+      newTitle += ' (Özel Çalışma)';
     } else if (action === 'quiz-bookmarks') {
       try {
         const stored = localStorage.getItem('lgs_bookmarks');
@@ -158,9 +184,10 @@ const App: React.FC = () => {
           return;
         }
 
-        activeWords = [...bookmarkedWords].sort(() => Math.random() - 0.5);
+        // Explicitly shuffle every time
+        activeWords = shuffleArray(bookmarkedWords);
         newMode = AppMode.QUIZ;
-        newTitle += ' (Favori Quiz)';
+        newTitle += ' (Favori Test)';
 
       } catch (e) {
         console.error("Error loading bookmarks", e);
@@ -177,7 +204,8 @@ const App: React.FC = () => {
              return;
         }
         
-        activeWords = [...memorizedWords].sort(() => Math.random() - 0.5);
+        // Explicitly shuffle every time
+        activeWords = shuffleArray(memorizedWords);
         newMode = AppMode.QUIZ;
         newTitle += ' (Ezberlediklerimle Quiz)';
     }
@@ -187,7 +215,19 @@ const App: React.FC = () => {
     setMode(newMode);
   };
 
-  const showBackButton = (mode !== AppMode.HOME) || (selectedGrade !== null);
+  const handleCustomPracticeStart = (selectedWords: WordCard[], startMode: 'study' | 'quiz') => {
+      if (startMode === 'study') {
+        setWords(shuffleArray(selectedWords));
+        setMode(AppMode.FLASHCARDS);
+      } else {
+        // For quiz, pass selected words. 
+        // Distractors will come from 'allUnitWords' which is already set in handleStartModule
+        setWords(shuffleArray(selectedWords));
+        setMode(AppMode.QUIZ);
+      }
+  };
+
+  const showBackButton = (mode !== AppMode.HOME) || (selectedCategory !== null);
   const userProfile = getUserProfile();
 
   let content;
@@ -195,9 +235,11 @@ const App: React.FC = () => {
     case AppMode.HOME:
       content = (
         <TopicSelector 
+          selectedCategory={selectedCategory}
           selectedGrade={selectedGrade}
           selectedMode={selectedStudyMode}
           selectedUnit={selectedUnit}
+          onSelectCategory={setSelectedCategory}
           onSelectGrade={setSelectedGrade}
           onSelectMode={setSelectedStudyMode}
           onSelectUnit={setSelectedUnit}
@@ -227,6 +269,16 @@ const App: React.FC = () => {
           onRestart={() => setMode(AppMode.QUIZ)} 
           onBack={handleGlobalBack}
           onHome={handleGoHome} 
+        />
+      );
+      break;
+    case AppMode.CUSTOM_PRACTICE:
+      content = (
+        <WordSelector
+          words={allUnitWords} // Pass all words for selection
+          unitTitle={topicTitle.replace(' (Özel Çalışma)', '')}
+          onStart={handleCustomPracticeStart}
+          onBack={handleGlobalBack}
         />
       );
       break;
