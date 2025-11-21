@@ -2,7 +2,10 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#4f46e5" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <title>KelimApp - İngilizce Kelime Kartları</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
@@ -19,9 +22,29 @@
     </script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <style>
+      /* Mobile App Reset */
       body {
         font-family: 'Inter', sans-serif;
+        -webkit-tap-highlight-color: transparent; /* Remove blue tap box on Android */
+        touch-action: manipulation; /* Improve touch response */
+        overscroll-behavior-y: none; /* Prevent pull-to-refresh effect in standalone mode */
       }
+      
+      /* Hide scrollbar for cleaner app look but keep functionality */
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #cbd5e1; 
+        border-radius: 4px;
+      }
+      .dark ::-webkit-scrollbar-thumb {
+        background: #334155;
+      }
+
       .perspective-1000 {
         perspective: 1000px;
       }
@@ -34,26 +57,13 @@
       .rotate-y-180 {
         transform: rotateY(180deg);
       }
-      /* Custom Scrollbar for sleek look */
-      ::-webkit-scrollbar {
-        width: 8px;
+      
+      /* Safe Area Utilities for Notches */
+      .pt-safe {
+        padding-top: env(safe-area-inset-top);
       }
-      ::-webkit-scrollbar-track {
-        background: transparent; 
-      }
-      ::-webkit-scrollbar-thumb {
-        background: #c7c7c7; 
-        border-radius: 4px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: #a0a0a0; 
-      }
-      /* Dark mode scrollbar */
-      .dark ::-webkit-scrollbar-thumb {
-        background: #475569;
-      }
-      .dark ::-webkit-scrollbar-thumb:hover {
-        background: #64748b;
+      .pb-safe {
+        padding-bottom: env(safe-area-inset-bottom);
       }
     </style>
   <script type="importmap">
@@ -69,8 +79,8 @@
 </script>
 <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 min-h-screen flex flex-col transition-colors duration-300">
-    <div id="root" class="flex-grow flex flex-col"></div>
+  <body class="bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 h-[100dvh] w-full overflow-hidden transition-colors duration-300 selection:bg-indigo-500 selection:text-white">
+    <div id="root" class="h-full w-full overflow-y-auto overflow-x-hidden"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
 </html>

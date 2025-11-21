@@ -1,18 +1,21 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WordCard } from '../types';
-import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, Filter, CheckCircle, Sparkles, BookmarkMinus, MinusCircle } from 'lucide-react';
-import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized } from '../services/userService';
+import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, Filter, CheckCircle, Sparkles, BookmarkMinus, MinusCircle, XCircle, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized, handleQuizResult } from '../services/userService';
 
 interface FlashcardDeckProps {
   words: WordCard[];
   onFinish: () => void;
   onBack: () => void;
   onHome: () => void;
+  isReviewMode?: boolean;
+  onCelebrate?: (message: string, type: 'unit' | 'quiz' | 'goal') => void;
 }
 
 type FilterMode = 'all' | 'bookmarks' | 'memorized';
 
-const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFinish, onBack }) => {
+const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFinish, onBack, isReviewMode = false, onCelebrate }) => {
   // Bookmark State (Persisted in LocalStorage)
   const [bookmarks, setBookmarks] = useState<Set<string>>(() => {
     try {
@@ -138,8 +141,33 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
          if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       }, 200);
     } else {
+      // Finished
+      if (onCelebrate && !isReviewMode) {
+          onCelebrate("Tebrikler! Kartları tamamladın.", 'unit');
+      }
       onFinish();
     }
+  };
+
+  // SRS Rating Handler
+  const handleRate = (e: React.MouseEvent, success: boolean) => {
+      e.stopPropagation();
+      if (!currentWord) return;
+
+      // Update SRS (Leitner System)
+      handleQuizResult(currentWord.english, success);
+
+      // Visual Feedback
+      if (success) {
+          triggerFeedback('success', 'Harika! Sonraki Kutuya Geçti');
+      } else {
+          triggerFeedback('remove-memorized', 'Kutu 1\'e Döndü');
+      }
+
+      // Wait for feedback to show then move next
+      setTimeout(() => {
+          handleNext();
+      }, 800);
   };
 
   const handlePrev = () => {
@@ -253,7 +281,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         <div className="flex items-center gap-2">
           
           {/* Filter Buttons */}
-          {initialWords.length > 1 && (
+          {initialWords.length > 1 && !isReviewMode && (
             <>
               <button
                 onClick={() => setFilter('bookmarks')}
@@ -283,16 +311,20 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
             </>
           )}
 
-          <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
-
-          <button
-            onClick={handleShuffle}
-            disabled={filterMode !== 'all'}
-            className={`p-2 rounded-full transition-all ${isShuffled ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'} ${filterMode !== 'all' ? 'opacity-30 cursor-not-allowed' : ''}`}
-            title="Kartları Karıştır"
-          >
-            <Shuffle size={20} />
-          </button>
+          {!isReviewMode && (
+            <>
+              <div className="w-px h-6 bg-slate-200 dark:bg-slate-700 mx-1"></div>
+              <button
+                onClick={handleShuffle}
+                disabled={filterMode !== 'all'}
+                className={`p-2 rounded-full transition-all ${isShuffled ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200'} ${filterMode !== 'all' ? 'opacity-30 cursor-not-allowed' : ''}`}
+                title="Kartları Karıştır"
+              >
+                <Shuffle size={20} />
+              </button>
+            </>
+          )}
+          
           <button
             onClick={handleRestart}
             className="p-2 rounded-full text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200 transition-all"
@@ -306,17 +338,20 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       {/* Progress Info */}
       <div className="flex flex-col items-center w-full mb-6">
         <div className={`font-bold tracking-wider text-xs mb-2 uppercase 
-          ${filterMode === 'bookmarks' ? 'text-yellow-600 dark:text-yellow-500' : 
+          ${isReviewMode ? 'text-rose-600 dark:text-rose-400' :
+            filterMode === 'bookmarks' ? 'text-yellow-600 dark:text-yellow-500' : 
             filterMode === 'memorized' ? 'text-green-600 dark:text-green-500' : 
             'text-indigo-600 dark:text-indigo-400'}`}>
-          {filterMode === 'bookmarks' ? 'Favoriler Çalışılıyor' : 
+          {isReviewMode ? 'Günlük Tekrar Modu' :
+           filterMode === 'bookmarks' ? 'Favoriler Çalışılıyor' : 
            filterMode === 'memorized' ? 'Ezberlenenler Tekrar Ediliyor' : 
            'Çalışma Modu'} • Kart {currentIndex + 1} / {activeDeck.length}
         </div>
         <div className="w-full bg-slate-100 dark:bg-slate-800 h-2 rounded-full overflow-hidden">
           <div 
             className={`h-full transition-all duration-500 ease-out rounded-full 
-              ${filterMode === 'bookmarks' ? 'bg-yellow-500' : 
+              ${isReviewMode ? 'bg-rose-500' :
+                filterMode === 'bookmarks' ? 'bg-yellow-500' : 
                 filterMode === 'memorized' ? 'bg-green-500' : 
                 'bg-indigo-500'}`}
             style={{ width: `${((currentIndex + 1) / activeDeck.length) * 100}%` }}
@@ -364,31 +399,35 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
             )}
 
             {/* Bookmark Toggle Icon (Left) */}
-            <button 
-              onClick={(e) => toggleBookmark(e, currentWord.english)}
-              className="absolute top-4 left-4 sm:top-6 sm:left-6 p-3 -ml-2 -mt-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors z-10 group/btn"
-              title="Favorilere Ekle/Çıkar"
-            >
-               <Bookmark 
-                 size={28} 
-                 className={`transition-colors duration-300 ${isBookmarked ? 'fill-yellow-400 text-yellow-400 drop-shadow-sm' : 'text-slate-300 dark:text-slate-600 group-hover/btn:text-slate-400'}`} 
-               />
-            </button>
+            {!isReviewMode && (
+                <button 
+                onClick={(e) => toggleBookmark(e, currentWord.english)}
+                className="absolute top-4 left-4 sm:top-6 sm:left-6 p-3 -ml-2 -mt-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors z-10 group/btn"
+                title="Favorilere Ekle/Çıkar"
+                >
+                <Bookmark 
+                    size={28} 
+                    className={`transition-colors duration-300 ${isBookmarked ? 'fill-yellow-400 text-yellow-400 drop-shadow-sm' : 'text-slate-300 dark:text-slate-600 group-hover/btn:text-slate-400'}`} 
+                />
+                </button>
+            )}
 
             {/* Memorize Button (Right) */}
-            <button 
-              onClick={(e) => toggleMemorize(e, currentWord.english)}
-              className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 -mr-2 -mt-2 rounded-full hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors z-10 group/btn flex flex-col items-center"
-              title={isMemorized ? "Ezberlediklerimden Çıkar" : "Ezberledim"}
-            >
-               <CheckCircle 
-                 size={28} 
-                 className={`transition-colors duration-300 ${isMemorized ? 'fill-green-500 text-green-600 dark:text-green-400' : 'text-slate-300 dark:text-slate-600 group-hover/btn:text-green-500'}`} 
-               />
-               <span className="text-[10px] font-bold text-green-600 opacity-0 group-hover/btn:opacity-100 transition-opacity absolute top-full mt-1 whitespace-nowrap">
-                   {isMemorized ? 'Ezberledim' : 'Ezberle'}
-               </span>
-            </button>
+            {!isReviewMode && (
+                <button 
+                onClick={(e) => toggleMemorize(e, currentWord.english)}
+                className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 -mr-2 -mt-2 rounded-full hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors z-10 group/btn flex flex-col items-center"
+                title={isMemorized ? "Ezberlediklerimden Çıkar" : "Ezberledim"}
+                >
+                <CheckCircle 
+                    size={28} 
+                    className={`transition-colors duration-300 ${isMemorized ? 'fill-green-500 text-green-600 dark:text-green-400' : 'text-slate-300 dark:text-slate-600 group-hover/btn:text-green-500'}`} 
+                />
+                <span className="text-[10px] font-bold text-green-600 opacity-0 group-hover/btn:opacity-100 transition-opacity absolute top-full mt-1 whitespace-nowrap">
+                    {isMemorized ? 'Ezberledim' : 'Ezberle'}
+                </span>
+                </button>
+            )}
             
             <div className="flex-grow flex items-center justify-center w-full">
               <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-800 dark:text-white text-center drop-shadow-sm break-words max-w-full leading-tight select-none">
@@ -405,14 +444,14 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
           <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-indigo-600 to-indigo-700 dark:from-indigo-900 dark:to-slate-900 text-white rounded-3xl flex flex-col items-center justify-center p-6 sm:p-10 text-center shadow-inner border border-indigo-500 dark:border-slate-700">
             
             {/* Bookmark Indicator (Read Only on Back) */}
-            {isBookmarked && (
+            {!isReviewMode && isBookmarked && (
               <div className="absolute top-6 left-6 opacity-80">
                  <Bookmark size={24} className="fill-white/30 text-white/30" />
               </div>
             )}
 
             {/* Memorized Indicator (Read Only on Back) */}
-            {isMemorized && (
+            {!isReviewMode && isMemorized && (
               <div className="absolute top-6 right-6 opacity-80">
                  <CheckCircle size={24} className="fill-white/30 text-white/30" />
               </div>
@@ -433,40 +472,73 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
                 </p>
               </div>
             </div>
+
+            {/* REVIEW MODE BUTTONS */}
+            {isReviewMode && (
+               <div className="absolute bottom-6 w-full px-6 flex gap-4 justify-center">
+                  <button 
+                    onClick={(e) => handleRate(e, false)}
+                    className="flex-1 bg-white/20 hover:bg-rose-500/80 text-white border border-white/30 hover:border-rose-400 rounded-xl py-3 font-bold flex items-center justify-center gap-2 transition-all backdrop-blur-sm active:scale-95"
+                  >
+                     <XCircle size={20} /> Hatırlayamadım
+                  </button>
+                  <button 
+                    onClick={(e) => handleRate(e, true)}
+                    className="flex-1 bg-white/20 hover:bg-green-500/80 text-white border border-white/30 hover:border-green-400 rounded-xl py-3 font-bold flex items-center justify-center gap-2 transition-all backdrop-blur-sm active:scale-95"
+                  >
+                     <ThumbsUp size={20} /> Hatırladım
+                  </button>
+               </div>
+            )}
+
           </div>
 
         </div>
       </div>
 
       {/* Navigation Controls */}
-      <div className="flex justify-between items-center w-full mt-8 px-2 sm:px-4 gap-6">
-        <button
-          onClick={(e) => { e.stopPropagation(); handlePrev(); }}
-          disabled={currentIndex === 0}
-          className="w-14 h-14 rounded-full flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-indigo-200 dark:hover:border-indigo-600 hover:text-indigo-600 dark:hover:text-indigo-400 transition-all"
-        >
-          <ChevronLeft size={28} />
-        </button>
+      {!isReviewMode && (
+        <div className="flex justify-between items-center w-full mt-8 px-2 sm:px-4 gap-6">
+            <button
+            onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+            disabled={currentIndex === 0}
+            className="w-14 h-14 rounded-full flex items-center justify-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 shadow-sm disabled:opacity-30 disabled:cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-700 hover:border-indigo-200 dark:hover:border-indigo-600 hover:text-indigo-600 dark:text-indigo-400 transition-all"
+            >
+            <ChevronLeft size={28} />
+            </button>
 
-        {currentIndex === activeDeck.length - 1 ? (
-          <button
-            onClick={(e) => { e.stopPropagation(); onFinish(); }}
-            className={`flex-grow h-14 rounded-full text-white font-bold text-lg shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2
-              ${filterMode === 'bookmarks' ? 'bg-yellow-500 shadow-yellow-200 dark:shadow-none hover:bg-yellow-600' : 
-                filterMode === 'memorized' ? 'bg-green-600 shadow-green-200 dark:shadow-none hover:bg-green-700' :
-                'bg-indigo-600 shadow-indigo-200 dark:shadow-none hover:bg-indigo-700'}`}
-          >
-            {filterMode !== 'all' ? 'Bitir' : 'Üniteyi Bitir'} <ChevronRight size={20} />
-          </button>
-        ) : (
-          <button
-            onClick={(e) => { e.stopPropagation(); handleNext(); }}
-            className="flex-grow h-14 rounded-full bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold text-lg shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all flex items-center justify-center"
-          >
-             Sonraki
-          </button>
-        )}
-      </div>
+            {currentIndex === activeDeck.length - 1 ? (
+            <button
+                onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                className={`flex-grow h-14 rounded-full text-white font-bold text-lg shadow-lg transition-all active:scale-[0.98] flex items-center justify-center gap-2
+                ${filterMode === 'bookmarks' ? 'bg-yellow-500 shadow-yellow-200 dark:shadow-none hover:bg-yellow-600' : 
+                    filterMode === 'memorized' ? 'bg-green-600 shadow-green-200 dark:shadow-none hover:bg-green-700' :
+                    'bg-indigo-600 shadow-indigo-200 dark:shadow-none hover:bg-indigo-700'}`}
+            >
+                {filterMode !== 'all' ? 'Bitir' : 'Üniteyi Bitir'} <ChevronRight size={20} />
+            </button>
+            ) : (
+            <button
+                onClick={(e) => { e.stopPropagation(); handleNext(); }}
+                className="flex-grow h-14 rounded-full bg-white dark:bg-slate-900 border-2 border-indigo-100 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400 font-bold text-lg shadow-sm hover:bg-indigo-50 dark:hover:bg-indigo-900/20 hover:border-indigo-200 dark:hover:border-indigo-700 transition-all flex items-center justify-center"
+            >
+                Sonraki
+            </button>
+            )}
+        </div>
+      )}
+      
+      {/* In Review Mode */}
+      {isReviewMode && (
+          <div className="mt-8">
+              <button 
+                onClick={onFinish}
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 text-sm font-medium underline decoration-dotted underline-offset-4"
+              >
+                  Çalışmayı Bitir
+              </button>
+          </div>
+      )}
     </div>
   );
 };

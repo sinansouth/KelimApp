@@ -17,7 +17,8 @@ export enum AppMode {
   ERROR = 'ERROR',
   PROFILE = 'PROFILE',
   EMPTY_WARNING = 'EMPTY_WARNING',
-  CUSTOM_PRACTICE = 'CUSTOM_PRACTICE'
+  CUSTOM_PRACTICE = 'CUSTOM_PRACTICE',
+  INFO = 'INFO'
 }
 
 export interface QuizQuestion {

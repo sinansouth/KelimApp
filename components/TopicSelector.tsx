@@ -3,12 +3,11 @@ import {
   BookOpen, GraduationCap, Bookmark, Target, Library, PencilRuler, Star, 
   School, Shapes, MessageCircle, Globe, Tv, Sun, Briefcase, Music, Heart, 
   MapPin, Film, Calendar, Zap, Smile, User, Utensils, Shirt, Home, Tent, 
-  Quote, Play, BookType, CheckCircle, Layers, Flame, Baby, Award, PenTool,
-  ListChecks, MousePointerClick, RefreshCw
+  Play, BookType, CheckCircle, Layers, Flame, Baby, Award, PenTool,
+  ListChecks, MousePointerClick, RefreshCw, BrainCircuit, ChevronRight, History
 } from 'lucide-react';
 import { VOCABULARY } from '../data/vocabulary';
-import { getMemorizedSet, getUserStats, getNextDailyGoal, getDueWords } from '../services/userService';
-import { APP_TIPS } from '../data/tips';
+import { getMemorizedSet, getUserStats, getNextDailyGoal, getDueWords, getLastActivity, LastActivity } from '../services/userService';
 
 // Updated Grade Levels
 export type GradeLevel = 
@@ -36,7 +35,7 @@ interface TopicSelectorProps {
   onSelectGrade: (grade: GradeLevel | null) => void;
   onSelectMode: (mode: StudyMode | null) => void;
   onSelectUnit: (unit: UnitDef | null) => void;
-  onStartModule: (action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review', unit: UnitDef, count?: number) => void;
+  onStartModule: (action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review' | 'review-flashcards', unit: UnitDef, count?: number) => void;
   onGoHome: () => void;
 }
 
@@ -281,19 +280,10 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const [memorizedSet, setMemorizedSet] = useState<Set<string>>(new Set());
   const [dailyProgress, setDailyProgress] = useState({ current: 0, target: 5, streak: 0 });
   const [dueReviewCount, setDueReviewCount] = useState(0);
+  const [lastActivity, setLastActivity] = useState<{grade: GradeLevel, unit: UnitDef} | null>(null);
   
   // Quiz Configuration State
   const [quizConfigMode, setQuizConfigMode] = useState(false);
-
-  // Tips State
-  const [currentTipIndex, setCurrentTipIndex] = useState(0);
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentTipIndex((prevIndex) => (prevIndex + 1) % APP_TIPS.length);
-    }, 6000);
-    return () => clearInterval(interval);
-  }, []);
 
   useEffect(() => {
     setMemorizedSet(getMemorizedSet());
@@ -309,6 +299,18 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     const dueWords = getDueWords();
     setDueReviewCount(dueWords.length);
 
+    // Check for Last Activity
+    const lastAct = getLastActivity();
+    if (lastAct && UNIT_DATA[lastAct.grade as GradeLevel]) {
+        const unit = UNIT_DATA[lastAct.grade as GradeLevel].find(u => u.id === lastAct.unitId);
+        if (unit) {
+            setLastActivity({
+                grade: lastAct.grade as GradeLevel,
+                unit: unit
+            });
+        }
+    }
+
     setQuizConfigMode(false);
   }, [selectedGrade, selectedUnit, selectedCategory]);
 
@@ -317,10 +319,26 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     onSelectGrade(null);
   };
 
+  const handleContinueLastActivity = () => {
+      if (!lastActivity) return;
+      
+      // Determine Category from Grade
+      const grade = lastActivity.grade;
+      let category: CategoryType = 'GENERAL';
+      
+      if (['9', '10', '11', '12'].includes(grade)) category = 'HIGH_SCHOOL';
+      else if (['5', '6', '7', '8'].includes(grade)) category = 'MIDDLE_SCHOOL';
+      else if (['2', '3', '4'].includes(grade)) category = 'PRIMARY_SCHOOL';
+      
+      onSelectCategory(category);
+      onSelectGrade(grade);
+      onSelectUnit(lastActivity.unit);
+  };
+
   const renderBreadcrumbs = () => (
     <div className="flex items-center justify-between mb-6">
-      <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 overflow-x-auto whitespace-nowrap pb-2">
-        <button onClick={onGoHome} className="hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors flex items-center">
+      <div className="flex items-center text-sm text-slate-500 dark:text-slate-400 overflow-x-auto whitespace-nowrap pb-2 scrollbar-hide">
+        <button onClick={onGoHome} className="hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors flex items-center active:scale-95">
           <Home size={14} className="mr-1" /> Ana Sayfa
         </button>
         
@@ -329,7 +347,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
              <span className="mx-2 text-slate-300 dark:text-slate-600">/</span>
              <button 
                onClick={handleGoBackToCategories} 
-               className={`hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors ${!selectedGrade ? 'font-bold text-slate-800 dark:text-white' : ''}`}
+               className={`hover:text-indigo-600 dark:hover:text-indigo-400 font-medium transition-colors active:scale-95 ${!selectedGrade ? 'font-bold text-slate-800 dark:text-white' : ''}`}
              >
                {selectedCategory === 'GENERAL' && 'Genel İngilizce'}
                {selectedCategory === 'HIGH_SCHOOL' && 'Lise'}
@@ -344,7 +362,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             <span className="mx-2 text-slate-300 dark:text-slate-600">/</span>
             <button 
               onClick={() => { onSelectMode(null); onSelectUnit(null); }}
-              className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors ${!selectedMode ? 'font-bold text-slate-800 dark:text-white' : ''}`}
+              className={`hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors active:scale-95 ${!selectedMode ? 'font-bold text-slate-800 dark:text-white' : ''}`}
              >
               {GRADE_CONFIG[selectedGrade].label}
             </button>
@@ -374,7 +392,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const reviewUnitMock: UnitDef = { id: 'review', unitNo: 'SRS', title: 'Günlük Tekrar', icon: <RefreshCw /> };
 
   return (
-    <div className="w-full max-w-5xl mx-auto px-4 py-6 animate-in fade-in duration-500">
+    <div className="w-full max-w-5xl mx-auto px-4 py-6 animate-in fade-in duration-500 pb-20">
       
       {/* Breadcrumbs */}
       {(selectedCategory || selectedGrade || selectedUnit || selectedMode) && renderBreadcrumbs()}
@@ -383,20 +401,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
       {!selectedCategory && !selectedGrade && !selectedUnit && !selectedMode && (
         <>
           <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-white mb-1 tracking-tight">
+            <h1 className="text-3xl sm:text-4xl font-black text-slate-800 dark:text-white mb-6 tracking-tight">
               Kelim<span className="text-indigo-600 dark:text-indigo-400">App</span>
             </h1>
-
-            {/* Rotating Tips */}
-            <div className="h-8 mb-4 flex items-center justify-center">
-               <div 
-                  key={currentTipIndex} 
-                  className="flex items-center gap-2 text-sm font-medium italic text-indigo-600 dark:text-indigo-400 animate-in fade-in slide-in-from-bottom-2 duration-500"
-                >
-                  <Quote size={14} className="shrink-0 fill-current opacity-50" />
-                  <span>{APP_TIPS[currentTipIndex]}</span>
-               </div>
-            </div>
 
             {/* Horizontal Compact Daily Goal & Streak Summary */}
             <div className="mt-6 max-w-md mx-auto bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-full py-2 px-4 flex items-center justify-between gap-4 shadow-sm">
@@ -442,36 +449,75 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             )}
           </div>
           
-          {/* Daily Review (SRS) Section - Only if items due */}
-          {dueReviewCount > 0 && (
-              <div className="max-w-md mx-auto mb-8 animate-in zoom-in duration-300">
-                 <button 
-                   onClick={() => onStartModule('review', reviewUnitMock)}
-                   className="w-full p-4 bg-gradient-to-r from-pink-500 to-rose-500 rounded-2xl shadow-lg shadow-rose-200 dark:shadow-none text-white flex items-center justify-between group hover:scale-[1.02] transition-transform"
-                 >
-                    <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
-                            <RefreshCw className="group-hover:rotate-180 transition-transform duration-500" size={24} />
-                        </div>
-                        <div className="text-left">
-                            <h3 className="font-bold text-lg">Günlük Tekrar</h3>
-                            <p className="text-pink-100 text-xs font-medium">{dueReviewCount} kelime seni bekliyor!</p>
-                        </div>
-                    </div>
-                    <div className="bg-white text-rose-600 px-3 py-1 rounded-full text-sm font-bold">
-                        Başla
-                    </div>
-                 </button>
-              </div>
+          {/* Last Studied Section (If Exists) */}
+          {lastActivity && (
+             <div className="max-w-2xl mx-auto mb-4 animate-in zoom-in duration-300">
+                <button
+                  onClick={handleContinueLastActivity}
+                  className="w-full p-1 pr-4 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex items-center gap-4 group transition-all shadow-sm active:scale-[0.98] active:bg-slate-50 dark:active:bg-slate-800"
+                >
+                   <div className={`w-14 h-14 rounded-xl flex items-center justify-center text-white shadow-sm ${GRADE_CONFIG[lastActivity.grade].bg.replace('bg-', 'bg-opacity-100 bg-').replace('/20', '')} ${GRADE_CONFIG[lastActivity.grade].color.replace('text-', 'bg-').split(' ')[0]}`}>
+                      {lastActivity.unit.icon}
+                   </div>
+                   <div className="flex-grow text-left">
+                      <div className="flex items-center gap-2 mb-0.5">
+                         <span className="text-[10px] font-black uppercase tracking-wider text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full">Kaldığın Yer</span>
+                         <span className="text-xs font-bold text-slate-400 dark:text-slate-500">{GRADE_CONFIG[lastActivity.grade].label}</span>
+                      </div>
+                      <div className="font-bold text-slate-800 dark:text-white truncate">{lastActivity.unit.title}</div>
+                   </div>
+                   <div className="w-8 h-8 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-900/30 transition-colors">
+                      <ChevronRight size={18} />
+                   </div>
+                </button>
+             </div>
           )}
 
-          {/* Main Categories Grid */}
+          {/* Daily Review (SRS) Section - Always Visible if items due */}
+          {dueReviewCount > 0 && (
+            <div className={`max-w-2xl mx-auto mb-8 animate-in zoom-in duration-300 border rounded-3xl p-6 shadow-lg transition-all
+                bg-gradient-to-br from-pink-50 to-rose-100 dark:from-pink-950/30 dark:to-rose-900/20 border-rose-200 dark:border-rose-800 shadow-rose-100 dark:shadow-none`}>
+                
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-4">
+                    <div className="flex items-center gap-4">
+                        <div className="w-12 h-12 rounded-full flex items-center justify-center shadow-lg dark:shadow-none text-white bg-rose-500 shadow-rose-300">
+                            <RefreshCw className="animate-spin-slow" size={24} />
+                        </div>
+                        <div className="text-left">
+                            <h3 className="font-bold text-xl text-rose-800 dark:text-rose-100">
+                                Günlük Tekrar
+                            </h3>
+                            <p className="text-sm font-medium text-rose-600 dark:text-rose-300">
+                                <span className="font-bold text-rose-700 dark:text-rose-200">{dueReviewCount}</span> kelime tekrar edilmeyi bekliyor!
+                            </p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                    <button 
+                        onClick={() => onStartModule('review-flashcards', reviewUnitMock)}
+                        className="flex items-center justify-center gap-2 py-3 px-4 bg-white dark:bg-slate-800 active:bg-rose-50 dark:active:bg-slate-700 border-2 border-rose-200 dark:border-rose-800 rounded-xl font-bold text-rose-600 dark:text-rose-400 transition-all shadow-sm active:scale-95"
+                    >
+                        <BookOpen size={18} /> Kartlar
+                    </button>
+                    <button 
+                        onClick={() => onStartModule('review', reviewUnitMock)}
+                        className="flex items-center justify-center gap-2 py-3 px-4 bg-rose-500 active:bg-rose-600 text-white rounded-xl font-bold transition-all shadow-lg shadow-rose-200 dark:shadow-none active:scale-95"
+                    >
+                        <BrainCircuit size={18} /> Quiz
+                    </button>
+                </div>
+            </div>
+          )}
+
+          {/* Main Categories Grid - Mobile Optimized (Single Column usually) */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
              <button 
                onClick={() => onSelectCategory('GENERAL')}
-               className="p-6 rounded-3xl bg-gradient-to-br from-fuchsia-500 to-purple-600 text-white hover:shadow-xl hover:scale-[1.02] transition-all duration-300 text-left relative overflow-hidden group min-h-[160px]"
+               className="p-6 rounded-3xl bg-gradient-to-br from-fuchsia-500 to-purple-600 text-white shadow-lg active:scale-[0.98] transition-all duration-300 text-left relative overflow-hidden group min-h-[140px]"
              >
-                <Award size={48} className="mb-4 text-white/80" />
+                <Award size={40} className="mb-3 text-white/80" />
                 <h3 className="text-2xl font-bold">Genel İngilizce</h3>
                 <p className="text-white/80 text-sm font-medium mt-1">A1 - C2 Seviyeleri</p>
                 <div className="absolute -right-4 -bottom-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
@@ -481,9 +527,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
 
              <button 
                onClick={() => onSelectCategory('HIGH_SCHOOL')}
-               className="p-6 rounded-3xl bg-gradient-to-br from-orange-500 to-red-600 text-white hover:shadow-xl hover:scale-[1.02] transition-all duration-300 text-left relative overflow-hidden group min-h-[160px]"
+               className="p-6 rounded-3xl bg-gradient-to-br from-orange-500 to-red-600 text-white shadow-lg active:scale-[0.98] transition-all duration-300 text-left relative overflow-hidden group min-h-[140px]"
              >
-                <Library size={48} className="mb-4 text-white/80" />
+                <Library size={40} className="mb-3 text-white/80" />
                 <h3 className="text-2xl font-bold">Lise</h3>
                 <p className="text-white/80 text-sm font-medium mt-1">9, 10, 11, 12. Sınıf</p>
                 <div className="absolute -right-4 -bottom-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
@@ -493,9 +539,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
 
              <button 
                onClick={() => onSelectCategory('MIDDLE_SCHOOL')}
-               className="p-6 rounded-3xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white hover:shadow-xl hover:scale-[1.02] transition-all duration-300 text-left relative overflow-hidden group min-h-[160px]"
+               className="p-6 rounded-3xl bg-gradient-to-br from-indigo-500 to-blue-600 text-white shadow-lg active:scale-[0.98] transition-all duration-300 text-left relative overflow-hidden group min-h-[140px]"
              >
-                <School size={48} className="mb-4 text-white/80" />
+                <School size={40} className="mb-3 text-white/80" />
                 <h3 className="text-2xl font-bold">Ortaokul</h3>
                 <p className="text-white/80 text-sm font-medium mt-1">5, 6, 7, 8. Sınıf</p>
                 <div className="absolute -right-4 -bottom-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
@@ -505,9 +551,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
 
              <button 
                onClick={() => onSelectCategory('PRIMARY_SCHOOL')}
-               className="p-6 rounded-3xl bg-gradient-to-br from-teal-400 to-emerald-600 text-white hover:shadow-xl hover:scale-[1.02] transition-all duration-300 text-left relative overflow-hidden group min-h-[160px]"
+               className="p-6 rounded-3xl bg-gradient-to-br from-teal-400 to-emerald-600 text-white shadow-lg active:scale-[0.98] transition-all duration-300 text-left relative overflow-hidden group min-h-[140px]"
              >
-                <Smile size={48} className="mb-4 text-white/80" />
+                <Smile size={40} className="mb-3 text-white/80" />
                 <h3 className="text-2xl font-bold">İlkokul</h3>
                 <p className="text-white/80 text-sm font-medium mt-1">2, 3, 4. Sınıf</p>
                 <div className="absolute -right-4 -bottom-4 opacity-20 group-hover:scale-125 transition-transform duration-500">
@@ -529,7 +575,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                  <button
                    key={grade}
                    onClick={() => onSelectGrade(grade)}
-                   className={`relative group p-5 rounded-2xl border-2 ${conf.bg} border-transparent ${conf.border} hover:shadow-lg dark:hover:shadow-none transition-all duration-300 flex flex-col items-center justify-center text-center h-32`}
+                   className={`relative group p-5 rounded-2xl border-2 ${conf.bg} border-transparent ${conf.border} active:scale-95 transition-all duration-300 flex flex-col items-center justify-center text-center h-32`}
                  >
                    <div className={`mb-3 p-3 rounded-full bg-white dark:bg-slate-800 shadow-sm group-hover:scale-110 transition-transform duration-300 ${conf.color}`}>
                      {conf.icon}
@@ -583,7 +629,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                 <button
                   key={unit.id}
                   onClick={() => onSelectUnit(unit)}
-                  className={`group p-5 rounded-2xl border transition-all text-left flex items-center gap-4
+                  className={`group p-5 rounded-2xl border transition-all active:scale-[0.98] text-left flex items-center gap-4
                     ${isAllInOne 
                       ? 'bg-indigo-50 dark:bg-indigo-900/20 border-indigo-200 dark:border-indigo-800 hover:border-indigo-400 hover:shadow-md' 
                       : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-md dark:hover:shadow-none'
@@ -648,7 +694,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             {/* 1. Kelime Çalış */}
             <button
               onClick={() => onStartModule('study', selectedUnit)}
-              className="group relative overflow-hidden bg-indigo-600 hover:bg-indigo-700 text-white p-6 rounded-3xl shadow-xl shadow-indigo-200 dark:shadow-none transition-all flex flex-col items-center text-center sm:col-span-2"
+              className="group relative overflow-hidden bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white p-6 rounded-3xl shadow-xl shadow-indigo-200 dark:shadow-none transition-all flex flex-col items-center text-center sm:col-span-2 active:scale-[0.98]"
             >
               <div className="absolute top-0 right-0 p-4 opacity-10 transform group-hover:scale-150 transition-transform duration-700">
                 <BookOpen size={100} />
@@ -669,7 +715,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                      <button 
                        key={count}
                        onClick={() => onStartModule('quiz', selectedUnit, count)}
-                       className="py-2 px-1 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 rounded-lg font-bold text-sm transition-colors"
+                       className="py-2 px-1 bg-slate-100 dark:bg-slate-700 hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-500 active:bg-indigo-700 active:text-white rounded-lg font-bold text-sm transition-colors active:scale-95"
                      >
                        {count}
                      </button>
@@ -685,7 +731,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             ) : (
                <button
                  onClick={() => setQuizConfigMode(true)}
-                 className="group relative overflow-hidden bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-slate-800 dark:text-white p-6 rounded-3xl transition-all flex flex-col items-center text-center"
+                 className="group relative overflow-hidden bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-slate-800 dark:text-white p-6 rounded-3xl transition-all flex flex-col items-center text-center active:scale-[0.98]"
                >
                   <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 transform group-hover:scale-150 transition-transform duration-700">
                    <Target size={100} />
@@ -701,7 +747,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             {/* 3. Favori Test */}
             <button
               onClick={() => onStartModule('quiz-bookmarks', selectedUnit)}
-              className="group relative overflow-hidden bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/50 hover:border-rose-400 dark:hover:border-rose-500 text-rose-800 dark:text-rose-100 p-6 rounded-3xl transition-all flex flex-col items-center text-center"
+              className="group relative overflow-hidden bg-rose-50 dark:bg-rose-900/20 border border-rose-100 dark:border-rose-800/50 hover:border-rose-400 dark:hover:border-rose-500 text-rose-800 dark:text-rose-100 p-6 rounded-3xl transition-all flex flex-col items-center text-center active:scale-[0.98]"
             >
               <div className="w-12 h-12 bg-rose-100 dark:bg-rose-800 text-rose-600 dark:text-rose-200 rounded-2xl flex items-center justify-center mb-3">
                 <Target size={24} />
@@ -713,7 +759,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
              {/* 4. Ezberlediklerimle Quiz */}
              <button
               onClick={() => onStartModule('quiz-memorized', selectedUnit)}
-              className="group relative overflow-hidden bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/50 hover:border-green-400 dark:hover:border-green-500 text-green-800 dark:text-green-100 p-6 rounded-3xl transition-all flex flex-col items-center text-center"
+              className="group relative overflow-hidden bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800/50 hover:border-green-400 dark:hover:border-green-500 text-green-800 dark:text-green-100 p-6 rounded-3xl transition-all flex flex-col items-center text-center active:scale-[0.98]"
             >
               <div className="w-12 h-12 bg-green-100 dark:bg-green-800 text-green-600 dark:text-green-200 rounded-2xl flex items-center justify-center mb-3">
                 <CheckCircle size={24} />
@@ -725,7 +771,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             {/* 5. Özel Çalışma (Custom Practice) */}
             <button
               onClick={() => onStartModule('practice-select', selectedUnit)}
-              className="group relative overflow-hidden bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-slate-800 dark:text-white p-6 rounded-3xl transition-all flex flex-col items-center text-center"
+              className="group relative overflow-hidden bg-white dark:bg-slate-800 border-2 border-slate-100 dark:border-slate-700 hover:border-indigo-500 dark:hover:border-indigo-500 text-slate-800 dark:text-white p-6 rounded-3xl transition-all flex flex-col items-center text-center active:scale-[0.98]"
             >
                <div className="absolute top-0 right-0 p-4 opacity-5 dark:opacity-10 transform group-hover:scale-150 transition-transform duration-700">
                  <ListChecks size={100} />
@@ -740,7 +786,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             {/* 6. Gramer Çalış */}
             <button
               onClick={() => onStartModule('grammar', selectedUnit)}
-              className="group relative overflow-hidden bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800/50 hover:border-teal-400 dark:hover:border-teal-500 text-teal-800 dark:text-teal-100 p-6 rounded-3xl transition-all flex flex-col items-center text-center sm:col-span-2"
+              className="group relative overflow-hidden bg-teal-50 dark:bg-teal-900/20 border border-teal-100 dark:border-teal-800/50 hover:border-teal-400 dark:hover:border-teal-500 text-teal-800 dark:text-teal-100 p-6 rounded-3xl transition-all flex flex-col items-center text-center sm:col-span-2 active:scale-[0.98]"
             >
               <div className="w-12 h-12 bg-teal-100 dark:bg-teal-800 text-teal-600 dark:text-teal-200 rounded-2xl flex items-center justify-center mb-3">
                 <BookType size={24} />

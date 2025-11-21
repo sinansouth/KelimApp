@@ -10,9 +10,10 @@ interface QuizProps {
   onBack: () => void;
   onHome: () => void;
   isBookmarkQuiz?: boolean;
+  onCelebrate?: (message: string, type: 'unit' | 'quiz' | 'goal') => void;
 }
 
-const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookmarkQuiz }) => {
+const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookmarkQuiz, onCelebrate }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -141,7 +142,15 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookm
       setAutoBookmarked(false);
       setRemovedFromBookmarks(false);
     } else {
+      // Quiz Finished
       setShowResults(true);
+      const percentage = Math.round((score / questions.length) * 100);
+      if (percentage >= 70 && onCelebrate) {
+          let msg = "Harika iş çıkardın!";
+          if (percentage === 100) msg = "Mükemmel! Hepsini bildin!";
+          else if (percentage >= 85) msg = "Çok iyi gidiyorsun!";
+          onCelebrate(msg, 'quiz');
+      }
     }
   };
 
