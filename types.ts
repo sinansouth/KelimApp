@@ -1,3 +1,4 @@
+
 import { ReactNode } from 'react';
 
 export interface WordCard {
@@ -6,7 +7,7 @@ export interface WordCard {
   exampleEng: string;
   exampleTr: string;
   context: string; // A brief explanation of usage nuance
-  unitId?: string; // Unique identifier for the unit this word belongs to
+  unitId?: string; // Unique identifier for the unit this word belongs to. Now crucial for uniqueness.
 }
 
 export enum AppMode {
@@ -19,7 +20,8 @@ export enum AppMode {
   PROFILE = 'PROFILE',
   EMPTY_WARNING = 'EMPTY_WARNING',
   CUSTOM_PRACTICE = 'CUSTOM_PRACTICE',
-  INFO = 'INFO'
+  INFO = 'INFO',
+  ANNOUNCEMENTS = 'ANNOUNCEMENTS'
 }
 
 export interface QuizQuestion {

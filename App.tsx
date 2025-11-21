@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { WordCard, AppMode } from './types';
 import { VOCABULARY, getRandomWords } from './data/vocabulary';
@@ -8,10 +9,12 @@ import Profile from './components/Profile';
 import GrammarView from './components/GrammarView';
 import WordSelector from './components/WordSelector';
 import InfoView from './components/InfoView';
+import AnnouncementsView from './components/AnnouncementsView';
 import EmptyStateWarning from './components/EmptyStateWarning';
 import Celebration from './components/Celebration';
-import { BookOpen, Sparkles, Home, ChevronLeft, UserCircle, Sun, Moon, CircleHelp } from 'lucide-react';
-import { getUserProfile, getTheme, saveTheme, getMemorizedSet, getDueWords, saveLastActivity } from './services/userService';
+import { BookOpen, Sparkles, Home, ChevronLeft, UserCircle, Sun, Moon, CircleHelp, Bell } from 'lucide-react';
+import { getUserProfile, getTheme, saveTheme, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId } from './services/userService';
+import { ANNOUNCEMENTS } from './data/announcements';
 
 const App: React.FC = () => {
   // --- Global State ---
@@ -41,7 +44,10 @@ const App: React.FC = () => {
   // Celebration State
   const [celebration, setCelebration] = useState<{ show: boolean; message: string; type: 'unit' | 'quiz' | 'goal' } | null>(null);
 
-  // Initialize Theme
+  // Announcement State
+  const [hasUnreadAnnouncements, setHasUnreadAnnouncements] = useState(false);
+
+  // Initialize Theme & Announcements
   useEffect(() => {
     const savedTheme = getTheme();
     const isDark = savedTheme === 'dark';
@@ -50,6 +56,16 @@ const App: React.FC = () => {
       document.documentElement.classList.add('dark');
     } else {
       document.documentElement.classList.remove('dark');
+    }
+
+    // Check for new announcements
+    if (ANNOUNCEMENTS.length > 0) {
+        const lastReadId = getLastReadAnnouncementId();
+        // Assuming the first one is the latest
+        const latestId = ANNOUNCEMENTS[0].id;
+        if (latestId !== lastReadId) {
+            setHasUnreadAnnouncements(true);
+        }
     }
   }, []);
 
@@ -80,7 +96,7 @@ const App: React.FC = () => {
 
   // Handle "Back" Click (Smart Navigation)
   const handleGlobalBack = () => {
-    if (mode === AppMode.PROFILE || mode === AppMode.INFO) {
+    if (mode === AppMode.PROFILE || mode === AppMode.INFO || mode === AppMode.ANNOUNCEMENTS) {
       setMode(AppMode.HOME);
       setTopicTitle('');
       return;
@@ -132,6 +148,16 @@ const App: React.FC = () => {
     setTopicTitle('İpuçları & Taktikler');
   };
 
+  const handleOpenAnnouncements = () => {
+    setMode(AppMode.ANNOUNCEMENTS);
+    setTopicTitle('Duyurular');
+    // Mark as read
+    if (ANNOUNCEMENTS.length > 0) {
+        setLastReadAnnouncementId(ANNOUNCEMENTS[0].id);
+        setHasUnreadAnnouncements(false);
+    }
+  };
+
   // Fisher-Yates shuffle algorithm
   const shuffleArray = <T,>(array: T[]): T[] => {
     const newArray = [...array];
@@ -171,13 +197,13 @@ const App: React.FC = () => {
             const units = UNIT_DATA[selectedGrade];
             units.forEach(u => {
                 if (u.id !== unit.id && VOCABULARY[u.id]) {
-                    // Inject unitId into each word
+                    // Inject unitId into each word to ensure uniqueness
                     const taggedWords = VOCABULARY[u.id].map(w => ({ ...w, unitId: u.id }));
                     unitWords = [...unitWords, ...taggedWords];
                 }
             });
         } else {
-            // Inject unitId into each word
+            // Inject unitId into each word to ensure uniqueness
             unitWords = (VOCABULARY[unit.id] || []).map(w => ({ ...w, unitId: unit.id }));
         }
         allDistractors = unitWords; // Use unit words as default distractors
@@ -224,6 +250,7 @@ const App: React.FC = () => {
       try {
         const stored = localStorage.getItem('lgs_bookmarks');
         const bookmarkSet = stored ? new Set(JSON.parse(stored)) : new Set();
+        
         // Check using unique key format: unitId|english
         const bookmarkedWords = unitWords.filter(w => {
             const key = w.unitId ? `${w.unitId}|${w.english}` : w.english;
@@ -378,6 +405,9 @@ const App: React.FC = () => {
     case AppMode.INFO:
       content = <InfoView onBack={handleGlobalBack} />;
       break;
+    case AppMode.ANNOUNCEMENTS:
+      content = <AnnouncementsView onBack={handleGlobalBack} />;
+      break;
     case AppMode.ERROR:
       content = <div className="text-center p-10 text-red-500">Bir hata oluştu.</div>;
       break;
@@ -432,6 +462,19 @@ const App: React.FC = () => {
           {/* Right: Actions */}
           <div className="flex items-center gap-1.5 justify-end min-w-fit">
              
+             {mode !== AppMode.ANNOUNCEMENTS && (
+                <button
+                  onClick={handleOpenAnnouncements}
+                  className="relative flex items-center justify-center w-10 h-10 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 shadow-sm active:bg-slate-100 dark:active:bg-slate-700 active:scale-95 transition-all"
+                  title="Duyurular"
+                >
+                  <Bell size={20} />
+                  {hasUnreadAnnouncements && (
+                    <span className="absolute top-0 right-0 w-3 h-3 bg-red-500 rounded-full border-2 border-white dark:border-slate-800 animate-pulse"></span>
+                  )}
+                </button>
+             )}
+
              {mode !== AppMode.INFO && (
                <button
                  onClick={handleOpenInfo}
@@ -479,7 +522,7 @@ const App: React.FC = () => {
       {/* Footer - Hidden in certain modes for cleaner app look */}
       {mode === AppMode.HOME && (
         <footer className="py-6 text-center text-slate-400 dark:text-slate-600 text-xs border-t border-slate-100 dark:border-slate-800 mt-auto transition-colors">
-          <p>© {new Date().getFullYear()} KelimApp • Offline Study</p>
+          <p>© {new Date().getFullYear()} KelimApp • Sinan Güney</p>
         </footer>
       )}
     </div>

@@ -31,6 +31,7 @@ const MEMORIZED_KEY = 'lgs_memorized';
 const BOOKMARKS_KEY = 'lgs_bookmarks';
 const SRS_KEY = 'lgs_srs_data';
 const LAST_ACTIVITY_KEY = 'lgs_last_activity';
+const READ_ANNOUNCEMENT_KEY = 'lgs_read_announcement_id';
 
 // SRS Configuration (Leitner System)
 const SRS_INTERVALS = [0, 1, 3, 7, 14, 30];
@@ -356,6 +357,15 @@ export const resetProgressForWords = (uniqueKeysToReset: string[], type: 'memori
             saveSRSData(srsData);
         }
     }
+};
+
+// --- Announcement Tracking ---
+export const getLastReadAnnouncementId = (): string => {
+  return localStorage.getItem(READ_ANNOUNCEMENT_KEY) || '';
+};
+
+export const setLastReadAnnouncementId = (id: string) => {
+  localStorage.setItem(READ_ANNOUNCEMENT_KEY, id);
 };
 
 export const getTheme = (): 'light' | 'dark' => {
