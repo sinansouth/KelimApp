@@ -86,8 +86,9 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
         if (VOCABULARY[unit.id] && !unit.id.endsWith('all') && unit.id !== 'uAll') {
             const list = VOCABULARY[unit.id];
             const unitTotal = list.length;
-            const unitMem = list.filter(w => rawMemorizedSet.has(w.english)).length;
-            const unitBook = list.filter(w => rawBookmarksSet.has(w.english)).length;
+            // Check using unique keys: unitId|english
+            const unitMem = list.filter(w => rawMemorizedSet.has(`${unit.id}|${w.english}`)).length;
+            const unitBook = list.filter(w => rawBookmarksSet.has(`${unit.id}|${w.english}`)).length;
 
             total += unitTotal;
             mem += unitMem;
@@ -161,30 +162,32 @@ const Profile: React.FC<ProfileProps> = ({ onBack }) => {
 
       if (!window.confirm(confirmMsg)) return;
 
-      let wordsToReset: string[] = [];
+      let keysToReset: string[] = [];
 
       if (resetUnitId === 'all') {
           const units = UNIT_DATA[resetGrade];
           if (units) {
             units.forEach(u => {
                 if (VOCABULARY[u.id]) {
-                    wordsToReset.push(...VOCABULARY[u.id].map(w => w.english));
+                    // Generate unique keys: unitId|english
+                    keysToReset.push(...VOCABULARY[u.id].map(w => `${u.id}|${w.english}`));
                 }
             });
           }
       } else {
           if (VOCABULARY[resetUnitId]) {
-              wordsToReset = VOCABULARY[resetUnitId].map(w => w.english);
+              // Generate unique keys: unitId|english
+              keysToReset = VOCABULARY[resetUnitId].map(w => `${resetUnitId}|${w.english}`);
           }
       }
 
-      if (wordsToReset.length === 0) {
+      if (keysToReset.length === 0) {
           setResetMessage({text: "Bu seçimde sıfırlanacak kelime bulunamadı.", type: 'error'});
           setTimeout(() => setResetMessage(null), 3000);
           return;
       }
 
-      resetProgressForWords(wordsToReset, type);
+      resetProgressForWords(keysToReset, type);
       
       // Force update visuals
       calculateStats();

@@ -47,6 +47,14 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Helper to get unique ID for a word
+  const getUniqueId = (word: WordCard) => {
+      if (word.unitId) {
+          return `${word.unitId}|${word.english}`;
+      }
+      return word.english;
+  };
+
   // Helper to trigger feedback
   const triggerFeedback = (type: 'success' | 'remove-memorized' | 'bookmark' | 'remove-bookmark', message: string) => {
       if (feedbackTimerRef.current) {
@@ -74,9 +82,9 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     let deck = shuffledDeck;
     
     if (filterMode === 'bookmarks') {
-      deck = deck.filter(word => bookmarks.has(word.english));
+      deck = deck.filter(word => bookmarks.has(getUniqueId(word)));
     } else if (filterMode === 'memorized') {
-      deck = deck.filter(word => memorized.has(word.english));
+      deck = deck.filter(word => memorized.has(getUniqueId(word)));
     }
     return deck;
   }, [shuffledDeck, filterMode, bookmarks, memorized]);
@@ -91,14 +99,16 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   const currentWord = activeDeck.length > 0 ? activeDeck[currentIndex] : null;
 
   // Bookmark Logic
-  const toggleBookmark = (e: React.MouseEvent, word: string) => {
+  const toggleBookmark = (e: React.MouseEvent, word: WordCard) => {
     e.stopPropagation();
+    const uniqueId = getUniqueId(word);
     const newBookmarks = new Set(bookmarks);
-    if (newBookmarks.has(word)) {
-      newBookmarks.delete(word);
+    
+    if (newBookmarks.has(uniqueId)) {
+      newBookmarks.delete(uniqueId);
       triggerFeedback('remove-bookmark', 'Favorilerden Çıkarıldı');
     } else {
-      newBookmarks.add(word);
+      newBookmarks.add(uniqueId);
       triggerFeedback('bookmark', 'Favorilere Eklendi');
     }
     setBookmarks(newBookmarks);
@@ -106,17 +116,18 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   };
 
   // Memorize Logic (Toggle)
-  const toggleMemorize = (e: React.MouseEvent, word: string) => {
+  const toggleMemorize = (e: React.MouseEvent, word: WordCard) => {
     e.stopPropagation();
+    const uniqueId = getUniqueId(word);
     const newMemorized = new Set(memorized);
     
-    if (newMemorized.has(word)) {
-        newMemorized.delete(word);
-        removeFromMemorized(word);
+    if (newMemorized.has(uniqueId)) {
+        newMemorized.delete(uniqueId);
+        removeFromMemorized(uniqueId);
         triggerFeedback('remove-memorized', 'Ezberlenenlerden Çıkarıldı');
     } else {
-        newMemorized.add(word);
-        addToMemorized(word);
+        newMemorized.add(uniqueId);
+        addToMemorized(uniqueId);
         triggerFeedback('success', 'Ezberlendi!');
     }
     setMemorized(newMemorized);
@@ -154,8 +165,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       e.stopPropagation();
       if (!currentWord) return;
 
-      // Update SRS (Leitner System)
-      handleQuizResult(currentWord.english, success);
+      // Update SRS (Leitner System) with unique ID
+      handleQuizResult(getUniqueId(currentWord), success);
 
       // Visual Feedback
       if (success) {
@@ -270,8 +281,9 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     );
   }
 
-  const isBookmarked = bookmarks.has(currentWord.english);
-  const isMemorized = memorized.has(currentWord.english);
+  const currentUniqueId = getUniqueId(currentWord);
+  const isBookmarked = bookmarks.has(currentUniqueId);
+  const isMemorized = memorized.has(currentUniqueId);
 
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto h-full justify-center px-4 py-6">
@@ -401,7 +413,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
             {/* Bookmark Toggle Icon (Left) */}
             {!isReviewMode && (
                 <button 
-                onClick={(e) => toggleBookmark(e, currentWord.english)}
+                onClick={(e) => toggleBookmark(e, currentWord)}
                 className="absolute top-4 left-4 sm:top-6 sm:left-6 p-3 -ml-2 -mt-2 rounded-full hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors z-10 group/btn"
                 title="Favorilere Ekle/Çıkar"
                 >
@@ -415,7 +427,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
             {/* Memorize Button (Right) */}
             {!isReviewMode && (
                 <button 
-                onClick={(e) => toggleMemorize(e, currentWord.english)}
+                onClick={(e) => toggleMemorize(e, currentWord)}
                 className="absolute top-4 right-4 sm:top-6 sm:right-6 p-3 -mr-2 -mt-2 rounded-full hover:bg-green-50 dark:hover:bg-green-900/20 transition-colors z-10 group/btn flex flex-col items-center"
                 title={isMemorized ? "Ezberlediklerimden Çıkar" : "Ezberledim"}
                 >

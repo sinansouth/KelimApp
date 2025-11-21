@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, GraduationCap, Bookmark, Target, Library, PencilRuler, Star, 
@@ -614,13 +615,15 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                     if (!u.id.endsWith('all') && u.id !== 'uAll' && VOCABULARY[u.id]) {
                         const words = VOCABULARY[u.id];
                         totalWords += words.length;
-                        memorizedCount += words.filter(w => memorizedSet.has(w.english)).length;
+                        // Check using unique key: unitId|english
+                        memorizedCount += words.filter(w => memorizedSet.has(`${u.id}|${w.english}`)).length;
                     }
                  });
               } else {
                  const words = VOCABULARY[unit.id] || [];
                  totalWords = words.length;
-                 memorizedCount = words.filter(w => memorizedSet.has(w.english)).length;
+                 // Check using unique key: unitId|english
+                 memorizedCount = words.filter(w => memorizedSet.has(`${unit.id}|${w.english}`)).length;
               }
               
               const progress = totalWords > 0 ? Math.round((memorizedCount / totalWords) * 100) : 0;

@@ -159,21 +159,26 @@ const App: React.FC = () => {
     const isAllInOne = unit.id.endsWith('all') || unit.id === 'uAll';
 
     if (action === 'review' || action === 'review-flashcards') {
-        // For Review mode, get words from SRS
+        // For Review mode, get words from SRS (Service returns words with unitId already attached)
         unitWords = getDueWords();
-        // For review distractors, use everything in the app to ensure variety
-        allDistractors = Object.values(VOCABULARY).flat();
+        // For review distractors, use everything in the app
+        allDistractors = Object.entries(VOCABULARY).flatMap(([uid, words]) => 
+            words.map(w => ({...w, unitId: uid}))
+        );
     } else {
         // Standard Unit Logic
         if (isAllInOne && selectedGrade) {
             const units = UNIT_DATA[selectedGrade];
             units.forEach(u => {
                 if (u.id !== unit.id && VOCABULARY[u.id]) {
-                    unitWords = [...unitWords, ...VOCABULARY[u.id]];
+                    // Inject unitId into each word
+                    const taggedWords = VOCABULARY[u.id].map(w => ({ ...w, unitId: u.id }));
+                    unitWords = [...unitWords, ...taggedWords];
                 }
             });
         } else {
-            unitWords = VOCABULARY[unit.id] || [];
+            // Inject unitId into each word
+            unitWords = (VOCABULARY[unit.id] || []).map(w => ({ ...w, unitId: unit.id }));
         }
         allDistractors = unitWords; // Use unit words as default distractors
     }
@@ -219,7 +224,11 @@ const App: React.FC = () => {
       try {
         const stored = localStorage.getItem('lgs_bookmarks');
         const bookmarkSet = stored ? new Set(JSON.parse(stored)) : new Set();
-        const bookmarkedWords = unitWords.filter(w => bookmarkSet.has(w.english));
+        // Check using unique key format: unitId|english
+        const bookmarkedWords = unitWords.filter(w => {
+            const key = w.unitId ? `${w.unitId}|${w.english}` : w.english;
+            return bookmarkSet.has(key);
+        });
         
         if (bookmarkedWords.length === 0) {
           setEmptyWarningType('bookmarks');
@@ -239,7 +248,11 @@ const App: React.FC = () => {
       }
     } else if (action === 'quiz-memorized') {
         const memorizedSet = getMemorizedSet();
-        const memorizedWords = unitWords.filter(w => memorizedSet.has(w.english));
+        // Check using unique key format: unitId|english
+        const memorizedWords = unitWords.filter(w => {
+            const key = w.unitId ? `${w.unitId}|${w.english}` : w.english;
+            return memorizedSet.has(key);
+        });
 
         if (memorizedWords.length === 0) {
              setEmptyWarningType('memorized');

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { WordCard } from '../types';
 import { ChevronLeft, Search, CheckCircle, Circle, BookOpen, Target } from 'lucide-react';
@@ -122,6 +123,7 @@ const WordSelector: React.FC<WordSelectorProps> = ({ words, unitTitle, onStart, 
                 <div className="flex-grow">
                   <div className="font-bold text-slate-800 dark:text-white text-lg">{word.english}</div>
                   <div className="text-slate-500 dark:text-slate-400 text-sm">{word.turkish}</div>
+                  {word.unitId && <div className="text-[10px] text-slate-400 dark:text-slate-600 uppercase mt-1">{word.unitId}</div>}
                 </div>
               </div>
             );

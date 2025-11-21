@@ -6,6 +6,7 @@ export interface WordCard {
   exampleEng: string;
   exampleTr: string;
   context: string; // A brief explanation of usage nuance
+  unitId?: string; // Unique identifier for the unit this word belongs to
 }
 
 export enum AppMode {

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { WordCard } from '../types';
 import { CheckCircle, XCircle, RefreshCcw, ArrowLeft, Bookmark, Info, BookmarkMinus } from 'lucide-react';
@@ -42,6 +43,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookm
         .sort(() => 0.5 - Math.random());
 
       return {
+        wordObj: word, // Store the full word object to access unitId
         word: word.english,
         correctAnswer: word.turkish,
         options,
@@ -49,6 +51,14 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookm
       };
     });
   }, [words, allWords]);
+
+  // Helper to get unique ID
+  const getUniqueId = (word: WordCard) => {
+      if (word.unitId) {
+          return `${word.unitId}|${word.english}`;
+      }
+      return word.english;
+  };
 
   if (!questions || questions.length === 0) {
      return (
@@ -90,8 +100,8 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookm
     const isCorrect = currentQuestion.options[index].isCorrect;
 
     // --- UPDATE SRS SYSTEM ---
-    // This updates the spaced repetition status for the word regardless of quiz type
-    handleQuizResult(currentQuestion.word, isCorrect);
+    // Use unique ID for SRS tracking
+    handleQuizResult(getUniqueId(currentQuestion.wordObj), isCorrect);
 
     if (isCorrect) {
       setScore((prev) => prev + 1);
@@ -100,12 +110,12 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookm
       // Remove from bookmarks if it is a bookmark quiz
       if (isBookmarkQuiz) {
         try {
-           const wordToRemove = currentQuestion.word;
+           const wordKeyToRemove = getUniqueId(currentQuestion.wordObj);
            const saved = localStorage.getItem('lgs_bookmarks');
            if (saved) {
               const currentBookmarks = new Set(JSON.parse(saved));
-              if (currentBookmarks.has(wordToRemove)) {
-                 currentBookmarks.delete(wordToRemove);
+              if (currentBookmarks.has(wordKeyToRemove)) {
+                 currentBookmarks.delete(wordKeyToRemove);
                  localStorage.setItem('lgs_bookmarks', JSON.stringify([...currentBookmarks]));
                  setRemovedFromBookmarks(true);
               }
@@ -119,12 +129,12 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, isBookm
       updateStats('quiz_wrong');
       // Wrong answer: Automatically add to bookmarks
       try {
-        const wordToAdd = currentQuestion.word;
+        const wordKeyToAdd = getUniqueId(currentQuestion.wordObj);
         const saved = localStorage.getItem('lgs_bookmarks');
         const currentBookmarks = saved ? new Set(JSON.parse(saved)) : new Set<string>();
         
-        if (!currentBookmarks.has(wordToAdd)) {
-          currentBookmarks.add(wordToAdd);
+        if (!currentBookmarks.has(wordKeyToAdd)) {
+          currentBookmarks.add(wordKeyToAdd);
           localStorage.setItem('lgs_bookmarks', JSON.stringify([...currentBookmarks]));
           setAutoBookmarked(true);
         }

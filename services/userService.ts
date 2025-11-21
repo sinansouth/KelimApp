@@ -35,8 +35,9 @@ const LAST_ACTIVITY_KEY = 'lgs_last_activity';
 // SRS Configuration (Leitner System)
 const SRS_INTERVALS = [0, 1, 3, 7, 14, 30];
 
+// SRS Data uses a unique key: "unitId|englishWord"
 interface SRSData {
-  [word: string]: {
+  [uniqueKey: string]: {
     box: number;
     nextReview: number; // Timestamp
   }
@@ -215,44 +216,62 @@ const saveSRSData = (data: SRSData) => {
   localStorage.setItem(SRS_KEY, JSON.stringify(data));
 };
 
-export const handleQuizResult = (word: string, isCorrect: boolean) => {
+export const handleQuizResult = (uniqueKey: string, isCorrect: boolean) => {
   const data = getSRSData();
   const now = Date.now();
-  const entry = data[word] || { box: 0, nextReview: 0 };
+  const entry = data[uniqueKey] || { box: 0, nextReview: 0 };
 
   if (isCorrect) {
     if (entry.box < 5) entry.box++;
     const daysToAdd = SRS_INTERVALS[entry.box];
     entry.nextReview = now + (daysToAdd * 24 * 60 * 60 * 1000);
     if (entry.box === 5) {
-        internalAddToMemorized(word);
+        internalAddToMemorized(uniqueKey);
     }
   } else {
     entry.box = 1;
     entry.nextReview = now + (1 * 24 * 60 * 60 * 1000);
-    internalRemoveFromMemorized(word);
+    internalRemoveFromMemorized(uniqueKey);
   }
 
-  data[word] = entry;
+  data[uniqueKey] = entry;
   saveSRSData(data);
 };
 
 export const getDueWords = (): WordCard[] => {
     const data = getSRSData();
     const now = Date.now();
-    const dueWordKeys = Object.keys(data).filter(k => {
+    // SRS keys are now "unitId|englishWord" (e.g., "g8u1|about")
+    const dueKeys = Object.keys(data).filter(k => {
         const entry = data[k];
         return entry.box > 0 && entry.nextReview <= now;
     });
 
-    if (dueWordKeys.length === 0) return [];
+    if (dueKeys.length === 0) return [];
 
-    const allWords = Object.values(VOCABULARY).flat();
-    const wordMap = new Map(allWords.map(w => [w.english, w]));
+    const result: WordCard[] = [];
 
-    return dueWordKeys
-      .map(k => wordMap.get(k))
-      .filter(w => w !== undefined) as WordCard[];
+    dueKeys.forEach(key => {
+        // Check for separator
+        if (key.includes('|')) {
+            const [unitId, english] = key.split('|');
+            const unitWords = VOCABULARY[unitId];
+            if (unitWords) {
+                const word = unitWords.find(w => w.english === english);
+                if (word) {
+                    result.push({ ...word, unitId: unitId });
+                }
+            }
+        } else {
+            // Legacy support for old keys (word only) - scan all vocab
+            // This might pick the first occurrence if duplicates exist, but acceptable for legacy
+            const allWords = Object.values(VOCABULARY).flat();
+            const word = allWords.find(w => w.english === key);
+            if (word) result.push(word);
+        }
+    });
+
+    return result;
 };
 
 export const getMemorizedSet = (): Set<string> => {
@@ -264,38 +283,38 @@ export const getMemorizedSet = (): Set<string> => {
   }
 };
 
-const internalAddToMemorized = (word: string) => {
+const internalAddToMemorized = (uniqueKey: string) => {
     const set = getMemorizedSet();
-    if (!set.has(word)) {
-        set.add(word);
+    if (!set.has(uniqueKey)) {
+        set.add(uniqueKey);
         localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...set]));
     }
 };
 
-const internalRemoveFromMemorized = (word: string) => {
+const internalRemoveFromMemorized = (uniqueKey: string) => {
     const set = getMemorizedSet();
-    if (set.has(word)) {
-        set.delete(word);
+    if (set.has(uniqueKey)) {
+        set.delete(uniqueKey);
         localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...set]));
     }
 };
 
-export const addToMemorized = (word: string) => {
-  internalAddToMemorized(word);
+export const addToMemorized = (uniqueKey: string) => {
+  internalAddToMemorized(uniqueKey);
   const data = getSRSData();
-  data[word] = { box: 5, nextReview: Date.now() + (30 * 24 * 60 * 60 * 1000) };
+  data[uniqueKey] = { box: 5, nextReview: Date.now() + (30 * 24 * 60 * 60 * 1000) };
   saveSRSData(data);
 };
 
-export const removeFromMemorized = (word: string) => {
-  internalRemoveFromMemorized(word);
+export const removeFromMemorized = (uniqueKey: string) => {
+  internalRemoveFromMemorized(uniqueKey);
   const data = getSRSData();
-  data[word] = { box: 1, nextReview: Date.now() };
+  data[uniqueKey] = { box: 1, nextReview: Date.now() };
   saveSRSData(data);
 };
 
 // --- Bulk Reset Function ---
-export const resetProgressForWords = (wordsToReset: string[], type: 'memorized' | 'bookmarks') => {
+export const resetProgressForWords = (uniqueKeysToReset: string[], type: 'memorized' | 'bookmarks') => {
     const key = type === 'memorized' ? MEMORIZED_KEY : BOOKMARKS_KEY;
     
     try {
@@ -313,8 +332,8 @@ export const resetProgressForWords = (wordsToReset: string[], type: 'memorized' 
             }
         }
         
-        const wordsToRemoveSet = new Set(wordsToReset);
-        const newArray = currentArray.filter(word => !wordsToRemoveSet.has(word));
+        const keysToRemoveSet = new Set(uniqueKeysToReset);
+        const newArray = currentArray.filter(k => !keysToRemoveSet.has(k));
 
         if (newArray.length !== currentArray.length) {
             localStorage.setItem(key, JSON.stringify(newArray));
@@ -327,9 +346,9 @@ export const resetProgressForWords = (wordsToReset: string[], type: 'memorized' 
     if (type === 'memorized') {
         const srsData = getSRSData();
         let srsChanged = false;
-        wordsToReset.forEach(word => {
-            if (srsData[word]) {
-                delete srsData[word];
+        uniqueKeysToReset.forEach(k => {
+            if (srsData[k]) {
+                delete srsData[k];
                 srsChanged = true;
             }
         });

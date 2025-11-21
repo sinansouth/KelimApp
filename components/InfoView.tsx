@@ -86,7 +86,7 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                 <Target size={28} />
             </div>
             <div>
-                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Süreklilik > Yoğunluk</h3>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white mb-2">Damlaya Damlaya Göl Olur</h3>
                 <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
                     Haftada bir gün 5 saat çalışmak yerine, her gün 15 dakika çalışmak dil öğreniminde çok daha etkilidir. Küçük adımlar zamanla devasa sonuçlar doğurur.
                 </p>
