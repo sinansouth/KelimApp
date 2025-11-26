@@ -1,12 +1,14 @@
 {
-  "name": "KelimApp İngilizce Kelime Kartları",
+  "name": "KelimApp: İngilizce Öğren",
   "short_name": "KelimApp",
-  "description": "İlkokul, ortaokul ve lise için müfredata uygun İngilizce kelime ezberleme ve test uygulaması.",
+  "description": "4, 5, 6, 7 ve 8. Sınıf İngilizce üniteleri için kelime kartları, testler ve oyunlaştırılmış eğitim uygulaması.",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#f8fafc",
+  "background_color": "#0f172a",
   "theme_color": "#4f46e5",
   "orientation": "portrait",
+  "id": "/",
+  "scope": "./",
   "icons": [
     {
       "src": "https://cdn-icons-png.flaticon.com/512/2821/2821768.png",
@@ -21,8 +23,40 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["education", "productivity"],
+  "screenshots": [
+    {
+      "src": "https://via.placeholder.com/1080x1920.png?text=KelimApp+Ana+Ekran",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Ana Sayfa"
+    },
+    {
+      "src": "https://via.placeholder.com/1080x1920.png?text=Kelime+Kartlari",
+      "sizes": "1080x1920",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Kelime Kartları"
+    },
+    {
+      "src": "https://via.placeholder.com/1920x1080.png?text=KelimApp+Desktop",
+      "sizes": "1920x1080",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Masaüstü Görünümü"
+    }
+  ],
+  "categories": ["education", "productivity", "lifestyle"],
   "lang": "tr",
   "dir": "ltr",
-  "prefer_related_applications": false
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Kelime Çalış",
+      "short_name": "Çalış",
+      "description": "Kelime kartlarını aç",
+      "url": "./index.html?mode=study",
+      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/2821/2821768.png", "sizes": "192x192" }]
+    }
+  ]
 }

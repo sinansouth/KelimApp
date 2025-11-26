@@ -1,20 +1,22 @@
 
-const CACHE_NAME = 'kelimapp-v5-production';
+const CACHE_NAME = 'kelimapp-v6-pwa-ready';
 
 // Core assets that must be cached immediately
+// We are explicitly caching Tailwind and Fonts so the app looks "native" immediately
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   'https://cdn.tailwindcss.com',
-  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap'
+  'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Merriweather:wght@400;700&family=Courier+Prime:wght@400;700&family=Fredoka:wght@400;600&family=Orbitron:wght@400;700&family=Bangers&family=Playfair+Display:wght@400;700&family=Patrick+Hand&family=Creepster&family=Russo+One&display=swap'
 ];
 
-// Domains that we want to cache at runtime (CDN libraries)
+// Domains that we want to cache at runtime (CDN libraries, Images)
 const RUNTIME_CACHE_DOMAINS = [
   'aistudiocdn.com',
   'cdn-icons-png.flaticon.com',
-  'fonts.gstatic.com'
+  'fonts.gstatic.com',
+  'via.placeholder.com'
 ];
 
 self.addEventListener('install', (event) => {
@@ -45,7 +47,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // Strategy for External CDNs (React, Lucide, Fonts)
+  // Strategy for External CDNs (React, Lucide, Fonts, Images)
   // Stale-While-Revalidate: Use cache if available, but update in background
   if (RUNTIME_CACHE_DOMAINS.some(domain => url.hostname.includes(domain))) {
     event.respondWith(
@@ -57,8 +59,7 @@ self.addEventListener('fetch', (event) => {
             }
             return networkResponse;
           }).catch(() => {
-             // If fetch fails (offline) and no cache, we can't do much for external resources
-             // but hopefully they are already cached.
+             // If offline and no cache, return nothing (or a fallback image if needed)
           });
           return cachedResponse || fetchPromise;
         });
@@ -80,7 +81,7 @@ self.addEventListener('fetch', (event) => {
             return networkResponse;
          }
          
-         // Cache new local files (like if we add images later)
+         // Cache new local files
          const responseToCache = networkResponse.clone();
          caches.open(CACHE_NAME).then((cache) => {
             cache.put(event.request, responseToCache);

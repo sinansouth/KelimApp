@@ -2,7 +2,7 @@
 export const APP_CONFIG = {
   name: "KelimApp",
   version: "1.0", // Görünen versiyon (UI için)
-  dataVersion: 2,   // Veri yapısı versiyonu (Veri sıfırlama tetiklemek için bunu artırın)
+  dataVersion: 3,   // Veri yapısı versiyonu (Veri sıfırlama tetiklemek için bunu artırın)
   developer: "Sinan Güney",
   description: "İlkokul, ortaokul, lise ve Genel İngilizce düzeyinde İngilizce kelime öğrenme uygulaması.",
   slogan: "Sadece sınav için değil, kalıcı kelime ezberi!",
