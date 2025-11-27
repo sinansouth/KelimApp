@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
 import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp } from 'lucide-react';
-import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized, addToBookmarks, removeFromBookmarks, handleReviewResult, registerSRSInteraction } from '../services/userService';
+import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized, addToBookmarks, removeFromBookmarks, handleReviewResult, registerSRSInteraction, updateQuestProgress } from '../services/userService';
 import { playSound } from '../services/soundService';
 
 interface FlashcardDeckProps {
@@ -299,7 +299,11 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     if (!isFlipped) {
       if (currentWord) {
           const wordId = getUniqueId(currentWord);
+          // Update stats and quest progress
           const newBadges = updateStats('card_view', grade, wordId);
+          // Explicitly update 'view_cards' quest
+          updateQuestProgress('view_cards', 1);
+          
           registerSRSInteraction(wordId);
           
           if (newBadges.length > 0 && onBadgeUnlock) {

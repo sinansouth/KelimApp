@@ -20,11 +20,18 @@ import SRSInfoModal from './components/SRSInfoModal';
 import GradeSelectionModal from './components/GradeSelectionModal';
 import MarketModal from './components/MarketModal';
 import AvatarModal from './components/AvatarModal';
+import AuthModal from './components/AuthModal'; // Import AuthModal
 import { ChevronLeft, Zap, Trophy, User } from 'lucide-react';
 import { getUserProfile, getTheme, saveTheme, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent } from './services/userService';
+import { getAuthInstance, isFirebaseReady } from './services/firebase'; // Import Firebase helpers
 import { ANNOUNCEMENTS } from './data/announcements';
 import { playSound } from './services/soundService';
 import { APP_CONFIG } from './config/appConfig';
+// Capacitor Imports
+import { App as CapacitorApp } from '@capacitor/app';
+import { StatusBar, Style } from '@capacitor/status-bar';
+import { Capacitor } from '@capacitor/core';
+import { onAuthStateChanged } from 'firebase/auth';
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.HOME);
@@ -33,6 +40,7 @@ const App: React.FC = () => {
   const [showSettings, setShowSettings] = useState(false);
   const [showSRSInfo, setShowSRSInfo] = useState(false);
   const [showMarket, setShowMarket] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false); // Auth Modal State
   
   const [showGradeSelection, setShowGradeSelection] = useState(false);
   const [availableGradesForReview, setAvailableGradesForReview] = useState<string[]>([]);
@@ -68,10 +76,49 @@ const App: React.FC = () => {
   // State for Header Profile Icon
   const [headerProfile, setHeaderProfile] = useState(getUserProfile());
 
+  // Auth Check Effect
   useEffect(() => {
-      // Initial history state
+      const auth = getAuthInstance();
+      if (auth) {
+          const unsubscribe = onAuthStateChanged(auth, (user) => {
+              if (!user) {
+                  // If no user logged in, check if local profile has name. If not, show onboarding/auth.
+                  const localProfile = getUserProfile();
+                  if (!localProfile.name) {
+                       // Optional: Force auth or let them use offline until they want to sync
+                  }
+              } else {
+                  // User logged in, refresh header profile
+                  setHeaderProfile(getUserProfile());
+              }
+          });
+          return () => unsubscribe();
+      }
+  }, []);
+
+  useEffect(() => {
+      // Initial history state for browser navigation
       window.history.pushState({ appState: 'root' }, '', window.location.href);
   }, []);
+
+  // Configure Status Bar for Mobile
+  useEffect(() => {
+      if (Capacitor.isNativePlatform()) {
+          const configureStatusBar = async () => {
+              try {
+                  // Set style based on theme if needed, or stick to one
+                  await StatusBar.setStyle({ style: currentTheme === 'light' ? Style.Light : Style.Dark });
+                  // For Android, we can set the background color to match our app header
+                  if (Capacitor.getPlatform() === 'android') {
+                      await StatusBar.setBackgroundColor({ color: currentTheme === 'light' ? '#f8fafc' : '#0f172a' });
+                  }
+              } catch (e) {
+                  console.log("Status bar not supported in this environment");
+              }
+          };
+          configureStatusBar();
+      }
+  }, [currentTheme]);
 
   // Time Tracking Effect
   useEffect(() => {
@@ -120,7 +167,6 @@ const App: React.FC = () => {
         case 'volcano': primary = '#ef4444'; bgMain = '#1a0505'; bgCard = '#2b0b0b'; textMain = '#fee2e2'; textMuted = '#fca5a5'; border = '#7f1d1d'; break;
         case 'ice': primary = '#06b6d4'; bgMain = '#083344'; bgCard = '#164e63'; textMain = '#cffafe'; textMuted = '#67e8f9'; border = '#155e75'; break;
         case 'lavender': primary = '#a78bfa'; bgMain = '#2e1065'; bgCard = '#4c1d95'; textMain = '#ede9fe'; textMuted = '#c4b5fd'; border = '#6d28d9'; break;
-        // New Themes
         case 'gamer': primary = '#ef4444'; bgMain = '#000000'; bgCard = '#111111'; textMain = '#ffffff'; textMuted = '#6b7280'; border = '#ef4444'; break;
         case 'luxury': primary = '#fbbf24'; bgMain = '#1a1a1a'; bgCard = '#262626'; textMain = '#fcfcd4'; textMuted = '#a3a3a3'; border = '#fbbf24'; break;
         case 'comic': primary = '#3b82f6'; bgMain = '#ffffff'; bgCard = '#f3f4f6'; textMain = '#000000'; textMuted = '#4b5563'; border = '#000000'; break;
@@ -183,37 +229,69 @@ const App: React.FC = () => {
     }
   }, []);
 
-  const addHistoryEntry = () => {
-      window.history.pushState({ appState: 'navigated' }, '', '');
-  };
-
-  const handlePopState = useCallback((event: PopStateEvent) => {
-      // Modal closing logic
-      if (showSettings) { setShowSettings(false); return; }
-      if (showSRSInfo) { setShowSRSInfo(false); return; }
-      if (showMarket) { setShowMarket(false); return; }
-      if (showGradeSelection) { setShowGradeSelection(false); return; }
-      if (pendingQuizConfig) { setPendingQuizConfig(null); return; }
+  // Logic to close modals or navigate back
+  const closeModalOrGoBack = useCallback(() => {
+      if (showAuthModal) { setShowAuthModal(false); return true; }
+      if (showSettings) { setShowSettings(false); return true; }
+      if (showSRSInfo) { setShowSRSInfo(false); return true; }
+      if (showMarket) { setShowMarket(false); return true; }
+      if (showGradeSelection) { setShowGradeSelection(false); return true; }
+      if (pendingQuizConfig) { setPendingQuizConfig(null); return true; }
       
-      // Navigation logic
+      // If we are in a sub-mode (not HOME), go back to HOME
       if (mode !== AppMode.HOME) {
           setMode(AppMode.HOME);
           setIsSRSReview(false);
           setWords([]);
           setAllUnitWords([]);
-          return;
+          return true;
       }
-      if (selectedUnit) { setSelectedUnit(null); return; }
-      if (selectedGrade) { setSelectedGrade(null); return; }
-      if (selectedCategory) { setSelectedCategory(null); return; }
       
-      // If at pure root state, do nothing (let browser handle exit if needed, or just stay at root)
-  }, [mode, selectedUnit, selectedGrade, selectedCategory, showSettings, showSRSInfo, showMarket, showGradeSelection, pendingQuizConfig]);
+      // If we are at HOME but have selections (Unit, Grade etc.), clear them step by step
+      if (selectedUnit) { setSelectedUnit(null); return true; }
+      if (selectedGrade) { setSelectedGrade(null); return true; }
+      if (selectedCategory) { setSelectedCategory(null); return true; }
+      
+      return false; // No internal navigation handled, let app minimize/exit
+  }, [mode, selectedUnit, selectedGrade, selectedCategory, showSettings, showSRSInfo, showMarket, showGradeSelection, pendingQuizConfig, showAuthModal]);
+
+  // --- Hardware Back Button Handling (Capacitor) ---
+  useEffect(() => {
+    const setupBackButton = async () => {
+        if (Capacitor.isNativePlatform()) {
+             await CapacitorApp.addListener('backButton', ({ canGoBack }) => {
+                const handled = closeModalOrGoBack();
+                if (!handled) {
+                    // If at the absolute root (Home with no selection), exit app
+                    CapacitorApp.exitApp();
+                }
+            });
+        }
+    };
+    setupBackButton();
+
+    return () => {
+        if (Capacitor.isNativePlatform()) {
+            CapacitorApp.removeAllListeners();
+        }
+    }
+  }, [closeModalOrGoBack]);
+
+
+  // --- Browser History Handling (Fallback) ---
+  const handlePopState = useCallback((event: PopStateEvent) => {
+      closeModalOrGoBack();
+  }, [closeModalOrGoBack]);
 
   useEffect(() => {
       window.addEventListener('popstate', handlePopState);
       return () => { window.removeEventListener('popstate', handlePopState); };
   }, [handlePopState]);
+
+  const addHistoryEntry = () => {
+      // Push a state so back button works
+      window.history.pushState({ appState: 'navigated' }, '', '');
+  };
 
   const handleThemeChange = () => {
       const newTheme = getTheme();
@@ -247,7 +325,10 @@ const App: React.FC = () => {
       setMode(AppMode.HOME); setTopicTitle(''); setWords([]); setAllUnitWords([]); setSelectedUnit(null); setSelectedStudyMode(null); setSelectedGrade(null); setSelectedCategory(null); setIsSRSReview(false); setPendingQuizConfig(null); setShowGradeSelection(false); 
   };
   
-  const handleManualBack = () => { window.history.back(); };
+  const handleManualBack = () => { 
+     // Use our central logic
+     closeModalOrGoBack();
+  };
   
   const handleOpenProfile = () => { addHistoryEntry(); setMode(AppMode.PROFILE); setTopicTitle('Profilim'); };
   const handleOpenInfo = () => { addHistoryEntry(); setMode(AppMode.INFO); setTopicTitle('İpuçları'); };
@@ -437,7 +518,15 @@ const App: React.FC = () => {
     case AppMode.CUSTOM_PRACTICE: content = ( <WordSelector words={allUnitWords} unitTitle={topicTitle.replace(' (Özel Çalışma)', '')} onStart={handleCustomPracticeStart} onBack={handleManualBack} /> ); break;
     case AppMode.GRAMMAR: if (selectedUnit) { content = <GrammarView unit={selectedUnit} onBack={handleManualBack} onHome={handleGoHome} />; } break;
     case AppMode.EMPTY_WARNING: content = <EmptyStateWarning type={emptyWarningType || 'bookmarks'} onStudy={() => { selectedUnit && handleStartModule('study', selectedUnit); }} onHome={handleGoHome} />; break;
-    case AppMode.PROFILE: content = <Profile onBack={handleManualBack} onProfileUpdate={handleProfileUpdate} onOpenMarket={handleOpenMarket} />; break;
+    case AppMode.PROFILE: content = (
+      <Profile 
+        onBack={handleManualBack} 
+        onProfileUpdate={handleProfileUpdate} 
+        onOpenMarket={handleOpenMarket}
+        // Pass trigger to open auth modal if not logged in
+        onLoginRequest={() => setShowAuthModal(true)} 
+      />
+    ); break;
     case AppMode.INFO: content = <InfoView onBack={handleManualBack} />; break;
     case AppMode.ANNOUNCEMENTS: content = <AnnouncementsView onBack={handleManualBack} />; break;
     case AppMode.ERROR: content = <div className="text-center p-10 text-red-500">Bir hata oluştu.</div>; break;
@@ -478,6 +567,9 @@ const App: React.FC = () => {
       {showGradeSelection && <GradeSelectionModal onClose={handleManualBack} onSelect={handleGradeSelectForReview} grades={availableGradesForReview} />}
       {pendingQuizConfig && <QuizSetupModal onClose={handleManualBack} onStart={startQuizWithCount} totalWords={pendingQuizConfig.words.length} title={pendingQuizConfig.title} />}
       {celebration?.show && <Celebration message={celebration.message} type={celebration.type} onClose={() => setCelebration(null)} />}
+      
+      {/* Auth Modal */}
+      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onSuccess={() => { handleProfileUpdate(); setShowAuthModal(false); }} />}
 
       <header className="backdrop-blur-xl border-b z-50 shrink-0 transition-colors h-16 header-theme"
               style={{backgroundColor: 'rgba(var(--color-bg-card-rgb), 0.8)', borderColor: 'rgba(255,255,255,0.1)'}}>

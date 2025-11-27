@@ -36,7 +36,31 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
       return () => clearInterval(interval);
   }, [stats.xpBoostEndTime]);
 
-  const themes: MarketItem[] = [
+  // Helper to sort items: Owned first, then by Cost (Ascending)
+  const sortItems = (items: MarketItem[]) => {
+      return [...items].sort((a, b) => {
+          let aOwned = false;
+          let bOwned = false;
+
+          if (a.type === 'theme') aOwned = profile.purchasedThemes.includes(a.value);
+          if (b.type === 'theme') bOwned = profile.purchasedThemes.includes(b.value);
+          
+          if (a.type === 'frame') aOwned = profile.purchasedFrames.includes(a.id);
+          if (b.type === 'frame') bOwned = profile.purchasedFrames.includes(b.id);
+
+          if (a.type === 'background') aOwned = profile.purchasedBackgrounds?.includes(a.id) || a.id === 'bg_default';
+          if (b.type === 'background') bOwned = profile.purchasedBackgrounds?.includes(b.id) || b.id === 'bg_default';
+
+          // 1. Sort by ownership (Owned comes first)
+          if (aOwned && !bOwned) return -1;
+          if (!aOwned && bOwned) return 1;
+
+          // 2. Sort by cost (Cheapest first)
+          return a.cost - b.cost;
+      });
+  };
+
+  const rawThemes: MarketItem[] = [
     { id: 'theme_light', name: 'Aydınlık', description: 'Klasik beyaz.', cost: 0, type: 'theme', value: 'light', icon: <Sun size={20} />, previewColor: '#ffffff' },
     { id: 'theme_dark', name: 'Karanlık', description: 'Klasik koyu.', cost: 0, type: 'theme', value: 'dark', icon: <Moon size={20} />, previewColor: '#0f172a' },
     { id: 'theme_ocean', name: 'Okyanus', description: 'Mavi tonları.', cost: 1000, type: 'theme', value: 'ocean', icon: <Droplets size={20} />, previewColor: '#0c4a6e' },
@@ -60,7 +84,7 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
     { id: 'theme_nature_soft', name: 'Yumuşak Doğa', description: 'Rahatlatıcı yeşil.', cost: 3000, type: 'theme', value: 'nature_soft', icon: <Leaf size={20} />, previewColor: '#f0fdf4' },
   ];
 
-  const frameMarketItems: MarketItem[] = FRAMES.map(f => ({
+  const rawFrames: MarketItem[] = FRAMES.map(f => ({
       id: f.id,
       name: f.name,
       description: f.description,
@@ -71,7 +95,7 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
       image: f.image
   }));
   
-  const backgroundMarketItems: MarketItem[] = BACKGROUNDS.map(b => ({
+  const rawBackgrounds: MarketItem[] = BACKGROUNDS.map(b => ({
       id: b.id,
       name: b.name,
       description: b.description,
@@ -86,6 +110,11 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
     { id: 'streak_freeze', name: 'Dondurma', description: '1 gün korur.', cost: 500, type: 'consumable', value: 'freeze', icon: <Shield size={20} /> },
     { id: 'xp_boost', name: '2x XP (30dk)', description: 'İki kat puan.', cost: 500, type: 'consumable', value: 'xp_boost', icon: <Zap size={20} /> },
   ];
+
+  // APPLY SORTING
+  const themes = sortItems(rawThemes);
+  const frameMarketItems = sortItems(rawFrames);
+  const backgroundMarketItems = sortItems(rawBackgrounds);
 
   const handlePurchase = (item: MarketItem) => {
     if (item.type === 'theme') {

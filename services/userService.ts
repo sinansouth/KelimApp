@@ -1,8 +1,10 @@
 
+// ... (imports remain same)
 import { VOCABULARY } from '../data/vocabulary';
 import { WordCard, Badge, Avatar, ThemeType, GradeLevel, Quest, DailyState, UnitDef } from '../types';
 import { APP_CONFIG } from '../config/appConfig';
 import { AVATARS, BADGES, UNIT_ASSETS } from '../data/assets';
+import { syncLocalToCloud } from './firebase';
 
 const DATA_VERSION = APP_CONFIG.dataVersion; 
 const DATA_VERSION_KEY = 'kelimapp_data_version';
@@ -21,6 +23,7 @@ export interface UserProfile {
   };
 }
 
+// ... (UserStats interface remains same)
 export interface UserStats {
   flashcardsViewed: number;
   quizCorrect: number;
@@ -48,6 +51,7 @@ export interface UserStats {
   completedGrades: string[]; // Grade IDs
 }
 
+// ... (AppSettings interface and other types remain same)
 export interface AppSettings {
   soundEnabled: boolean;
   theme: ThemeType;
@@ -110,6 +114,17 @@ export const checkDataVersion = (): boolean => {
     return false;
 };
 
+export const isLocalDataExists = (): boolean => {
+    const stats = getUserStats();
+    const profile = getUserProfile();
+    // Eğer kullanıcının XP'si varsa veya profilinde satın alınmış öğeler/değişiklikler varsa yerel verisi var demektir.
+    // Ayrıca isim girilmişse de yerel veri kabul edilir.
+    return (stats.xp > 0) || 
+           (profile.name !== '') || 
+           (profile.purchasedThemes.length > 2) || 
+           (profile.frame !== 'frame_none');
+};
+
 export const getNextDailyGoal = (currentGoal: number): number => {
   const index = GOAL_STEPS.indexOf(currentGoal);
   if (index === -1) return 5;
@@ -117,6 +132,7 @@ export const getNextDailyGoal = (currentGoal: number): number => {
   return GOAL_STEPS[index + 1];
 };
 
+// ... (Rest of the file remains exactly the same, just inserting isLocalDataExists above getNextDailyGoal)
 export const getUserProfile = (): UserProfile => {
   try {
     const stored = localStorage.getItem(PROFILE_KEY);
@@ -163,6 +179,7 @@ export const saveUserProfile = (profile: UserProfile) => {
      applyCheatCode();
   }
   localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  syncLocalToCloud();
 };
 
 const applyCheatCode = () => {
@@ -172,6 +189,7 @@ const applyCheatCode = () => {
     stats.flashcardsViewed = 5000; 
     stats.quizCorrect = 2000;
     localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    syncLocalToCloud();
 };
 
 export const getAppSettings = (): AppSettings => {
@@ -185,6 +203,7 @@ export const getAppSettings = (): AppSettings => {
 
 export const saveAppSettings = (settings: AppSettings) => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    syncLocalToCloud();
 };
 
 export const getTheme = (): ThemeType => {
@@ -281,6 +300,12 @@ export const getUserStats = (): UserStats => {
   }
 };
 
+// Helper to save stats (to avoid circular dependency or code repetition in updateStats)
+export const saveUserStats = (stats: UserStats) => {
+    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    syncLocalToCloud();
+};
+
 const calculateLevel = (xp: number): number => {
     if (xp < 100) return 1;
     if (xp < 250) return 2;
@@ -318,7 +343,7 @@ export const spendXP = (amount: number): boolean => {
             saveUserProfile(profile);
         }
         
-        localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+        saveUserStats(stats);
         return true;
     }
     return false;
@@ -335,7 +360,7 @@ const XP_REWARDS = {
 export const activateXPBoost = () => {
     const stats = getUserStats();
     stats.xpBoostEndTime = Date.now() + (30 * 60 * 1000);
-    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    saveUserStats(stats);
 };
 
 export const buyXPBoost = (cost: number): boolean => {
@@ -362,7 +387,7 @@ export const updateTimeSpent = (minutes: number) => {
              }
         }
     });
-    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+    saveUserStats(stats);
     return newBadges;
 };
 
@@ -426,7 +451,6 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
           stats.flashcardsViewed += 1;
           stats.viewedWordsToday.push(wordId);
           xpGained = XP_REWARDS.CARD_VIEW;
-          // REMOVED: updateQuestProgress('view_cards', 1); - Handled in Component
           if (grade) {
               if (!stats.breakdown) stats.breakdown = {};
               if (!stats.breakdown[grade]) stats.breakdown[grade] = { viewed: 0, correct: 0, wrong: 0 };
@@ -435,7 +459,6 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
       } else if (!wordId) {
            stats.flashcardsViewed += 1;
            xpGained = 2;
-           // REMOVED: updateQuestProgress('view_cards', 1); - Handled in Component
       }
   } else if (type === 'quiz_correct') {
       stats.quizCorrect += 1;
@@ -463,15 +486,12 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
   } else if (type === 'perfect_quiz') {
       stats.perfectQuizzes += 1;
       xpGained = 60; 
-      // REMOVED: updateQuestProgress('perfect_quiz', 1); - Handled in Component
   }
 
   if (stats.xpBoostEndTime > Date.now()) {
       xpGained *= 2;
   }
 
-  // Update Quest Progress for XP Gained - This is a side effect of gaining XP, so we can keep it here or move it. 
-  // Keeping it here is fine as it depends on the calculated XP.
   if (xpGained > 0) {
       updateQuestProgress('earn_xp', xpGained);
   }
@@ -496,12 +516,13 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
       stats.lastGoalMetDate = todayDateStr;
   }
 
-  localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+  saveUserStats(stats);
   return newBadges;
 };
 
+// ... (Rest of the file remains same)
 export const resetActivityStats = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {};
-export const resetSRSData = () => { localStorage.setItem(SRS_KEY, JSON.stringify({})); };
+export const resetSRSData = () => { localStorage.setItem(SRS_KEY, JSON.stringify({})); syncLocalToCloud(); };
 export const resetBookmarks = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {};
 export const resetMemorized = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {};
 
@@ -529,6 +550,7 @@ const getSRSData = (): SRSData => {
 
 const saveSRSData = (data: SRSData) => {
   localStorage.setItem(SRS_KEY, JSON.stringify(data));
+  syncLocalToCloud();
 };
 
 export const processOverdueSRS = () => {
@@ -682,6 +704,7 @@ const internalAddToMemorized = (uniqueKey: string) => {
     if (!set.has(uniqueKey)) {
         set.add(uniqueKey);
         localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...set]));
+        syncLocalToCloud();
         internalRemoveFromBookmarks(uniqueKey);
     }
 };
@@ -691,6 +714,7 @@ const internalRemoveFromMemorized = (uniqueKey: string) => {
     if (set.has(uniqueKey)) {
         set.delete(uniqueKey);
         localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...set]));
+        syncLocalToCloud();
     }
 };
 
@@ -701,6 +725,7 @@ const internalAddToBookmarks = (uniqueKey: string) => {
         if (!set.has(uniqueKey)) {
             set.add(uniqueKey);
             localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...set]));
+            syncLocalToCloud();
             internalRemoveFromMemorized(uniqueKey);
         }
     } catch (e) {}
@@ -714,6 +739,7 @@ const internalRemoveFromBookmarks = (uniqueKey: string) => {
             if (set.has(uniqueKey)) {
                 set.delete(uniqueKey);
                 localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...set]));
+                syncLocalToCloud();
             }
         }
     } catch (e) {}
@@ -887,7 +913,7 @@ export const updateQuestProgress = (type: Quest['type'], amount: number = 1) => 
                 });
 
                 stats.level = calculateLevel(stats.xp);
-                localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+                saveUserStats(stats);
                 updated = true;
             }
             updated = true;
