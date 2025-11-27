@@ -1,18 +1,22 @@
+
 import React, { useState, useEffect } from 'react';
-import { X, Volume2, VolumeX, MessageSquare, Lock, Key } from 'lucide-react'; // Key icon added
-import { AppSettings, getAppSettings, saveAppSettings } from '../services/userService';
+import { X, Volume2, VolumeX, MessageSquare, Lock, Key, RotateCcw } from 'lucide-react';
+import { AppSettings, getAppSettings, saveAppSettings, resetAppProgress } from '../services/userService';
 import { APP_CONFIG } from '../config/appConfig';
+import ResetScopeModal from './ResetScopeModal';
+import { playSound } from '../services/soundService';
 
 interface SettingsModalProps {
   onClose: () => void;
   onOpenFeedback: () => void;
-  onOpenAdmin: () => void; // New Prop
+  onOpenAdmin: () => void;
 }
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, onOpenAdmin }) => {
   const [settings, setSettings] = useState<AppSettings>({ soundEnabled: true, theme: 'dark' });
   const [showAdminInput, setShowAdminInput] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
+  const [showResetModal, setShowResetModal] = useState(false);
 
   useEffect(() => {
       setSettings(getAppSettings());
@@ -26,7 +30,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
 
   const handleAdminLogin = (e: React.FormEvent) => {
       e.preventDefault();
-      if (adminPassword === 'admin123') { // Simple hardcoded password for the user
+      if (adminPassword === 'admin123') { 
           onClose();
           onOpenAdmin();
           setAdminPassword('');
@@ -34,9 +38,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
       } else {
           alert("Hatalı şifre!");
       }
-  }
+  };
+
+  const handleResetConfirm = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {
+      resetAppProgress(scope);
+      playSound('click');
+      setShowResetModal(false);
+      alert("İlerleme başarıyla sıfırlandı.");
+      onClose();
+      window.location.reload();
+  };
 
   return (
+    <>
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="bg-white dark:bg-slate-900 w-full max-w-xs rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         
@@ -64,6 +78,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
                     <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${settings.soundEnabled ? 'left-5' : 'left-1'}`}></div>
                 </button>
             </div>
+
+            <button 
+                onClick={() => setShowResetModal(true)}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700 text-left"
+            >
+                <div className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg">
+                    <RotateCcw size={18} />
+                </div>
+                <div>
+                    <div className="font-bold text-slate-800 dark:text-white text-sm">İlerlemeyi Sıfırla</div>
+                    <div className="text-xs text-slate-500">Tüm verileri veya üniteyi sil</div>
+                </div>
+            </button>
 
             <button 
                 onClick={() => { onClose(); onOpenFeedback(); }}
@@ -115,6 +142,15 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
         </div>
       </div>
     </div>
+
+    {showResetModal && (
+        <ResetScopeModal 
+            title="Sıfırlama Seçenekleri"
+            onClose={() => setShowResetModal(false)}
+            onConfirm={handleResetConfirm}
+        />
+    )}
+    </>
   );
 };
 

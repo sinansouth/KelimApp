@@ -1,3 +1,4 @@
+
 import { VOCABULARY } from '../data/vocabulary';
 import { WordCard, Badge, Avatar, ThemeType, GradeLevel, Quest, DailyState, UnitDef } from '../types';
 import { APP_CONFIG } from '../config/appConfig';
@@ -239,7 +240,7 @@ export const getUserProfile = (): UserProfile => {
     return { 
         name: '', 
         grade: '', 
-        avatar: '🧑‍🎓',
+        avatar: '🧑‍🎓', 
         frame: 'frame_none',
         background: 'bg_default',
         purchasedThemes: ['light', 'dark'],
@@ -578,10 +579,135 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
   return newBadges;
 };
 
-export const resetActivityStats = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {};
+export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {
+    const stats = getUserStats();
+    const srs = getSRSData();
+    const bookmarks = getMemorizedSet('lgs_bookmarks');
+    const memorized = getMemorizedSet('lgs_memorized');
+
+    if (scope.type === 'all') {
+        // Reset everything except profile basics
+        stats.flashcardsViewed = 0;
+        stats.quizCorrect = 0;
+        stats.quizWrong = 0;
+        stats.xp = 0;
+        stats.level = 1;
+        stats.streak = 0;
+        stats.badges = [];
+        stats.completedUnits = [];
+        stats.completedGrades = [];
+        stats.viewedWordsToday = [];
+        stats.perfectQuizzes = 0;
+        stats.questsCompleted = 0;
+        stats.totalTimeSpent = 0;
+        stats.breakdown = {};
+
+        localStorage.setItem(SRS_KEY, JSON.stringify({}));
+        localStorage.setItem(MEMORIZED_KEY, JSON.stringify([]));
+        localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([]));
+        localStorage.removeItem(LAST_ACTIVITY_KEY);
+    } 
+    else if (scope.type === 'grade' && scope.value) {
+        const grade = scope.value;
+        
+        // Remove from completed units/grades
+        stats.completedGrades = stats.completedGrades.filter(g => g !== grade);
+        stats.completedUnits = stats.completedUnits.filter(u => !u.startsWith(`g${grade}u`)); // Heuristic for unit ID
+        
+        // Filter SRS, Bookmarks, Memorized
+        // NOTE: This relies on unitId being part of the key or solvable from the word.
+        // Our keys are "unitId|word" or just "word". If just "word", we can't safely filter without checking all vocab.
+        // Assuming keys are "unitId|word" for proper functioning.
+        
+        const filterSet = (set: Set<string>) => {
+            const newSet = new Set<string>();
+            set.forEach(key => {
+                if (key.includes('|')) {
+                    const [uId] = key.split('|');
+                    // Check if unit ID belongs to grade. 
+                    // Grade 2 units usually start with 'g2', Grade 3 with 'g3' etc based on assets.
+                    const prefix = `g${grade}`;
+                    if (!uId.startsWith(prefix) && uId !== `u${grade}` && !uId.startsWith(grade)) {
+                        newSet.add(key);
+                    }
+                } else {
+                   // Legacy keys or general words might be kept if we can't determine origin easily
+                   newSet.add(key);
+                }
+            });
+            return newSet;
+        };
+
+        const newMem = filterSet(memorized);
+        const newBook = filterSet(bookmarks);
+        
+        localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...newMem]));
+        localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...newBook]));
+        
+        // SRS
+        const newSrs: SRSData = {};
+        Object.keys(srs).forEach(key => {
+            if (key.includes('|')) {
+                const [uId] = key.split('|');
+                const prefix = `g${grade}`;
+                 if (!uId.startsWith(prefix) && !uId.startsWith(grade)) {
+                    newSrs[key] = srs[key];
+                }
+            } else {
+                newSrs[key] = srs[key];
+            }
+        });
+        localStorage.setItem(SRS_KEY, JSON.stringify(newSrs));
+    } 
+    else if (scope.type === 'unit' && scope.value) {
+        const unitId = scope.value;
+        stats.completedUnits = stats.completedUnits.filter(u => u !== unitId);
+        
+        // Filter Sets
+        const filterSet = (set: Set<string>) => {
+             const newSet = new Set<string>();
+             set.forEach(key => {
+                 if (key.includes('|')) {
+                     const [uId] = key.split('|');
+                     if (uId !== unitId) newSet.add(key);
+                 } else {
+                     newSet.add(key);
+                 }
+             });
+             return newSet;
+        };
+
+        const newMem = filterSet(memorized);
+        const newBook = filterSet(bookmarks);
+        
+        localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...newMem]));
+        localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...newBook]));
+
+        // SRS
+        const newSrs: SRSData = {};
+        Object.keys(srs).forEach(key => {
+            if (key.includes('|')) {
+                 const [uId] = key.split('|');
+                 if (uId !== unitId) newSrs[key] = srs[key];
+            } else {
+                newSrs[key] = srs[key];
+            }
+        });
+        localStorage.setItem(SRS_KEY, JSON.stringify(newSrs));
+    }
+
+    saveUserStats(stats);
+    updateLastUpdatedTimestamp();
+    syncLocalToCloud();
+};
+
+export const resetActivityStats = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {
+    // Deprecated - use resetAppProgress
+    resetAppProgress(scope);
+};
 export const resetSRSData = () => { localStorage.setItem(SRS_KEY, JSON.stringify({})); updateLastUpdatedTimestamp(); syncLocalToCloud(); };
-export const resetBookmarks = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {};
-export const resetMemorized = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {};
+export const resetBookmarks = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => { resetAppProgress(scope); };
+export const resetMemorized = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => { resetAppProgress(scope); };
 
 export const saveLastActivity = (grade: string, unitId: string) => {
   const activity: LastActivity = { grade, unitId, timestamp: Date.now() };
@@ -748,9 +874,10 @@ export const getDueGrades = (): string[] => {
     return Array.from(grades);
 };
 
-export const getMemorizedSet = (): Set<string> => {
+// helper for getMemorizedSet to accept optional key for cleaner internal usage
+export const getMemorizedSet = (key: string = MEMORIZED_KEY): Set<string> => {
   try {
-    const stored = localStorage.getItem(MEMORIZED_KEY);
+    const stored = localStorage.getItem(key);
     return stored ? new Set(JSON.parse(stored)) : new Set();
   } catch {
     return new Set();
