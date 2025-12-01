@@ -286,6 +286,9 @@ export const getUserStats = (): UserStats => {
   try {
     const stored = localStorage.getItem(STATS_KEY);
     const today = new Date();
+    // Normalize today to midnight for accurate comparison
+    const todayMidnight = new Date(today);
+    todayMidnight.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
     
     const defaultStats: UserStats = { 
@@ -303,7 +306,9 @@ export const getUserStats = (): UserStats => {
     if (!stored) return defaultStats;
 
     const parsedStats = JSON.parse(stored);
+    let needsUpdate = false;
     
+    // Ensure defaults for missing properties
     if (typeof parsedStats.dailyGoal !== 'number') parsedStats.dailyGoal = 5;
     if (!parsedStats.viewedWordsToday) parsedStats.viewedWordsToday = [];
     if (!parsedStats.breakdown) parsedStats.breakdown = {};
@@ -318,7 +323,7 @@ export const getUserStats = (): UserStats => {
     if (parsedStats.completedUnits === undefined) parsedStats.completedUnits = [];
     if (parsedStats.completedGrades === undefined) parsedStats.completedGrades = [];
 
-    // Daily Reset
+    // Daily Reset for stats
     const storedDate = new Date(parsedStats.date);
     const storedDateStr = storedDate.toDateString();
     const currentDateStr = today.toDateString();
@@ -326,31 +331,63 @@ export const getUserStats = (): UserStats => {
     if (storedDateStr !== currentDateStr) {
         parsedStats.viewedWordsToday = [];
         parsedStats.date = currentDateStr;
+        needsUpdate = true;
     }
     
-    // Streak Logic
+    // Streak Logic Check - Immediate update if broken
     if (parsedStats.lastStudyDate) {
-        const last = new Date(parsedStats.lastStudyDate);
-        const diffTime = Math.abs(today.getTime() - last.getTime());
-        const isYesterday = (d1: Date, d2: Date) => {
-             const yester = new Date(d1);
-             yester.setDate(yester.getDate() - 1);
-             return yester.toISOString().split('T')[0] === d2.toISOString().split('T')[0];
-        };
-        const isToday = parsedStats.lastStudyDate === todayStr;
+        const lastDate = new Date(parsedStats.lastStudyDate);
+        lastDate.setHours(0, 0, 0, 0); // Normalize
+        
+        const diffTime = todayMidnight.getTime() - lastDate.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-        if (!isToday && !isYesterday(today, last)) {
+        // If difference is greater than 1 day (meaning they skipped yesterday), reset streak
+        // unless they have a freeze item (handled in updateStats but we need to reflect display here)
+        if (diffDays > 1 && parsedStats.streak > 0) {
              const profile = getUserProfile();
-             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); 
-             if (diffDays > 1) {
+             if (profile.inventory.streakFreezes > 0) {
+                  // We don't consume freeze just by reading, 
+                  // but we can visually check if it WOULD break.
+                  // However, to be safe, if > 1 day and NO freeze consumed logic triggered in updateStats yet,
+                  // we should technically show 0 or show "Streak Frozen" state.
+                  // Simplification: If it's been > 1 day, streak is at risk.
+                  // But real reset happens below if we decide to write.
+                  
+                  // NOTE: Consuming freeze usually happens when the user "misses" a day but opens app later.
+                  // Here we just check if it's broken.
+                  
+                  // Let's allow updateStats to handle the freeze logic consumption to avoid accidental consumption on just reading.
+                  // But for display purposes, if diffDays > 1, it IS 0 unless frozen.
+                  
+                  // Let's actually reset here if they don't have freeze, so UI shows 0 immediately.
+                  // If they DO have freeze, we wait for updateStats to apply it? 
+                  // No, users want to see if their streak is saved.
+                  
+                  // Let's Auto-Consume Freeze here if needed to save the streak for display?
+                  // Or just reset if no freeze.
+                  
                   if (profile.inventory.streakFreezes > 0) {
-                       profile.inventory.streakFreezes--;
-                       saveUserProfile(profile);
+                       // Don't reset yet, let them "repair" it or let updateStats consume it.
+                       // Or actually, to "save" the streak visually:
+                       // We can say streak is protected.
                   } else {
                       parsedStats.streak = 0;
+                      needsUpdate = true;
                   }
+
+             } else {
+                 // No freeze, reset streak
+                 parsedStats.streak = 0;
+                 needsUpdate = true;
              }
         }
+    }
+
+    // If we detected a streak break or day change during read, save it immediately
+    // so the UI reflects "0 streak" or empty daily progress without needing an action.
+    if (needsUpdate) {
+        localStorage.setItem(STATS_KEY, JSON.stringify(parsedStats));
     }
 
     return parsedStats;
@@ -487,19 +524,48 @@ const checkCompletion = (stats: UserStats): string[] => {
 }
 
 export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 'perfect_quiz' | 'memorized' | 'review_remember' | 'review_forgot', grade?: string | null, wordId?: string, quizSize?: number): Badge[] => {
-  const stats = getUserStats();
+  const stats = getUserStats(); 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const newBadges: Badge[] = [];
 
+  // Streak Logic on Action
   if (stats.lastStudyDate !== todayStr) {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
+      const lastDate = stats.lastStudyDate ? new Date(stats.lastStudyDate) : null;
+      
+      // Normalize for compare
+      yesterday.setHours(0,0,0,0);
+      const lastDateObj = lastDate ? new Date(lastDate) : null;
+      if(lastDateObj) lastDateObj.setHours(0,0,0,0);
+
+      const diffDays = lastDateObj ? Math.round((today.getTime() - lastDateObj.getTime()) / (1000 * 60 * 60 * 24)) : 100;
 
       if (stats.lastStudyDate === yesterdayStr) {
+          // Worked yesterday, simple increment
           stats.streak += 1;
+      } else if (diffDays > 1) {
+           // Missed a day or more
+           const profile = getUserProfile();
+           if (profile.inventory.streakFreezes > 0) {
+               // Use freeze to recover streak
+               profile.inventory.streakFreezes--;
+               saveUserProfile(profile, true);
+               // Don't reset streak, just increment as if they didn't miss (or keep same? usually increment from previous)
+               // Let's just keep the streak alive.
+               // Actually, if they missed yesterday, and use freeze, they keep the streak.
+               // So streak count stays same, but date updates to today.
+               // OR, we can act like they didn't miss.
+               // Let's increment to reward coming back.
+               stats.streak += 1;
+           } else {
+               // Reset
+               stats.streak = 1;
+           }
       } else {
+          // First time or reset previously
           stats.streak = 1;
       }
       stats.lastStudyDate = todayStr;

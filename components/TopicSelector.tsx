@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, Bookmark, Target, RefreshCw, ChevronRight, Clock as ClockIcon,
   PartyPopper, Lightbulb, MessageCircle, Sparkles,
@@ -11,6 +11,8 @@ import { APP_CONFIG } from '../config/appConfig';
 import { UnitDef, GradeDef, GradeLevel, StudyMode, CategoryType } from '../types';
 import { VOCABULARY } from '../data/vocabulary';
 import { UNIT_ASSETS, GRADE_DATA } from '../data/assets';
+import Mascot from './Mascot';
+import { APP_TIPS } from '../data/tips';
 
 interface TopicSelectorProps {
   selectedCategory: CategoryType | null;
@@ -46,14 +48,21 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const [memorizedSet, setMemorizedSet] = React.useState<Set<string>>(new Set());
   const [isNewUser, setIsNewUser] = React.useState(false);
   const [wordOfTheDay, setWordOfTheDay] = React.useState<any>(null);
+  const [tip, setTip] = useState('');
 
   React.useEffect(() => {
     setDailyDueCount(getTotalDueCount());
     setMemorizedSet(getMemorizedSet());
-    
     setWordOfTheDay(getWordOfTheDay());
+    
+    // Initial tip
+    setTip(APP_TIPS[Math.floor(Math.random() * APP_TIPS.length)]);
+    
+    // Rotate tip every 10 seconds
+    const interval = setInterval(() => {
+        setTip(APP_TIPS[Math.floor(Math.random() * APP_TIPS.length)]);
+    }, 10000);
 
-    // Check if new user (no grade set in profile)
     const profile = getUserProfile();
     setIsNewUser(profile.grade === '');
 
@@ -73,9 +82,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
              }
         }
     }
+    return () => clearInterval(interval);
   }, [selectedGrade, selectedCategory]);
   
-  // Helper to calculate progress
   const calculateProgress = (unitIds: string[]) => {
       let totalWords = 0;
       let memorizedCount = 0;
@@ -93,9 +102,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
       return Math.round((memorizedCount / totalWords) * 100);
   };
 
-  // -- Unit Selection (High Priority) --
   if (selectedUnit) {
-     // Calculate progress for this unit
      let unitProgress = 0;
      if (selectedUnit.id.endsWith('all') || selectedUnit.id === 'uAll') {
          if (selectedGrade) {
@@ -110,7 +117,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
       <div className="w-full max-w-lg mx-auto p-4 flex flex-col min-h-full justify-start pt-safe pb-safe animate-in fade-in zoom-in duration-300">
          <div className="text-center mb-6 pt-4 shrink-0">
             <div className="inline-flex items-center justify-center w-24 h-24 rounded-[2rem] mb-3 sm:mb-5 shadow-sm ring-4 overflow-hidden" style={{backgroundColor: 'var(--color-bg-card)', color: 'var(--color-primary)'}}>
-               {/* Image Fallback Logic: Use image if available, else use icon component/element */}
                {selectedUnit.image ? (
                   <img src={selectedUnit.image} alt={selectedUnit.title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                ) : (
@@ -120,7 +126,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             <h2 className="text-2xl sm:text-3xl font-black mb-1 tracking-tight px-2 leading-tight break-words" style={{color: 'var(--color-text-main)'}}>{selectedUnit.title}</h2>
             <p className="font-medium text-base sm:text-lg" style={{color: 'var(--color-text-muted)'}}>{selectedUnit.unitNo}</p>
             
-            {/* Progress Bar */}
             <div className="mt-4 max-w-[200px] mx-auto">
                 <div className="flex justify-between text-xs font-bold mb-1" style={{color: 'var(--color-text-muted)'}}>
                     <span>İlerleme</span>
@@ -191,13 +196,23 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
      );
   }
   
-  // -- Category Selection --
   if (!selectedCategory) {
     return (
       <div className="flex flex-col items-center min-h-full p-6 pt-4 animate-in fade-in duration-500 relative">
+        
+        {/* Text Title */}
         <div className="text-center mb-8 mt-4 w-full max-w-md">
-          <h1 className="text-4xl font-black mb-2 tracking-tight" style={{color: 'var(--color-text-main)'}}>Kelim<span style={{color: 'var(--color-primary)'}}>App</span></h1>
-          <p className="text-sm font-semibold mt-2" style={{color: 'var(--color-text-muted)'}}>Sadece sınav için değil, kalıcı kelime ezberi!</p>
+             <h1 className="text-4xl font-black tracking-tighter" style={{color: 'var(--color-text-main)'}}>
+               Kelim<span className="text-indigo-500">App</span>
+             </h1>
+             <p className="text-sm font-medium opacity-80" style={{color: 'var(--color-text-muted)'}}>
+               İngilizce öğrenmenin en eğlenceli yolu
+             </p>
+        </div>
+
+        {/* Mascot with rotating tip */}
+        <div className="w-full max-w-md mb-6 flex justify-start pl-2">
+             <Mascot mood="neutral" size={100} message={tip} />
         </div>
 
         {wordOfTheDay && (
@@ -277,7 +292,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     );
   }
 
-  // -- Grade Selection --
   if (!selectedGrade) {
     let gradesToShow: GradeLevel[] = [];
     switch (selectedCategory) {
@@ -292,7 +306,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-5xl pb-8">
           {gradesToShow.map((grade) => {
-             // Calculate Grade Progress
              const gradeUnitIds = UNIT_ASSETS[grade]?.map(u => u.id).filter(id => !id.endsWith('all') && id !== 'uAll') || [];
              const gradeProgress = calculateProgress(gradeUnitIds);
              
@@ -333,7 +346,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     );
   }
 
-  // -- Unit Selection --
   const units = UNIT_ASSETS[selectedGrade] || [];
   const stats = getUserStats();
   
@@ -380,7 +392,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 px-1 pb-8">
         {units.map((unit) => {
-            // Calculate Unit Progress
             const unitProgress = calculateProgress([unit.id]);
             const isSpecialUnit = unit.id.endsWith('all');
 
@@ -389,7 +400,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                  <div className="absolute -right-4 -top-4 w-24 h-24 rounded-full blur-2xl group-hover:scale-150 transition-transform duration-500" style={{backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)'}}></div>
                 <div className="flex items-start justify-between mb-4 relative z-10">
                    <div className="w-12 h-12 rounded-xl flex items-center justify-center transition-all shadow-sm shrink-0 overflow-hidden" style={{backgroundColor: 'var(--color-bg-main)', color: 'var(--color-text-muted)'}}>
-                      {/* Fallback logic for unit icons as well */}
                       {unit.image ? (
                          <img src={unit.image} alt={unit.title} className="w-full h-full object-cover" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
                       ) : (
@@ -402,7 +412,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                   <h4 className="text-[10px] font-bold uppercase tracking-wider mb-1 truncate" style={{color: 'var(--color-text-muted)'}}>{unit.unitNo}</h4>
                   <h3 className="text-lg font-bold leading-tight transition-colors line-clamp-2 mb-3" style={{color: 'var(--color-text-main)'}}>{unit.title}</h3>
                   
-                  {/* Unit Progress Bar */}
                   {!isSpecialUnit && (
                       <div className="w-full">
                         <div className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">

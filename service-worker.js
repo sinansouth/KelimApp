@@ -1,5 +1,5 @@
 
-const CACHE_NAME = 'kelimapp-v6-pwa-ready';
+const CACHE_NAME = 'kelimapp-v7-pwa-ready';
 
 // Core assets that must be cached immediately
 // We are explicitly caching Tailwind and Fonts so the app looks "native" immediately
@@ -16,7 +16,8 @@ const RUNTIME_CACHE_DOMAINS = [
   'aistudiocdn.com',
   'cdn-icons-png.flaticon.com',
   'fonts.gstatic.com',
-  'via.placeholder.com'
+  'via.placeholder.com',
+  '8upload.com' // Added user image host
 ];
 
 self.addEventListener('install', (event) => {

@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
-import { CheckCircle, XCircle, Bookmark, Info } from 'lucide-react';
+import { CheckCircle, XCircle, Bookmark, Info, Lightbulb } from 'lucide-react';
 import { updateStats, handleQuizResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress } from '../services/userService';
 import { playSound } from '../services/soundService';
+import Mascot from './Mascot';
 
 interface QuizProps {
   words: WordCard[];
@@ -26,36 +27,71 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
   const [autoBookmarked, setAutoBookmarked] = useState(false);
   const [addedToMemorized, setAddedToMemorized] = useState(false);
   
+  // Hint System
+  const [hintsRemaining, setHintsRemaining] = useState(0);
+  const [isHintUsed, setIsHintUsed] = useState(false);
+  
+  // Mascot State
+  const [mascotMood, setMascotMood] = useState<'neutral' | 'happy' | 'sad' | 'thinking'>('thinking');
+  const [mascotMessage, setMascotMessage] = useState<string | undefined>(undefined);
+
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Calculate initial hints based on question count (e.g., ~1 hint per 10 questions)
+  useEffect(() => {
+      const calculatedHints = Math.ceil(words.length / 10);
+      setHintsRemaining(calculatedHints);
+  }, [words.length]);
 
   const questions = useMemo(() => {
     if (!words || words.length === 0) return [];
     const distractorPool = (allWords && allWords.length > 3) ? allWords : words;
 
     return words.map((word) => {
-      // Filter potential distractors:
-      // 1. Different English word
-      // 2. Different Turkish meaning (to avoid duplicate options)
-      const validDistractors = distractorPool.filter((w) => 
-        w.english !== word.english && 
-        w.turkish.trim().toLowerCase() !== word.turkish.trim().toLowerCase()
+      // SMART DISTRACTOR LOGIC:
+      // 1. Try to find words with the same context/category first
+      const sameContextWords = distractorPool.filter(w => 
+          w.english !== word.english && 
+          w.turkish.trim().toLowerCase() !== word.turkish.trim().toLowerCase() &&
+          w.context === word.context
       );
-      
-      // Shuffle valid distractors
-      const shuffledDistractors = [...validDistractors].sort(() => 0.5 - Math.random());
-      
-      // Select unique distractors (ensure no duplicate Turkish meanings among distractors)
+
+      // 2. If not enough context matches, use random words
+      const otherWords = distractorPool.filter(w => 
+        w.english !== word.english && 
+        w.turkish.trim().toLowerCase() !== word.turkish.trim().toLowerCase() &&
+        w.context !== word.context
+      );
+
       const selectedDistractors: WordCard[] = [];
       const seenMeanings = new Set<string>();
-      seenMeanings.add(word.turkish.trim().toLowerCase()); // Block correct answer meaning
+      seenMeanings.add(word.turkish.trim().toLowerCase());
 
-      for (const d of shuffledDistractors) {
-        if (selectedDistractors.length >= 3) break;
-        const meaning = d.turkish.trim().toLowerCase();
-        if (!seenMeanings.has(meaning)) {
-          selectedDistractors.push(d);
-          seenMeanings.add(meaning);
-        }
+      // Helper to add unique distractors
+      const addDistractor = (pool: WordCard[]) => {
+          const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
+          for (const d of shuffledPool) {
+              if (selectedDistractors.length >= 3) break;
+              const meaning = d.turkish.trim().toLowerCase();
+              if (!seenMeanings.has(meaning)) {
+                  selectedDistractors.push(d);
+                  seenMeanings.add(meaning);
+              }
+          }
+      };
+
+      // First fill with same context
+      addDistractor(sameContextWords);
+      
+      // If we still need more, fill with others
+      if (selectedDistractors.length < 3) {
+          addDistractor(otherWords);
+      }
+
+      // Fallback if still not enough (rare, but possible in very small sets)
+      if (selectedDistractors.length < 3 && words.length > 3) {
+         const remaining = words.filter(w => !seenMeanings.has(w.turkish.trim().toLowerCase()) && w.english !== word.english);
+         addDistractor(remaining);
       }
       
       const optionsRaw = [word, ...selectedDistractors];
@@ -80,6 +116,19 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
     return () => { if (timerRef.current) clearTimeout(timerRef.current); };
   }, []);
 
+  const useHint = () => {
+      if (hintsRemaining > 0 && !isHintUsed && !isAnswered) {
+          setHintsRemaining(prev => prev - 1);
+          setIsHintUsed(true);
+          playSound('flip');
+          
+          const currentQ = questions[currentQuestionIndex];
+          const hiddenSentence = currentQ.wordObj.exampleEng.replace(new RegExp(currentQ.word, 'gi'), '______');
+          
+          setMascotMessage(`İpucu (${currentQ.wordObj.context}): "${hiddenSentence}"`);
+      }
+  };
+
   const handleOptionClick = (index: number) => {
     if (isAnswered) return;
 
@@ -89,12 +138,13 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
     const isCorrect = questions[currentQuestionIndex].options[index].isCorrect;
     const wordId = getUniqueId(questions[currentQuestionIndex].wordObj);
     
-    // Calculate new score immediately for logic
     const newScore = isCorrect ? score + 1 : score;
-    if (isCorrect) setScore(newScore); // Update state
+    if (isCorrect) setScore(newScore);
 
     if (isCorrect) {
         playSound('correct');
+        setMascotMood('happy');
+        setMascotMessage('Harika! Doğru bildin.');
         const newBadges = updateStats('quiz_correct', grade);
         if (newBadges.length > 0 && onBadgeUnlock) {
             newBadges.forEach(b => onBadgeUnlock(b));
@@ -119,6 +169,8 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
     } else {
         playSound('wrong');
+        setMascotMood('sad');
+        setMascotMessage(`Üzgünüm. Doğru cevap: ${questions[currentQuestionIndex].correctAnswer}`);
         updateStats('quiz_wrong', grade);
         
         try {
@@ -139,7 +191,8 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
     handleQuizResult(wordId, isCorrect);
 
-    const delay = isCorrect ? 1200 : 2500;
+    // Wait time is now same for both correct and wrong answers to allow reading feedback
+    const delay = 2500; 
     timerRef.current = setTimeout(() => {
         handleNext(newScore);
     }, delay);
@@ -148,7 +201,6 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
   const handleNext = (currentScoreValue?: number) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     
-    // Use passed score if available (from timeout), otherwise use state
     const actualScore = currentScoreValue !== undefined ? currentScoreValue : score;
 
     if (currentQuestionIndex < questions.length - 1) {
@@ -157,21 +209,18 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
       setIsAnswered(false);
       setAutoBookmarked(false);
       setAddedToMemorized(false);
+      setIsHintUsed(false); // Reset hint usage for next question
+      setMascotMood('thinking');
+      setMascotMessage(undefined);
     } else {
       playSound('success');
       setShowResults(true);
       
       const percentage = Math.round((actualScore / questions.length) * 100);
       
-      // Update Quest Progress
       updateQuestProgress('finish_quiz', 1);
       if (percentage === 100) {
          updateQuestProgress('perfect_quiz', 1);
-         // Pass quiz size for specific badges (10, 25, 50, All)
-         // We use -1 to denote 'All' in setup, but here we know the actual length.
-         // If the length matches standard sizes, it triggers those badges.
-         // If it matches total unit size (which we don't know exactly here, but likely > 50 if it's a full unit), we handle it via length check in userService if needed or just rely on the user selecting "Tümü" (-1) which passed that intent.
-         // For simplicity, let's pass the actual length.
          const newBadges = updateStats('perfect_quiz', grade, undefined, questions.length);
          if (newBadges.length > 0 && onBadgeUnlock) {
               newBadges.forEach(b => onBadgeUnlock(b));
@@ -194,6 +243,12 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
           <h2 className="text-3xl font-black mb-2 dark:text-white">Quiz Bitti!</h2>
           <div className="text-7xl font-black text-indigo-600 dark:text-indigo-400 my-8">{score}<span className="text-3xl text-slate-300 font-bold">/{questions.length}</span></div>
           <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-lg">Başarı Oranı: <span className="font-bold text-indigo-600 dark:text-indigo-400">% {percentage}</span></p>
+          
+           {/* Result Mascot */}
+           <div className="mb-6 flex justify-center">
+              <Mascot mood={percentage >= 70 ? 'happy' : 'sad'} size={100} message={percentage >= 70 ? 'Harika iş! Böyle devam et.' : 'Biraz daha çalışmalısın. Pes etmek yok!'} />
+           </div>
+
           <div className="flex flex-col gap-4">
              <button onClick={onRestart} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none active:scale-95 transition-transform">Tekrar Çöz</button>
              <button onClick={onBack} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-bold active:scale-95 transition-transform">Üniteye Dön</button>
@@ -207,7 +262,8 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
   return (
     <div className="w-full max-w-2xl mx-auto p-4 flex flex-col h-full justify-center">
-       <div className="flex justify-between items-center mb-8">
+       
+       <div className="flex justify-between items-center mb-4">
          <div className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm">
             {currentQuestionIndex + 1}
          </div>
@@ -217,7 +273,25 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
          <div className="text-sm font-bold text-slate-400">{questions.length}</div>
       </div>
 
-      <div className="flex-grow flex flex-col justify-center mb-8">
+      <div className="flex justify-center mb-2 relative" style={{minHeight: '120px'}}>
+          <Mascot mood={mascotMood} size={120} message={mascotMessage} />
+          
+          {/* Hint Button near Mascot */}
+          <button 
+            onClick={useHint} 
+            disabled={isAnswered || hintsRemaining === 0 || isHintUsed}
+            className={`absolute bottom-0 right-0 sm:right-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-sm border transition-all
+                ${isAnswered || hintsRemaining === 0 || isHintUsed 
+                    ? 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700 opacity-50 cursor-not-allowed' 
+                    : 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800 active:scale-95 cursor-pointer'
+                }`}
+          >
+             <Lightbulb size={16} className={hintsRemaining > 0 && !isHintUsed ? "fill-yellow-500 text-yellow-500" : ""} />
+             <span>İpucu ({hintsRemaining})</span>
+          </button>
+      </div>
+
+      <div className="flex-grow flex flex-col justify-center mb-8 mt-4">
          <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6 relative">
              <h2 className="text-3xl sm:text-5xl font-black text-center text-slate-800 dark:text-white leading-tight break-words">
                 {currentQuestion.word}
@@ -262,7 +336,10 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
          {isAnswered && currentQuestion.explanation && (
              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-sm text-blue-800 dark:text-blue-200 flex gap-3 items-start animate-in slide-in-from-bottom-2">
                  <Info size={20} className="shrink-0 mt-0.5" />
-                 <p className="font-medium leading-relaxed">{currentQuestion.explanation}</p>
+                 <p className="font-medium leading-relaxed">
+                     <strong>Bağlam:</strong> {currentQuestion.explanation} <br/>
+                     <strong>Örnek:</strong> {currentQuestion.wordObj.exampleEng}
+                 </p>
              </div>
          )}
       </div>

@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Trophy, Star, X, PartyPopper } from 'lucide-react';
 
@@ -20,7 +21,7 @@ const Celebration: React.FC<CelebrationProps> = ({ message, type, onClose }) => 
   }, [onClose]);
 
   return (
-    <div className={`fixed inset-0 z-[100] flex items-center justify-center pointer-events-none transition-opacity duration-300 ${visible ? 'opacity-100' : 'opacity-0'}`}>
+    <div className={`fixed inset-0 z-[100] flex items-center justify-center transition-opacity duration-300 ${visible ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}`}>
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" />
 
@@ -73,7 +74,7 @@ const Celebration: React.FC<CelebrationProps> = ({ message, type, onClose }) => 
 
         <button 
           onClick={() => { setVisible(false); setTimeout(onClose, 300); }}
-          className="mt-6 pointer-events-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
+          className="mt-6 w-full px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95"
         >
           Devam Et
         </button>

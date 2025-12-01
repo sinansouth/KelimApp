@@ -345,6 +345,9 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                 <div className="grid grid-cols-2 gap-4 sm:gap-6">
                     {sortedBadges.map((badge) => {
                         const isUnlocked = stats?.badges.includes(badge.id);
+                        // Fix: Check if icon is a URL (starts with http, /, or data:) to render img, otherwise render text
+                        const isImage = badge.image || (badge.icon && (badge.icon.startsWith('http') || badge.icon.startsWith('/') || badge.icon.startsWith('data:')));
+
                         return (
                             <div 
                                 key={badge.id} 
@@ -355,11 +358,11 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                                     }`}
                                 style={!isUnlocked ? {backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'} : {}}
                             >
-                                <div className="text-4xl mb-1 filter drop-shadow-sm">
-                                    {badge.image ? (
-                                        <img src={badge.image} alt={badge.name} className="w-12 h-12 object-contain" />
+                                <div className="text-4xl mb-1 filter drop-shadow-sm h-20 w-20 flex items-center justify-center">
+                                    {isImage ? (
+                                        <img src={badge.image || badge.icon} alt={badge.name} className="w-full h-full object-contain" />
                                     ) : (
-                                        badge.icon.length > 2 || badge.icon.includes('/') ? <img src={badge.icon} alt={badge.name} className="w-12 h-12 object-contain" /> : badge.icon
+                                         <span className="text-5xl">{badge.icon}</span>
                                     )}
                                 </div>
                                 <h4 className={`font-bold text-sm`} style={{color: isUnlocked ? 'var(--color-text-main)' : 'var(--color-text-muted)'}}>

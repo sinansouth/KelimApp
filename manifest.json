@@ -1,3 +1,4 @@
+
 {
   "name": "KelimApp: İngilizce Öğren",
   "short_name": "KelimApp",
@@ -11,13 +12,13 @@
   "scope": "./",
   "icons": [
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2821/2821768.png",
+      "src": "https://8upload.com/image/32e593ab8691f344/logo__1_.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "https://cdn-icons-png.flaticon.com/512/2821/2821768.png",
+      "src": "https://8upload.com/image/32e593ab8691f344/logo__1_.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
@@ -25,21 +26,21 @@
   ],
   "screenshots": [
     {
-      "src": "https://via.placeholder.com/1080x1920.png?text=KelimApp+Ana+Ekran",
+      "src": "https://8upload.com/image/32e593ab8691f344/logo__1_.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Ana Sayfa"
     },
     {
-      "src": "https://via.placeholder.com/1080x1920.png?text=Kelime+Kartlari",
+      "src": "https://8upload.com/image/32e593ab8691f344/logo__1_.png",
       "sizes": "1080x1920",
       "type": "image/png",
       "form_factor": "narrow",
       "label": "Kelime Kartları"
     },
     {
-      "src": "https://via.placeholder.com/1920x1080.png?text=KelimApp+Desktop",
+      "src": "https://8upload.com/image/32e593ab8691f344/logo__1_.png",
       "sizes": "1920x1080",
       "type": "image/png",
       "form_factor": "wide",
@@ -56,7 +57,7 @@
       "short_name": "Çalış",
       "description": "Kelime kartlarını aç",
       "url": "./index.html?mode=study",
-      "icons": [{ "src": "https://cdn-icons-png.flaticon.com/512/2821/2821768.png", "sizes": "192x192" }]
+      "icons": [{ "src": "https://8upload.com/image/32e593ab8691f344/logo__1_.png", "sizes": "192x192" }]
     }
   ]
 }
