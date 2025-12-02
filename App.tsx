@@ -23,8 +23,9 @@ import AuthModal from './components/AuthModal';
 import FeedbackModal from './components/FeedbackModal';
 import AdminModal from './components/AdminModal'; 
 import InstallPromptModal from './components/InstallPromptModal';
+import OnboardingTutorial from './components/OnboardingTutorial';
 import { ChevronLeft, Zap, Trophy, User } from 'lucide-react';
-import { getUserProfile, getTheme, saveTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, clearLocalUserData } from './services/userService';
+import { getUserProfile, getTheme, saveTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, clearLocalUserData, UserStats } from './services/userService';
 import { getAuthInstance, isFirebaseReady, syncLocalToCloud, subscribeToUserChanges, syncData } from './services/firebase'; 
 import { ANNOUNCEMENTS } from './data/announcements';
 import { playSound } from './services/soundService';
@@ -39,6 +40,9 @@ const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.HOME);
   const [currentTheme, setCurrentTheme] = useState<ThemeType>('dark');
   
+  // Lifted State for Profile Updates
+  const [userStats, setUserStats] = useState<UserStats>(getUserStats());
+
   // Modal States
   const [showSettings, setShowSettings] = useState(false);
   const [showSRSInfo, setShowSRSInfo] = useState(false);
@@ -47,6 +51,7 @@ const App: React.FC = () => {
   const [showGradeSelection, setShowGradeSelection] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false); 
   const [showAdminModal, setShowAdminModal] = useState(false); 
+  const [showTutorial, setShowTutorial] = useState(false);
 
   const [availableGradesForReview, setAvailableGradesForReview] = useState<string[]>([]);
   const [topicTitle, setTopicTitle] = useState<string>('');
@@ -81,6 +86,11 @@ const App: React.FC = () => {
   const [boostTimeLeft, setBoostTimeLeft] = useState('');
   
   const [headerProfile, setHeaderProfile] = useState(getUserProfile());
+
+  const refreshGlobalState = () => {
+      setUserStats(getUserStats());
+      setHeaderProfile(getUserProfile());
+  };
 
   // --- PRELOADER ---
   // Preload critical images to cache them on app start
@@ -144,6 +154,8 @@ const App: React.FC = () => {
     if (['2', '3', '4'].includes(g)) setSelectedCategory('PRIMARY_SCHOOL');
     else if (['5', '6', '7', '8'].includes(g)) setSelectedCategory('MIDDLE_SCHOOL');
     else if (['9', '10', '11', '12'].includes(g)) setSelectedCategory('HIGH_SCHOOL');
+    else if (['A1', 'A2', 'B1', 'B2', 'C1'].includes(g)) setSelectedCategory('GENERAL_ENGLISH');
+    
     if (g) { setSelectedGrade(g as GradeLevel); } else { setSelectedGrade(null); }
   }, []);
 
@@ -190,7 +202,7 @@ const App: React.FC = () => {
                   }
 
                   // 2. Update UI with fresh data
-                  setHeaderProfile(getUserProfile());
+                  refreshGlobalState();
                   applyUserProfileGrade();
                   
                   // Apply theme from synced settings
@@ -201,7 +213,7 @@ const App: React.FC = () => {
                   if (navigator.onLine) {
                            unsubscribeSnapshot = subscribeToUserChanges(user.uid, () => {
                                // When cloud data changes and merges into local storage, force update UI
-                               setHeaderProfile(getUserProfile());
+                               refreshGlobalState();
                                applyUserProfileGrade();
                                
                                // Also update theme if changed remotely
@@ -245,7 +257,7 @@ const App: React.FC = () => {
                   await syncData(user.uid);
                   
                   // Update UI
-                  setHeaderProfile(getUserProfile());
+                  refreshGlobalState();
                   applyUserProfileGrade();
                   const currentSettings = getAppSettings();
                   applyTheme(currentSettings.theme);
@@ -345,11 +357,16 @@ const App: React.FC = () => {
 
   useEffect(() => {
       const checkBoost = () => {
-          const stats = getUserStats();
+          const currentStats = getUserStats();
+          // Only update state if changed to avoid re-renders
+          if (currentStats.xpBoostEndTime !== userStats.xpBoostEndTime) {
+             refreshGlobalState();
+          }
+          
           const now = Date.now();
-          if (stats.xpBoostEndTime > now) {
+          if (currentStats.xpBoostEndTime > now) {
               setIsBoostActive(true);
-              const diff = stats.xpBoostEndTime - now;
+              const diff = currentStats.xpBoostEndTime - now;
               const minutes = Math.floor(diff / 60000);
               setBoostTimeLeft(`${minutes}dk`);
           } else {
@@ -360,7 +377,7 @@ const App: React.FC = () => {
       checkBoost();
       const interval = setInterval(checkBoost, 5000); 
       return () => clearInterval(interval);
-  }, []);
+  }, [userStats]);
 
   useEffect(() => {
     const dataWiped = checkDataVersion();
@@ -370,13 +387,18 @@ const App: React.FC = () => {
     }
     const savedTheme = getTheme();
     applyTheme(savedTheme);
-    const userProfile = getUserProfile();
-    setHeaderProfile(userProfile);
     
-    if (!userProfile.name) { 
+    refreshGlobalState();
+    
+    if (!headerProfile.name) { 
         setShowAuthModal(true); 
     } else {
         applyUserProfileGrade(); 
+        // Check if tutorial should be shown
+        const tutorialSeen = localStorage.getItem('tutorial_seen');
+        if (!tutorialSeen) {
+            setShowTutorial(true);
+        }
     }
 
     if (ANNOUNCEMENTS.length > 0) {
@@ -401,12 +423,15 @@ const App: React.FC = () => {
       if (showGradeSelection) { setShowGradeSelection(false); return true; }
       if (showFeedbackModal) { setShowFeedbackModal(false); return true; }
       if (pendingQuizConfig) { setPendingQuizConfig(null); return true; }
+      if (showTutorial) { setShowTutorial(false); localStorage.setItem('tutorial_seen', 'true'); return true; }
       
       if (mode !== AppMode.HOME) {
           setMode(AppMode.HOME);
           setIsSRSReview(false);
           setWords([]);
           setAllUnitWords([]);
+          // Refresh stats when coming back home
+          refreshGlobalState();
           return true;
       }
       
@@ -415,7 +440,7 @@ const App: React.FC = () => {
       if (selectedCategory) { setSelectedCategory(null); return true; }
       
       return false; 
-  }, [mode, selectedUnit, selectedGrade, selectedCategory, showSettings, showSRSInfo, showMarket, showGradeSelection, showFeedbackModal, showAdminModal, pendingQuizConfig, showAuthModal]);
+  }, [mode, selectedUnit, selectedGrade, selectedCategory, showSettings, showSRSInfo, showMarket, showGradeSelection, showFeedbackModal, showAdminModal, pendingQuizConfig, showAuthModal, showTutorial]);
 
   useEffect(() => {
     const setupBackButton = async () => {
@@ -457,20 +482,32 @@ const App: React.FC = () => {
 
   const handleProfileUpdate = () => { 
       applyUserProfileGrade(); 
-      setHeaderProfile(getUserProfile());
+      refreshGlobalState();
   };
-  const handleTriggerCelebration = (message: string, type: 'unit' | 'quiz' | 'goal') => { playSound('success'); setCelebration({ show: true, message, type }); };
-  const handleBadgeUnlock = (badge: Badge) => { playSound('success'); setNewBadge(badge); setTimeout(() => setNewBadge(null), 4000); };
+  
+  const handleTriggerCelebration = (message: string, type: 'unit' | 'quiz' | 'goal') => { 
+      playSound('success'); 
+      setCelebration({ show: true, message, type });
+      refreshGlobalState(); // Refresh stats to show XP immediately
+  };
+  
+  const handleBadgeUnlock = (badge: Badge) => { 
+      playSound('success'); 
+      setNewBadge(badge); 
+      setTimeout(() => setNewBadge(null), 4000); 
+      refreshGlobalState();
+  };
   
   const handleGoHome = () => { 
       setMode(AppMode.HOME); setTopicTitle(''); setWords([]); setAllUnitWords([]); setSelectedUnit(null); setSelectedStudyMode(null); setSelectedGrade(null); setSelectedCategory(null); setIsSRSReview(false); setPendingQuizConfig(null); setShowGradeSelection(false); 
+      refreshGlobalState();
   };
   
   const handleManualBack = () => { 
      closeModalOrGoBack();
   };
   
-  const handleOpenProfile = () => { addHistoryEntry(); setMode(AppMode.PROFILE); setTopicTitle('Profilim'); };
+  const handleOpenProfile = () => { addHistoryEntry(); setMode(AppMode.PROFILE); setTopicTitle('Profilim'); refreshGlobalState(); };
   const handleOpenInfo = () => { addHistoryEntry(); setMode(AppMode.INFO); setTopicTitle('İpuçları'); };
   const handleOpenMarket = () => { addHistoryEntry(); setShowMarket(true); };
   const handleOpenAnnouncements = () => { addHistoryEntry(); setMode(AppMode.ANNOUNCEMENTS); setTopicTitle('Duyurular'); if (ANNOUNCEMENTS.length > 0) { setLastReadAnnouncementId(ANNOUNCEMENTS[0].id); setHasUnreadAnnouncements(false); } };
@@ -664,6 +701,7 @@ const App: React.FC = () => {
         onProfileUpdate={handleProfileUpdate} 
         onOpenMarket={handleOpenMarket}
         onLoginRequest={() => setShowAuthModal(true)} 
+        externalStats={userStats} // Pass stats to keep profile updated
       />
     ); break;
     case AppMode.INFO: content = <InfoView onBack={handleManualBack} />; break;
@@ -698,12 +736,15 @@ const App: React.FC = () => {
          </div>
       )}
 
+      {showTutorial && <OnboardingTutorial onComplete={() => { setShowTutorial(false); localStorage.setItem('tutorial_seen', 'true'); }} />}
+
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onSuccess={() => { handleProfileUpdate(); setShowAuthModal(false); }} />}
       {showSettings && (
         <SettingsModal 
             onClose={handleManualBack} 
             onOpenFeedback={() => setShowFeedbackModal(true)} 
             onOpenAdmin={() => setShowAdminModal(true)}
+            onRestartTutorial={() => { setShowSettings(false); setShowTutorial(true); }}
         />
       )}
       {showFeedbackModal && <FeedbackModal onClose={() => setShowFeedbackModal(false)} />}
@@ -755,7 +796,7 @@ const App: React.FC = () => {
              {mode !== AppMode.INFO && <button onClick={handleOpenInfo} className="flex items-center justify-center w-10 h-10 rounded-full transition-all active:scale-95" style={{color: 'var(--color-text-muted)'}}>{UI_ICONS.info}</button>}
              
              {mode !== AppMode.PROFILE && (
-                <button onClick={handleOpenProfile} className="flex items-center justify-center w-10 h-10 rounded-full transition-all active:scale-95" style={{color: 'var(--color-text-muted)'}}>
+                <button id="profile-button" onClick={handleOpenProfile} className="flex items-center justify-center w-10 h-10 rounded-full transition-all active:scale-95" style={{color: 'var(--color-text-muted)'}}>
                    {UI_ICONS.profile}
                 </button>
              )}

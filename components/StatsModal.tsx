@@ -110,41 +110,37 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
     setUnitStats(newUnitStats);
   }, [filterGrade, filterUnit]);
 
-  // Sort badges: Unlocked first, and among unlocked, newest first (assuming stats.badges grows by push)
   const sortedBadges = React.useMemo(() => {
       if (!stats) return BADGES;
       return [...BADGES].sort((a, b) => {
            const aUnlocked = stats.badges.includes(a.id);
            const bUnlocked = stats.badges.includes(b.id);
            
-           if (aUnlocked && !bUnlocked) return -1; // a comes first
-           if (!aUnlocked && bUnlocked) return 1;  // b comes first
+           if (aUnlocked && !bUnlocked) return -1; 
+           if (!aUnlocked && bUnlocked) return 1;  
            
            if (aUnlocked && bUnlocked) {
-               // Both unlocked, sort by index in stats.badges (higher index = newer)
-               // We want newer first, so B - A
                return stats.badges.indexOf(b.id) - stats.badges.indexOf(a.id);
            }
-           // Both locked, keep original order
            return 0;
       });
   }, [stats]);
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl sm:rounded-3xl rounded-t-3xl shadow-2xl border overflow-hidden flex flex-col h-[90vh] sm:h-auto sm:max-h-[90vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
+      <div className="w-full max-w-2xl sm:rounded-3xl rounded-t-3xl shadow-2xl border overflow-hidden flex flex-col h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
            style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
         
         {/* Header */}
-        <div className="flex items-center justify-between p-4 sm:p-6 border-b z-10 sticky top-0" style={{borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-card)'}}>
-            <h2 className="text-2xl font-black" style={{color: 'var(--color-text-main)'}}>İlerleme Durumu</h2>
+        <div className="flex items-center justify-between p-4 border-b z-10 sticky top-0 shrink-0" style={{borderColor: 'var(--color-border)', backgroundColor: 'var(--color-bg-card)'}}>
+            <h2 className="text-xl sm:text-2xl font-black" style={{color: 'var(--color-text-main)'}}>İlerleme Durumu</h2>
             <button onClick={onClose} className="p-2 rounded-full hover:bg-white/10 transition-colors" style={{color: 'var(--color-text-muted)'}}>
                 <X size={24} />
             </button>
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b px-6 gap-6" style={{borderColor: 'var(--color-border)'}}>
+        <div className="flex border-b px-6 gap-6 shrink-0" style={{borderColor: 'var(--color-border)'}}>
             <button 
                 onClick={() => setActiveTab('stats')}
                 className={`py-4 font-bold text-sm relative transition-colors`}
@@ -167,11 +163,11 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
             </button>
         </div>
 
-        <div className="overflow-y-auto p-6 custom-scrollbar" style={{backgroundColor: 'var(--color-bg-main)'}}>
+        <div className="overflow-y-auto p-4 sm:p-6 custom-scrollbar flex-1" style={{backgroundColor: 'var(--color-bg-main)'}}>
             {activeTab === 'stats' ? (
-                <div className="space-y-8">
+                <div className="space-y-6 sm:space-y-8">
                      {/* SRS Boxes Stats */}
-                    <div className="p-5 rounded-3xl border" style={{backgroundColor: 'rgba(var(--color-bg-card-rgb), 0.5)', borderColor: 'var(--color-border)'}}>
+                    <div className="p-4 sm:p-5 rounded-3xl border" style={{backgroundColor: 'rgba(var(--color-bg-card-rgb), 0.5)', borderColor: 'var(--color-border)'}}>
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2 text-sm font-bold" style={{color: 'var(--color-text-main)'}}>
                                 <Layers size={18} className="text-indigo-500" /> Hafıza Kutuları
@@ -248,25 +244,25 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                     {/* Activity Stats (Grid) */}
                     <div className="grid grid-cols-2 gap-4">
                         {/* Views */}
-                        <div className="p-5 rounded-3xl border flex flex-col justify-between h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
+                        <div className="p-4 sm:p-5 rounded-3xl border flex flex-col justify-between h-28 sm:h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
                              <div className="flex justify-between items-start">
-                                <span className="text-xs font-bold uppercase text-blue-500">Bakılan Kart</span>
-                                <Eye size={20} className="text-blue-500" />
+                                <span className="text-[10px] sm:text-xs font-bold uppercase text-blue-500">Bakılan Kart</span>
+                                <Eye size={18} className="text-blue-500" />
                             </div>
                             <div>
-                                <span className="text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{stats?.flashcardsViewed || 0}</span>
+                                <span className="text-2xl sm:text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{stats?.flashcardsViewed || 0}</span>
                             </div>
                         </div>
                         
                         {/* Quiz Score */}
-                        <div className="p-5 rounded-3xl border flex flex-col justify-between h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
+                        <div className="p-4 sm:p-5 rounded-3xl border flex flex-col justify-between h-28 sm:h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
                              <div className="flex justify-between items-start">
-                                <span className="text-xs font-bold uppercase text-violet-500">Quiz Başarısı</span>
-                                <Target size={20} className="text-violet-500" />
+                                <span className="text-[10px] sm:text-xs font-bold uppercase text-violet-500">Quiz Başarısı</span>
+                                <Target size={18} className="text-violet-500" />
                             </div>
                             <div>
                                 <div className="flex items-end gap-1">
-                                    <span className="text-3xl font-black" style={{color: 'var(--color-text-main)'}}>
+                                    <span className="text-2xl sm:text-3xl font-black" style={{color: 'var(--color-text-main)'}}>
                                         {stats && (stats.quizCorrect + stats.quizWrong) > 0 
                                             ? Math.round((stats.quizCorrect / (stats.quizCorrect + stats.quizWrong)) * 100) 
                                             : 0}%
@@ -280,14 +276,14 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                         </div>
 
                         {/* Memorized */}
-                        <div className="p-5 rounded-3xl border flex flex-col justify-between h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
+                        <div className="p-4 sm:p-5 rounded-3xl border flex flex-col justify-between h-28 sm:h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
                             <div className="flex justify-between items-start">
-                                <span className="text-xs font-bold uppercase text-green-500">Ezberlenen</span>
-                                <CheckCircle size={20} className="text-green-500" />
+                                <span className="text-[10px] sm:text-xs font-bold uppercase text-green-500">Ezberlenen</span>
+                                <CheckCircle size={18} className="text-green-500" />
                             </div>
                             <div>
-                                <span className="text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{memorizedCount}</span>
-                                <span className="text-xs font-medium ml-1" style={{color: 'var(--color-text-muted)'}}>/ {totalWords}</span>
+                                <span className="text-2xl sm:text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{memorizedCount}</span>
+                                <span className="text-[10px] sm:text-xs font-medium ml-1" style={{color: 'var(--color-text-muted)'}}>/ {totalWords}</span>
                             </div>
                             <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
                                 <div className="h-full bg-green-500 rounded-full" style={{ width: `${totalWords > 0 ? (memorizedCount / totalWords) * 100 : 0}%` }}></div>
@@ -295,13 +291,13 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                         </div>
 
                         {/* Bookmarks */}
-                        <div className="p-5 rounded-3xl border flex flex-col justify-between h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
+                        <div className="p-4 sm:p-5 rounded-3xl border flex flex-col justify-between h-28 sm:h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
                             <div className="flex justify-between items-start">
-                                <span className="text-xs font-bold uppercase text-orange-500">Favoriler</span>
-                                <Bookmark size={20} className="text-orange-500" />
+                                <span className="text-[10px] sm:text-xs font-bold uppercase text-orange-500">Favoriler</span>
+                                <Bookmark size={18} className="text-orange-500" />
                             </div>
                             <div>
-                                <span className="text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{bookmarksCount}</span>
+                                <span className="text-2xl sm:text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{bookmarksCount}</span>
                             </div>
                             <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
                                 <div className="h-full bg-orange-500 rounded-full" style={{ width: `${totalWords > 0 ? (bookmarksCount / totalWords) * 100 : 0}%` }}></div>
@@ -345,7 +341,6 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                 <div className="grid grid-cols-2 gap-4 sm:gap-6">
                     {sortedBadges.map((badge) => {
                         const isUnlocked = stats?.badges.includes(badge.id);
-                        // Fix: Check if icon is a URL (starts with http, /, or data:) to render img, otherwise render text
                         const isImage = badge.image || (badge.icon && (badge.icon.startsWith('http') || badge.icon.startsWith('/') || badge.icon.startsWith('data:')));
 
                         return (
@@ -358,17 +353,17 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                                     }`}
                                 style={!isUnlocked ? {backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'} : {}}
                             >
-                                <div className="text-4xl mb-1 filter drop-shadow-sm h-20 w-20 flex items-center justify-center">
+                                <div className="text-4xl mb-1 filter drop-shadow-sm h-16 w-16 sm:h-20 sm:w-20 flex items-center justify-center">
                                     {isImage ? (
                                         <img src={badge.image || badge.icon} alt={badge.name} className="w-full h-full object-contain" />
                                     ) : (
-                                         <span className="text-5xl">{badge.icon}</span>
+                                         <span className="text-4xl sm:text-5xl">{badge.icon}</span>
                                     )}
                                 </div>
-                                <h4 className={`font-bold text-sm`} style={{color: isUnlocked ? 'var(--color-text-main)' : 'var(--color-text-muted)'}}>
+                                <h4 className={`font-bold text-xs sm:text-sm`} style={{color: isUnlocked ? 'var(--color-text-main)' : 'var(--color-text-muted)'}}>
                                     {badge.name}
                                 </h4>
-                                <p className="text-[10px] font-medium leading-tight" style={{color: 'var(--color-text-muted)'}}>
+                                <p className="text-[9px] sm:text-[10px] font-medium leading-tight" style={{color: 'var(--color-text-muted)'}}>
                                     {badge.description}
                                 </p>
                                 {!isUnlocked && (

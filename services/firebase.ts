@@ -1,6 +1,9 @@
+
 import { initializeApp } from 'firebase/app';
 import { 
-  getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   query, 
   where,
@@ -9,12 +12,11 @@ import {
   getDocs, 
   doc, 
   setDoc, 
-  getDoc,
-  updateDoc,
-  deleteDoc,
-  addDoc,
-  serverTimestamp,
-  enableIndexedDbPersistence,
+  getDoc, 
+  updateDoc, 
+  deleteDoc, 
+  addDoc, 
+  serverTimestamp, 
   onSnapshot
 } from 'firebase/firestore';
 import { 
@@ -34,10 +36,10 @@ import {
     getUserProfile, 
     getUserStats, 
     getAppSettings, 
-    getLastUpdatedTimestamp,
-    updateLastUpdatedTimestamp,
-    getTheme,
-    clearLocalUserData
+    getLastUpdatedTimestamp, 
+    updateLastUpdatedTimestamp, 
+    getTheme, 
+    clearLocalUserData 
 } from './userService';
 
 const firebaseConfig = {
@@ -57,17 +59,16 @@ let isFirebaseReady = false;
 try {
     if (firebaseConfig.apiKey !== "AIzaSyB...") {
         const app = initializeApp(firebaseConfig);
-        db = getFirestore(app);
-        auth = getAuth(app);
         
-        enableIndexedDbPersistence(db).catch((err) => {
-            if (err.code == 'failed-precondition') {
-                console.log('Persistence failed: Multiple tabs open');
-            } else if (err.code == 'unimplemented') {
-                console.log('Persistence is not available');
-            }
+        // Updated Firestore Initialization with new Cache Settings
+        db = initializeFirestore(app, {
+            localCache: persistentLocalCache({
+                tabManager: persistentMultipleTabManager()
+            })
         });
 
+        auth = getAuth(app);
+        
         isFirebaseReady = true;
     }
 } catch (e) {
@@ -457,6 +458,7 @@ export const syncLocalToCloud = async (userId?: string) => {
                 totalBadges: stats.badges.length,
                 cardsViewed: stats.flashcardsViewed,
                 quizScore: stats.quizCorrect,
+                quizWrong: stats.quizWrong, 
                 memorizedCount: (JSON.parse(memorized) as string[]).length
             }
         }, { merge: true });
@@ -479,6 +481,8 @@ export interface LeaderboardEntry {
     badges: number;
     cards: number;
     quiz: number;
+    quizWrong: number;
+    memorized: number;
 }
 
 export const getLeaderboard = async (filterGrade: string | 'ALL'): Promise<LeaderboardEntry[]> => {
@@ -518,7 +522,9 @@ export const getLeaderboard = async (filterGrade: string | 'ALL'): Promise<Leade
                     streak: d.streak || 0,
                     badges: d.totalBadges || 0,
                     cards: d.cardsViewed || 0,
-                    quiz: d.quizScore || 0
+                    quiz: d.quizScore || 0,
+                    quizWrong: d.quizWrong || 0,
+                    memorized: d.memorizedCount || 0
                 });
             }
         });

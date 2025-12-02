@@ -1,5 +1,6 @@
 
 
+
 import { Avatar, Badge, FrameDef, UnitDef, GradeDef, BackgroundDef } from '../types';
 import { 
   BookOpen, GraduationCap, Target, Library, Star, 
@@ -28,6 +29,7 @@ export const GRADE_DATA: Record<string, GradeDef> = {
     'PRIMARY_SCHOOL': { id: 'PRIMARY_SCHOOL', label: 'İlkokul', subLabel: '2-4. Sınıflar', icon: React.createElement(Star, { size: 28 }) },
     'MIDDLE_SCHOOL': { id: 'MIDDLE_SCHOOL', label: 'Ortaokul', subLabel: '5-8. Sınıflar', icon: React.createElement(School, { size: 28 }) },
     'HIGH_SCHOOL': { id: 'HIGH_SCHOOL', label: 'Lise', subLabel: '9-12. Sınıflar', icon: React.createElement(GraduationCap, { size: 28 }) },
+    'GENERAL_ENGLISH': { id: 'GENERAL_ENGLISH', label: 'Genel İngilizce', subLabel: 'A1 - C1 Seviyeleri', icon: React.createElement(Globe, { size: 28 }) },
     '2': { id: '2', label: '2. Sınıf', icon: React.createElement(Star, { size: 24 }) },
     '3': { id: '3', label: '3. Sınıf', icon: React.createElement(Star, { size: 24 }) },
     '4': { id: '4', label: '4. Sınıf', icon: React.createElement(Star, { size: 24 }) },
@@ -448,4 +450,3 @@ export const BADGES: Badge[] = [
   // Add Dynamic Badges
   ...dynamicBadges
 ];
-

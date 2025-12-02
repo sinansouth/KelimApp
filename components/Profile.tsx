@@ -14,6 +14,7 @@ interface ProfileProps {
   onProfileUpdate?: () => void;
   onOpenMarket?: () => void;
   onLoginRequest?: () => void;
+  externalStats?: UserStats; // Optional prop for receiving real-time stats from App
 }
 
 const getGradeVisuals = (grade: string) => {
@@ -26,12 +27,15 @@ const getGradeVisuals = (grade: string) => {
   if (['9', '10', '11', '12'].includes(grade)) {
     return { bg: 'bg-orange-50 dark:bg-orange-900/20', border: 'border-orange-200 dark:border-orange-800', text: 'text-orange-600 dark:text-orange-400' };
   }
+  if (grade && grade.startsWith('A') || grade.startsWith('B') || grade.startsWith('C')) {
+      return { bg: 'bg-rose-50 dark:bg-rose-900/20', border: 'border-rose-200 dark:border-rose-800', text: 'text-rose-600 dark:text-rose-400' };
+  }
   return { bg: 'bg-slate-50 dark:bg-slate-900/50', border: 'border-slate-200 dark:border-slate-800', text: 'text-slate-600 dark:text-slate-400' };
 };
 
-const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket, onLoginRequest }) => {
+const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket, onLoginRequest, externalStats }) => {
   const [profile, setProfile] = useState<IUserProfile>({ name: '', grade: '', avatar: '', frame: 'frame_none', background: 'bg_default', purchasedThemes: [], purchasedFrames: [], purchasedBackgrounds: [], inventory: { streakFreezes: 0 } });
-  const [stats, setStats] = useState<UserStats | null>(null);
+  const [stats, setStats] = useState<UserStats | null>(externalStats || null);
   const [dailyQuests, setDailyQuests] = useState<Quest[]>([]);
   const [isEditing, setIsEditing] = useState(false);
   const [showSaved, setShowSaved] = useState(false);
@@ -52,10 +56,20 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
 
   const visuals = useMemo(() => getGradeVisuals(profile.grade), [profile.grade]);
 
+  // Update local stats if external props change
+  useEffect(() => {
+      if (externalStats) {
+          setStats(externalStats);
+      }
+  }, [externalStats]);
+
   useEffect(() => {
     const userProfile = getUserProfile();
     setProfile(userProfile);
-    setStats(getUserStats());
+    // Only fetch if not provided via props
+    if (!externalStats) {
+        setStats(getUserStats());
+    }
     setDailyQuests(getDailyState().quests);
     setAvatarLoadError(false);
 
@@ -63,7 +77,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
     if (auth) {
         setCurrentUser(auth.currentUser);
     }
-  }, [showStatsModal, showAvatarModal]); 
+  }, [showStatsModal, showAvatarModal, externalStats]); 
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -190,20 +204,20 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
             <div className="absolute top-4 right-4 z-50 flex gap-2">
                 <button 
                     onClick={() => setIsEditing(true)} 
-                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold transition-colors shadow-sm border border-slate-200 dark:border-slate-700"
+                    className="px-4 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-xl text-xs font-bold transition-colors shadow-sm border border-slate-200 dark:border-slate-700"
                 >
                     Düzenle
                 </button>
             </div>
         )}
 
-        <div className="p-8 text-center">
+        <div className="p-6 text-center">
           <div className="mb-4 flex justify-center relative z-0">
              
-             <button onClick={() => setShowAvatarModal(true)} className={`relative w-36 h-36 rounded-full transition-all hover:scale-105 active:scale-95 flex items-center justify-center z-10 ${!hasFrame ? 'shadow-lg' : ''}`}>
+             <button onClick={() => setShowAvatarModal(true)} className={`relative w-32 h-32 rounded-full transition-all hover:scale-105 active:scale-95 flex items-center justify-center z-10 ${!hasFrame ? 'shadow-lg' : ''}`}>
                  <div className={`absolute inset-0 w-full h-full rounded-full pointer-events-none z-30 ${frameStyle}`}></div>
                 <div className={`absolute inset-0 w-full h-full rounded-full z-10 ${backgroundStyle}`}></div>
-                <div className={`w-full h-full rounded-full flex items-center justify-center text-6xl overflow-hidden relative z-20 bg-transparent`}>
+                <div className={`w-full h-full rounded-full flex items-center justify-center text-5xl overflow-hidden relative z-20 bg-transparent`}>
                     {avatarData?.image && !avatarLoadError ? (
                          <img src={avatarData.image} alt={avatarData.name} className="w-full h-full object-cover scale-[1.01]" onError={() => setAvatarLoadError(true)} />
                     ) : (
@@ -212,7 +226,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                         ) : (
                             <div className={`w-full h-full flex items-center justify-center bg-transparent`}>
                                 <span className="filter drop-shadow-md transform transition-transform group-hover:scale-110 leading-none flex items-center justify-center h-full w-full">
-                                    {avatarData?.icon || profile.avatar || <User size={48} />}
+                                    {avatarData?.icon || profile.avatar || <User size={40} />}
                                 </span>
                             </div>
                         )
@@ -230,7 +244,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                  </div>
 
                  <div className="relative flex items-center justify-center mb-1 w-full max-w-xs">
-                     <h2 className="text-3xl font-black tracking-tight text-center truncate px-2" style={{color: 'var(--color-text-main)'}}>{profile.name || 'Öğrenci'}</h2>
+                     <h2 className="text-2xl font-black tracking-tight text-center truncate px-2" style={{color: 'var(--color-text-main)'}}>{profile.name || 'Öğrenci'}</h2>
                  </div>
                  
                  {currentUser ? (
@@ -241,46 +255,48 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                          </button>
                      </div>
                  ) : (
-                     <button onClick={onLoginRequest} className="mb-4 text-xs font-bold text-indigo-500 bg-indigo-500/10 px-3 py-1 rounded-full hover:bg-indigo-500/20 transition-colors">
+                     <button onClick={onLoginRequest} className="mb-4 text-[10px] font-bold text-indigo-500 bg-indigo-500/10 px-3 py-1 rounded-full hover:bg-indigo-500/20 transition-colors">
                         Giriş Yap / Kayıt Ol
                      </button>
                  )}
 
-                 <div className={`font-bold text-sm mb-8 px-3 py-1 rounded-full border ${visuals.bg} ${visuals.border} ${visuals.text}`}>
-                   {profile.grade ? `${profile.grade}. Sınıf` : 'Sınıf Seçilmedi'}
+                 <div className={`font-bold text-xs mb-6 px-3 py-1 rounded-full border ${visuals.bg} ${visuals.border} ${visuals.text}`}>
+                   {profile.grade ? (
+                       ['A1','A2','B1','B2','C1'].includes(profile.grade) ? `${profile.grade} Seviye` : `${profile.grade}. Sınıf`
+                   ) : 'Sınıf Seçilmedi'}
                  </div>
-                 <div className="grid grid-cols-3 gap-3 w-full mb-8">
-                    <div className="bg-orange-50 dark:bg-orange-900/20 p-4 rounded-2xl border border-orange-100 dark:border-orange-800/50 flex flex-col items-center justify-center">
-                        <Flame size={24} className="text-orange-500 mb-1 fill-orange-500" />
-                        <div className="text-xl font-black" style={{color: 'var(--color-text-main)'}}>{stats?.streak || 0}</div>
-                        <span className="text-[10px] font-bold uppercase text-orange-600/70 dark:text-orange-400/70 tracking-wider">Gün Seri</span>
+                 <div className="grid grid-cols-3 gap-2 w-full mb-6">
+                    <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-2xl border border-orange-100 dark:border-orange-800/50 flex flex-col items-center justify-center">
+                        <Flame size={20} className="text-orange-500 mb-1 fill-orange-500" />
+                        <div className="text-lg font-black" style={{color: 'var(--color-text-main)'}}>{stats?.streak || 0}</div>
+                        <span className="text-[9px] font-bold uppercase text-orange-600/70 dark:text-orange-400/70 tracking-wider">Gün Seri</span>
                     </div>
-                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 flex flex-col items-center justify-center">
-                        <Trophy size={24} className="text-indigo-500 mb-1 fill-indigo-500" />
-                        <div className="text-xl font-black" style={{color: 'var(--color-text-main)'}}>{stats?.xp || 0}</div>
-                        <span className="text-[10px] font-bold uppercase text-indigo-600/70 dark:text-indigo-400/70 tracking-wider">Toplam XP</span>
+                    <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 flex flex-col items-center justify-center">
+                        <Trophy size={20} className="text-indigo-500 mb-1 fill-indigo-500" />
+                        <div className="text-lg font-black" style={{color: 'var(--color-text-main)'}}>{stats?.xp || 0}</div>
+                        <span className="text-[9px] font-bold uppercase text-indigo-600/70 dark:text-indigo-400/70 tracking-wider">Toplam XP</span>
                     </div>
-                     <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-2xl border border-yellow-100 dark:border-yellow-800/50 flex flex-col items-center justify-center">
-                        <Star size={24} className="text-yellow-500 mb-1 fill-yellow-500" />
-                        <div className="text-xl font-black" style={{color: 'var(--color-text-main)'}}>{unlockedBadges.length}</div>
-                        <span className="text-[10px] font-bold uppercase text-yellow-600/70 dark:text-yellow-400/70 tracking-wider">Rozet</span>
+                     <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-2xl border border-yellow-100 dark:border-yellow-800/50 flex flex-col items-center justify-center">
+                        <Star size={20} className="text-yellow-500 mb-1 fill-yellow-500" />
+                        <div className="text-lg font-black" style={{color: 'var(--color-text-main)'}}>{unlockedBadges.length}</div>
+                        <span className="text-[9px] font-bold uppercase text-yellow-600/70 dark:text-yellow-400/70 tracking-wider">Rozet</span>
                     </div>
                  </div>
 
-                 <button 
+                 <button id="market-button"
                     onClick={onOpenMarket}
-                    className="w-full mb-6 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-4 shadow-lg relative overflow-hidden active:scale-[0.99] transition-transform group flex items-center justify-between"
+                    className="w-full mb-6 bg-gradient-to-r from-yellow-500 to-orange-500 rounded-2xl p-3 shadow-md relative overflow-hidden active:scale-[0.99] transition-transform group flex items-center justify-between"
                  >
                      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none group-hover:bg-white/20 transition-colors"></div>
                      <div className="text-left z-10">
-                         <div className="flex items-center gap-2 text-yellow-100 font-bold text-xs uppercase tracking-wide mb-1">
-                             <ShoppingBag size={14} /> Mağaza
+                         <div className="flex items-center gap-2 text-yellow-100 font-bold text-[10px] uppercase tracking-wide mb-0.5">
+                             <ShoppingBag size={12} /> Mağaza
                          </div>
-                         <div className="text-xl font-black text-white">XP Market</div>
-                         <div className="text-yellow-100 text-xs font-medium">Temalar ve güçlendirmeler</div>
+                         <div className="text-lg font-black text-white">XP Market</div>
+                         <div className="text-yellow-100 text-[10px] font-medium">Temalar ve güçlendirmeler</div>
                      </div>
-                     <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md shadow-inner group-hover:scale-110 transition-transform z-10 shrink-0">
-                         <Star size={18} className="fill-white ml-0.5 text-white" />
+                     <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md shadow-inner group-hover:scale-110 transition-transform z-10 shrink-0">
+                         <Star size={16} className="fill-white ml-0.5 text-white" />
                      </div>
                  </button>
                 
@@ -288,38 +304,38 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                     <div className="w-full mb-6 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
                          <button 
                             onClick={() => setIsQuestsOpen(!isQuestsOpen)}
-                            className="w-full p-4 flex items-center justify-between group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                            className="w-full p-3 flex items-center justify-between group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                         >
                             <div className="flex items-center gap-2">
                                 <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg">
                                     <Target size={16} />
                                 </div>
                                 <h3 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">Günlük Görevler</h3>
-                                <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${completedQuestsCount === dailyQuests.length ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
+                                <span className={`ml-2 text-[10px] font-bold px-2 py-0.5 rounded-full ${completedQuestsCount === dailyQuests.length ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-500'}`}>
                                     {completedQuestsCount}/{dailyQuests.length}
                                 </span>
                             </div>
-                            {isQuestsOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                            {isQuestsOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                         </button>
                         
                         {isQuestsOpen && (
-                            <div className="p-4 pt-0 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20 animate-in slide-in-from-top-2">
+                            <div className="p-3 pt-0 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20 animate-in slide-in-from-top-2">
                                 <div className="space-y-2 pt-3">
                                     {dailyQuests.map((quest) => (
-                                        <div key={quest.id} className="flex items-center justify-between p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
+                                        <div key={quest.id} className="flex items-center justify-between p-2 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 shadow-sm">
                                             <div className="flex items-center gap-3 flex-1 min-w-0">
-                                                <div className={`min-w-[2rem] px-1.5 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 transition-colors
+                                                <div className={`min-w-[2rem] px-1.5 h-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 transition-colors
                                                     ${quest.isCompleted ? 'bg-green-100 text-green-600 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-200 text-slate-500 dark:bg-slate-700 dark:text-slate-400'}
                                                 `}>
-                                                    {quest.isCompleted ? <CheckCircle size={16} /> : `${quest.current}/${quest.target}`}
+                                                    {quest.isCompleted ? <CheckCircle size={12} /> : `${quest.current}/${quest.target}`}
                                                 </div>
                                                 <div className="truncate">
-                                                    <div className={`text-xs font-medium truncate ${quest.isCompleted ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-300'}`}>
+                                                    <div className={`text-[10px] font-medium truncate ${quest.isCompleted ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-slate-300'}`}>
                                                         {quest.description}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className={`text-xs font-bold ml-2 whitespace-nowrap ${quest.isCompleted ? 'text-green-500' : 'text-orange-500'}`}>
+                                            <div className={`text-[10px] font-bold ml-2 whitespace-nowrap ${quest.isCompleted ? 'text-green-500' : 'text-orange-500'}`}>
                                                 {quest.isCompleted ? 'Tamamlandı' : `+${quest.rewardXP} XP`}
                                             </div>
                                         </div>
@@ -333,25 +349,25 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                 <div className="w-full mb-8 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
                     <button 
                         onClick={() => setIsAchievementsOpen(!isAchievementsOpen)}
-                        className="w-full p-4 flex items-center justify-between group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
+                        className="w-full p-3 flex items-center justify-between group hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
                     >
                         <div className="flex items-center gap-2">
                             <div className="p-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-lg">
                                 <Trophy size={16} />
                             </div>
                             <h3 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">Başarımlarım</h3>
-                            <span className="ml-2 text-xs font-bold text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{unlockedBadges.length}</span>
+                            <span className="ml-2 text-[10px] font-bold text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{unlockedBadges.length}</span>
                         </div>
-                        {isAchievementsOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                        {isAchievementsOpen ? <ChevronUp size={16} className="text-slate-400" /> : <ChevronDown size={16} className="text-slate-400" />}
                     </button>
 
                     {isAchievementsOpen && (
-                        <div className="p-4 pt-0 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20 animate-in slide-in-from-top-2">
+                        <div className="p-3 pt-0 border-t border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-900/20 animate-in slide-in-from-top-2">
                              {unlockedBadges.length > 0 ? (
-                                <div className="grid grid-cols-4 sm:grid-cols-5 gap-3 pt-4">
+                                <div className="grid grid-cols-5 gap-2 pt-3">
                                     {unlockedBadges.map((badge, index) => (
                                         <div key={badge.id} className="relative group flex justify-center">
-                                            <div className="w-12 h-12 rounded-xl bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-700 flex items-center justify-center text-2xl shadow-sm hover:scale-110 transition-transform cursor-pointer hover:border-yellow-300 dark:hover:border-yellow-500 overflow-hidden">
+                                            <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xl shadow-sm hover:scale-110 transition-transform cursor-pointer hover:border-yellow-300 dark:hover:border-yellow-500 overflow-hidden">
                                                 {badge.image ? (
                                                     <img src={badge.image} alt={badge.name} className="w-full h-full object-cover" />
                                                 ) : (
@@ -373,31 +389,31 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                 </div>
 
                  <div className="w-full mb-8">
-                    <div className="flex justify-between text-xs font-bold text-slate-400 mb-2 px-1">
+                    <div className="flex justify-between text-[10px] font-bold text-slate-400 mb-1 px-1">
                         <span>Seviye {stats?.level || 1}</span>
                         <span>Seviye {(stats?.level || 1) + 1}</span>
                     </div>
-                    <div className="w-full h-3 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden ring-1 ring-slate-200 dark:ring-slate-700/50">
-                        <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full" style={{ width: `${Math.min(100, (xpProgress / xpTarget) * 100)}%` }}></div>
+                    <div className="w-full h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden ring-1 ring-slate-200 dark:ring-slate-700/50">
+                        <div className="h-full bg-gradient-to-r from-indigo-500 to-purple-500 rounded-full transition-all duration-700" style={{ width: `${Math.min(100, (xpProgress / xpTarget) * 100)}%` }}></div>
                     </div>
-                    <div className="text-center mt-2 text-[10px] font-medium text-slate-400">
+                    <div className="text-center mt-1 text-[9px] font-medium text-slate-400">
                          Sonraki seviye için {Math.max(0, xpTarget - xpProgress)} XP kaldı
                     </div>
                  </div>
 
-                 <div className="grid grid-cols-2 gap-4 w-full">
-                     <button onClick={() => setShowLeaderboard(true)} className="w-full py-3 border-2 hover:border-yellow-500 text-slate-700 dark:text-white rounded-2xl font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 group" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)', color: 'var(--color-text-main)'}}>
-                        <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-lg group-hover:scale-110 transition-transform">
-                            <Trophy size={18} />
+                 <div className="grid grid-cols-2 gap-3 w-full">
+                     <button onClick={() => setShowLeaderboard(true)} className="w-full py-3 border hover:border-yellow-500 text-slate-700 dark:text-white rounded-xl font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 group text-xs" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)', color: 'var(--color-text-main)'}}>
+                        <div className="p-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <Trophy size={16} />
                         </div>
-                        <span className="text-sm">Lider Tablosu</span>
+                        <span>Lider Tablosu</span>
                      </button>
 
-                     <button onClick={() => setShowStatsModal(true)} className="w-full py-3 border-2 hover:border-indigo-500 text-slate-700 dark:text-white rounded-2xl font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 group" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)', color: 'var(--color-text-main)'}}>
-                        <div className="p-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
-                            <BarChart2 size={18} />
+                     <button onClick={() => setShowStatsModal(true)} className="w-full py-3 border hover:border-indigo-500 text-slate-700 dark:text-white rounded-xl font-bold shadow-sm transition-all active:scale-95 flex items-center justify-center gap-2 group text-xs" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)', color: 'var(--color-text-main)'}}>
+                        <div className="p-1.5 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg group-hover:scale-110 transition-transform">
+                            <BarChart2 size={16} />
                         </div>
-                        <span className="text-sm">İstatistikler</span>
+                        <span>İstatistikler</span>
                      </button>
                  </div>
                </div>
@@ -411,12 +427,19 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                         <p className="text-[10px] text-slate-400 mt-1 ml-1">Lider tablosunda bu isim görünür. Haftada 1 kez değiştirebilirsin.</p>
                         </div>
                         <div>
-                            <label className="text-xs font-bold text-slate-500 uppercase ml-1">Sınıf</label>
-                            <select name="grade" value={profile.grade} onChange={handleChange} className="w-full p-3 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white" style={{color: 'var(--color-text-main)', backgroundColor: 'var(--color-bg-main)'}}>
+                            <label className="text-xs font-bold text-slate-500 uppercase ml-1">Sınıf / Seviye</label>
+                            <select name="grade" value={profile.grade} onChange={handleChange} className="w-full p-3 border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white appearance-none" style={{color: 'var(--color-text-main)', backgroundColor: 'var(--color-bg-main)'}}>
                             <option value="">Seç</option>
                             <optgroup label="İlkokul"><option value="2">2. Sınıf</option><option value="3">3. Sınıf</option><option value="4">4. Sınıf</option></optgroup>
                             <optgroup label="Ortaokul"><option value="5">5. Sınıf</option><option value="6">6. Sınıf</option><option value="7">7. Sınıf</option><option value="8">8. Sınıf</option></optgroup>
                             <optgroup label="Lise"><option value="9">9. Sınıf</option><option value="10">10. Sınıf</option><option value="11">11. Sınıf</option><option value="12">12. Sınıf</option></optgroup>
+                            <optgroup label="Genel İngilizce">
+                                <option value="A1">A1 (Başlangıç)</option>
+                                <option value="A2">A2 (Temel)</option>
+                                <option value="B1">B1 (Orta)</option>
+                                <option value="B2">B2 (Orta Üstü)</option>
+                                <option value="C1">C1 (İleri)</option>
+                            </optgroup>
                             </select>
                         </div>
                     </div>

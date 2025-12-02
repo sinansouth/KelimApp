@@ -1,9 +1,9 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
-import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp, Volume2 } from 'lucide-react';
 import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized, addToBookmarks, removeFromBookmarks, handleReviewResult, registerSRSInteraction, updateQuestProgress } from '../services/userService';
-import { playSound } from '../services/soundService';
+import { playSound, speakText } from '../services/soundService';
 
 interface FlashcardDeckProps {
   words: WordCard[];
@@ -45,8 +45,12 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const [touchStart, setTouchStart] = useState<number | null>(null);
-  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+  // Touch handling states
+  const [touchStartX, setTouchStartX] = useState<number | null>(null);
+  const [touchStartY, setTouchStartY] = useState<number | null>(null);
+  const [touchEndX, setTouchEndX] = useState<number | null>(null);
+  const [touchEndY, setTouchEndY] = useState<number | null>(null);
+  
   const minSwipeDistance = 50;
 
   const getUniqueId = (word: WordCard) => {
@@ -60,6 +64,9 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       if (feedbackTimerRef.current) {
           clearTimeout(feedbackTimerRef.current);
       }
+      // Haptic feedback
+      if (navigator.vibrate) navigator.vibrate(50);
+
       setFeedback({ visible: true, type, message });
       feedbackTimerRef.current = setTimeout(() => {
           setFeedback(null);
@@ -81,6 +88,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       return () => {
           if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
           if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+          window.speechSynthesis.cancel();
       }
   }, []);
 
@@ -123,8 +131,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     }, 200);
   };
 
-  const toggleBookmark = (e: React.MouseEvent, word: WordCard) => {
-    e.stopPropagation();
+  const toggleBookmark = (e: React.MouseEvent | null, word: WordCard) => {
+    if (e) e.stopPropagation();
     if (isProcessing) return;
     setIsProcessing(true);
     
@@ -151,8 +159,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     autoAdvance();
   };
 
-  const toggleMemorize = (e: React.MouseEvent, word: WordCard) => {
-    e.stopPropagation();
+  const toggleMemorize = (e: React.MouseEvent | null, word: WordCard) => {
+    if (e) e.stopPropagation();
     if (isProcessing) return;
     setIsProcessing(true);
     
@@ -215,6 +223,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       if (!currentWord || isProcessing) return;
       setIsProcessing(true);
       
+      if (navigator.vibrate) navigator.vibrate(success ? 50 : 100);
+
       if (success) playSound('success');
       else playSound('wrong');
 
@@ -315,27 +325,53 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   };
   
   const onTouchStart = (e: React.TouchEvent) => {
-    setTouchEnd(null); 
-    setTouchStart(e.targetTouches[0].clientX);
+    setTouchEndX(null); 
+    setTouchEndY(null);
+    setTouchStartX(e.targetTouches[0].clientX);
+    setTouchStartY(e.targetTouches[0].clientY);
   }
 
   const onTouchMove = (e: React.TouchEvent) => {
-    setTouchEnd(e.targetTouches[0].clientX);
+    setTouchEndX(e.targetTouches[0].clientX);
+    setTouchEndY(e.targetTouches[0].clientY);
   }
 
   const onTouchEnd = () => {
-    if (!touchStart || !touchEnd) return;
-    const distance = touchStart - touchEnd;
-    const isLeftSwipe = distance > minSwipeDistance;
-    const isRightSwipe = distance < -minSwipeDistance;
+    if (!touchStartX || !touchEndX || !touchStartY || !touchEndY) return;
     
-    if (isLeftSwipe) {
-        if (!isProcessing) {
-             setIsProcessing(true);
-             handleNext();
+    const distanceX = touchStartX - touchEndX;
+    const distanceY = touchStartY - touchEndY;
+    
+    const isHorizontalSwipe = Math.abs(distanceX) > Math.abs(distanceY);
+
+    if (isHorizontalSwipe) {
+        const isLeftSwipe = distanceX > minSwipeDistance;
+        const isRightSwipe = distanceX < -minSwipeDistance;
+        
+        if (isLeftSwipe) {
+            if (!isProcessing) {
+                 setIsProcessing(true);
+                 handleNext();
+            }
+        } else if (isRightSwipe) {
+            handlePrev();
         }
-    } else if (isRightSwipe) {
-        handlePrev();
+    } else {
+        // Vertical Swipe Logic
+        const isUpSwipe = distanceY > minSwipeDistance;
+        const isDownSwipe = distanceY < -minSwipeDistance;
+        
+        if (isUpSwipe) {
+             // Swipe Up -> Ezberlendi (Memorize)
+             if (!isReviewMode && currentWord) {
+                 toggleMemorize(null, currentWord);
+             }
+        } else if (isDownSwipe) {
+             // Swipe Down -> Favori (Bookmark)
+             if (!isReviewMode && currentWord) {
+                 toggleBookmark(null, currentWord);
+             }
+        }
     }
   }
 
@@ -411,6 +447,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={onTouchEnd}
+        style={{ touchAction: 'none' }}
       >
          {feedback?.visible && (
               <div className="absolute inset-0 z-50 flex flex-col items-center justify-center pointer-events-none">
@@ -429,8 +466,22 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         <div className={`relative w-full h-full transition-all duration-500 transform-style-3d shadow-lg rounded-3xl ${isFlipped ? 'rotate-y-180' : ''}`}>
           
           <div className="absolute w-full h-full backface-hidden bg-white dark:bg-slate-900 rounded-3xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-800 p-8 transition-colors">
-             <div className="flex-grow flex items-center justify-center text-center">
+             <div className="absolute top-6 right-6 z-20">
+                 <button 
+                    onClick={(e) => { e.stopPropagation(); speakText(currentWord.english); }} 
+                    className="p-4 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-colors"
+                 >
+                    <Volume2 size={28} />
+                 </button>
+             </div>
+             <div className="flex-grow flex flex-col items-center justify-center text-center px-4">
                  <h2 className="text-4xl sm:text-5xl font-black text-slate-800 dark:text-white break-words leading-tight">{currentWord.english}</h2>
+                 
+                 {/* Example Sentence Added Here */}
+                 <p className="mt-6 text-lg text-slate-500 dark:text-slate-400 italic font-medium max-w-md">
+                    "{currentWord.exampleEng}"
+                 </p>
+                 
              </div>
              <div className="text-xs text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest mt-auto">Çevirmek için Dokun</div>
           </div>

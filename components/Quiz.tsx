@@ -1,9 +1,9 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
-import { CheckCircle, XCircle, Bookmark, Info, Lightbulb } from 'lucide-react';
+import { CheckCircle, XCircle, Bookmark, Info, Volume2 } from 'lucide-react';
 import { updateStats, handleQuizResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress } from '../services/userService';
-import { playSound } from '../services/soundService';
+import { playSound, speakText } from '../services/soundService';
 import Mascot from './Mascot';
 
 interface QuizProps {
@@ -27,21 +27,11 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
   const [autoBookmarked, setAutoBookmarked] = useState(false);
   const [addedToMemorized, setAddedToMemorized] = useState(false);
   
-  // Hint System
-  const [hintsRemaining, setHintsRemaining] = useState(0);
-  const [isHintUsed, setIsHintUsed] = useState(false);
-  
   // Mascot State
   const [mascotMood, setMascotMood] = useState<'neutral' | 'happy' | 'sad' | 'thinking'>('thinking');
   const [mascotMessage, setMascotMessage] = useState<string | undefined>(undefined);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Calculate initial hints based on question count (e.g., ~1 hint per 10 questions)
-  useEffect(() => {
-      const calculatedHints = Math.ceil(words.length / 10);
-      setHintsRemaining(calculatedHints);
-  }, [words.length]);
 
   const questions = useMemo(() => {
     if (!words || words.length === 0) return [];
@@ -112,22 +102,23 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
   const getUniqueId = (word: WordCard) => word.unitId ? `${word.unitId}|${word.english}` : word.english;
 
+  // Effect to update Mascot with example sentence when question changes
   useEffect(() => {
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
-  }, []);
+    if (questions[currentQuestionIndex] && !isAnswered) {
+        const currentQ = questions[currentQuestionIndex];
+        // Hide the target word in the example sentence
+        const hiddenSentence = currentQ.wordObj.exampleEng.replace(new RegExp(currentQ.word, 'gi'), '______');
+        setMascotMessage(`"${hiddenSentence}"`);
+        setMascotMood('thinking');
+    }
+  }, [currentQuestionIndex, questions, isAnswered]);
 
-  const useHint = () => {
-      if (hintsRemaining > 0 && !isHintUsed && !isAnswered) {
-          setHintsRemaining(prev => prev - 1);
-          setIsHintUsed(true);
-          playSound('flip');
-          
-          const currentQ = questions[currentQuestionIndex];
-          const hiddenSentence = currentQ.wordObj.exampleEng.replace(new RegExp(currentQ.word, 'gi'), '______');
-          
-          setMascotMessage(`İpucu (${currentQ.wordObj.context}): "${hiddenSentence}"`);
-      }
-  };
+  useEffect(() => {
+    return () => { 
+        if (timerRef.current) clearTimeout(timerRef.current);
+        window.speechSynthesis.cancel();
+    };
+  }, []);
 
   const handleOptionClick = (index: number) => {
     if (isAnswered) return;
@@ -141,10 +132,16 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
     const newScore = isCorrect ? score + 1 : score;
     if (isCorrect) setScore(newScore);
 
+    if (navigator.vibrate) navigator.vibrate(isCorrect ? 50 : 200);
+
     if (isCorrect) {
         playSound('correct');
         setMascotMood('happy');
         setMascotMessage('Harika! Doğru bildin.');
+        
+        // Speak the word on correct answer to reinforce using new robust service
+        speakText(questions[currentQuestionIndex].word);
+
         const newBadges = updateStats('quiz_correct', grade);
         if (newBadges.length > 0 && onBadgeUnlock) {
             newBadges.forEach(b => onBadgeUnlock(b));
@@ -200,6 +197,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
   const handleNext = (currentScoreValue?: number) => {
     if (timerRef.current) clearTimeout(timerRef.current);
+    window.speechSynthesis.cancel();
     
     const actualScore = currentScoreValue !== undefined ? currentScoreValue : score;
 
@@ -209,9 +207,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
       setIsAnswered(false);
       setAutoBookmarked(false);
       setAddedToMemorized(false);
-      setIsHintUsed(false); // Reset hint usage for next question
-      setMascotMood('thinking');
-      setMascotMessage(undefined);
+      // Mascot state will be updated by the useEffect when currentQuestionIndex changes
     } else {
       playSound('success');
       setShowResults(true);
@@ -275,25 +271,19 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
       <div className="flex justify-center mb-2 relative" style={{minHeight: '120px'}}>
           <Mascot mood={mascotMood} size={120} message={mascotMessage} />
-          
-          {/* Hint Button near Mascot */}
-          <button 
-            onClick={useHint} 
-            disabled={isAnswered || hintsRemaining === 0 || isHintUsed}
-            className={`absolute bottom-0 right-0 sm:right-10 flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold shadow-sm border transition-all
-                ${isAnswered || hintsRemaining === 0 || isHintUsed 
-                    ? 'bg-slate-100 text-slate-400 border-slate-200 dark:bg-slate-800 dark:border-slate-700 opacity-50 cursor-not-allowed' 
-                    : 'bg-yellow-50 text-yellow-700 border-yellow-200 hover:bg-yellow-100 dark:bg-yellow-900/30 dark:text-yellow-400 dark:border-yellow-800 active:scale-95 cursor-pointer'
-                }`}
-          >
-             <Lightbulb size={16} className={hintsRemaining > 0 && !isHintUsed ? "fill-yellow-500 text-yellow-500" : ""} />
-             <span>İpucu ({hintsRemaining})</span>
-          </button>
       </div>
 
       <div className="flex-grow flex flex-col justify-center mb-8 mt-4">
          <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6 relative">
-             <h2 className="text-3xl sm:text-5xl font-black text-center text-slate-800 dark:text-white leading-tight break-words">
+             <div className="absolute top-4 right-4">
+                 <button 
+                    onClick={() => speakText(currentQuestion.word)} 
+                    className="p-2 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 transition-colors"
+                 >
+                    <Volume2 size={24} />
+                 </button>
+             </div>
+             <h2 className="text-3xl sm:text-5xl font-black text-center text-slate-800 dark:text-white leading-tight break-words px-4">
                 {currentQuestion.word}
              </h2>
              {autoBookmarked && (
@@ -333,12 +323,12 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
             })}
          </div>
 
+         {/* Updated Explanation Box - ONLY CONTEXT - Example sentence removed */}
          {isAnswered && currentQuestion.explanation && (
              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-sm text-blue-800 dark:text-blue-200 flex gap-3 items-start animate-in slide-in-from-bottom-2">
                  <Info size={20} className="shrink-0 mt-0.5" />
                  <p className="font-medium leading-relaxed">
-                     <strong>Bağlam:</strong> {currentQuestion.explanation} <br/>
-                     <strong>Örnek:</strong> {currentQuestion.wordObj.exampleEng}
+                     <strong>Bağlam:</strong> {currentQuestion.explanation}
                  </p>
              </div>
          )}

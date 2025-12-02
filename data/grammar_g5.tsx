@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GrammarTopic } from '../types';
 
@@ -8,9 +9,12 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Sevdiğimiz dersleri anlatırken <strong>like</strong>, sevmediklerimiz için <strong>dislike</strong> kullanırız.</p>
-          <p>I <strong>like</strong> Science. (Feni severim.)</p>
-          <p>I <strong>dislike</strong> Art. (Resim dersini sevmem.)</p>
-          <p>My favorite class is <strong>Maths</strong>. (En sevdiğim ders Matematiktir.)</p>
+          <ul className="list-disc pl-4 mt-2 space-y-1">
+             <li>I <strong>like</strong> Science. (Feni severim.)</li>
+             <li>I <strong>dislike</strong> Art. (Resim dersini sevmem.)</li>
+             <li>My favorite class is <strong>Maths</strong>. (En sevdiğim ders Matematiktir.)</li>
+             <li>She is <strong>good at</strong> English. (O İngilizcede iyidir.)</li>
+          </ul>
         </div>
       )
     },
@@ -19,8 +23,10 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Ders programını sorarken:</p>
-          <p><strong>Soru:</strong> What classes do you have on Monday?</p>
-          <p><strong>Cevap:</strong> I have Turkish and English.</p>
+          <p className="mb-1"><strong>Soru:</strong> What classes do you have on Monday?</p>
+          <p><strong>Cevap:</strong> I have Turkish, English and Music.</p>
+          <p className="mt-2"><strong>Soru:</strong> When is your P.E. class?</p>
+          <p><strong>Cevap:</strong> It is on Friday.</p>
         </div>
       )
     }
@@ -32,9 +38,9 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
         <div>
           <p>Yer yön tarif ederken kullanılan önemli edatlar:</p>
           <ul className="list-disc pl-4 space-y-1">
-            <li><strong>Next to:</strong> Bitişiğinde</li>
-            <li><strong>Opposite:</strong> Karşısında</li>
-            <li><strong>Between:</strong> Arasında</li>
+            <li><strong>Next to:</strong> Bitişiğinde (The bank is next to the cafe.)</li>
+            <li><strong>Opposite:</strong> Karşısında (The school is opposite the park.)</li>
+            <li><strong>Between:</strong> Arasında (The pharmacy is between the bakery and the cinema.)</li>
             <li><strong>In front of:</strong> Önünde</li>
             <li><strong>Behind:</strong> Arkasında</li>
           </ul>
@@ -45,10 +51,11 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       title: "Giving Directions (Yön Tarifi)",
       content: (
         <div>
-          <ul className="list-disc pl-4">
-            <li><strong>Go straight:</strong> Düz git.</li>
+          <ul className="list-disc pl-4 space-y-1">
+            <li><strong>Go straight ahead:</strong> Düz git.</li>
             <li><strong>Turn right:</strong> Sağa dön.</li>
             <li><strong>Turn left:</strong> Sola dön.</li>
+            <li><strong>Take the second right:</strong> İkinci sağdan dön.</li>
             <li><strong>It is on your right:</strong> Sağında kalacak.</li>
           </ul>
         </div>
@@ -63,7 +70,10 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
           <p>Hobilerimizden bahsederken <strong>like, enjoy, love</strong> kullanırız.</p>
           <p>I <strong>enjoy</strong> playing chess. (Satranç oynamaktan zevk alırım.)</p>
           <p>I <strong>love</strong> swimming. (Yüzmeyi çok severim.)</p>
+          <p>I <strong>hate</strong> fishing. (Balık tutmaktan nefret ederim.)</p>
+          <p className="mt-3">Yeteneklerimiz için <strong>can</strong>:</p>
           <p><strong>Can</strong> you play football? (Futbol oynayabilir misin?)</p>
+          <p>Yes, I can. / No, I can't.</p>
         </div>
       )
     }
@@ -74,11 +84,12 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Günlük rutinlerimizi anlatırız. He, She, It öznelerinde fiil <strong>-s</strong> takısı alır.</p>
-          <ul className="list-disc pl-4">
+          <ul className="list-disc pl-4 mt-2 space-y-1">
             <li>I <strong>get up</strong> at 7 o'clock.</li>
-            <li>She <strong>gets up</strong> at 8 o'clock.</li>
+            <li>She <strong>gets up</strong> at 8 o'clock. (-s takısına dikkat!)</li>
             <li>He <strong>brushes</strong> his teeth.</li>
             <li>They <strong>go</strong> to school by bus.</li>
+            <li>We <strong>don't</strong> sleep late.</li>
           </ul>
         </div>
       )
@@ -87,9 +98,10 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       title: "Time (Saatler)",
       content: (
         <div>
-          <p><strong>Quarter past:</strong> Çeyrek geçiyor.</p>
-          <p><strong>Quarter to:</strong> Çeyrek var.</p>
-          <p><strong>Half past:</strong> Buçuk.</p>
+          <p><strong>Quarter past:</strong> Çeyrek geçiyor. (It is quarter past five.)</p>
+          <p><strong>Quarter to:</strong> Çeyrek var. (It is quarter to six.)</p>
+          <p><strong>Half past:</strong> Buçuk. (It is half past two.)</p>
+          <p><strong>O'clock:</strong> Tam saat. (It is three o'clock.)</p>
         </div>
       )
     }
@@ -102,6 +114,8 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
           <p>Hastalığımızı söylerken <strong>have / has</strong> kullanırız.</p>
           <p>I <strong>have</strong> a headache. (Başım ağrıyor.)</p>
           <p>She <strong>has</strong> the flu. (O grip.)</p>
+          <p>He <strong>has</strong> a broken leg. (Onun bacağı kırık.)</p>
+          <p><strong>What is the matter with you?</strong> (Neyin var?)</p>
         </div>
       )
     },
@@ -110,9 +124,10 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Hasta birine tavsiye verirken:</p>
-          <p>You <strong>should</strong> take medicine. (İlaç almalısın.)</p>
-          <p>You <strong>shouldn't</strong> drink cold water. (Soğuk su içmemelisin.)</p>
-          <p>You <strong>should</strong> see a doctor. (Doktora görünmelisin.)</p>
+          <p className="text-green-600">You <strong>should</strong> take medicine. (İlaç almalısın.)</p>
+          <p className="text-green-600">You <strong>should</strong> see a doctor. (Doktora görünmelisin.)</p>
+          <p className="text-red-600">You <strong>shouldn't</strong> drink cold water. (Soğuk su içmemelisin.)</p>
+          <p className="text-red-600">You <strong>shouldn't</strong> go to school. (Okula gitmemelisin.)</p>
         </div>
       )
     }
@@ -125,6 +140,7 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
           <p>Filmler hakkında ne düşündüğümüzü söylerken:</p>
           <p>I <strong>think</strong> comedies are funny. (Bence komediler komik.)</p>
           <p>I <strong>think</strong> horror movies are scary. (Bence korku filmleri korkunç.)</p>
+          <p>In my opinion, cartoons are boring. (Benim fikrimce çizgi filmler sıkıcı.)</p>
           <p>My favorite movie is "Cars".</p>
         </div>
       )
@@ -133,7 +149,8 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       title: "Movie Types (Film Türleri)",
       content: (
         <div>
-          <p>Comedy, Drama, Horror, Action, Cartoon, Science Fiction.</p>
+          <p>Comedy, Drama, Horror, Action, Cartoon, Science Fiction, Animation, Documentary.</p>
+          <p><strong>Soru:</strong> What time is the movie? (Film saat kaçta?)</p>
         </div>
       )
     }
@@ -143,12 +160,13 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       title: "Ordinal Numbers (Sıra Sayıları)",
       content: (
         <div>
-          <p>Tarihleri söylerken sıra sayılarını kullanırız.</p>
-          <ul className="list-disc pl-4">
-            <li>1st - First</li>
-            <li>2nd - Second</li>
-            <li>3rd - Third</li>
-            <li>4th - Fourth</li>
+          <p>Tarihleri söylerken sıra sayılarını kullanırız. Genelde sonuna -th gelir.</p>
+          <ul className="list-disc pl-4 space-y-1">
+            <li>1st - First (Birinci)</li>
+            <li>2nd - Second (İkinci)</li>
+            <li>3rd - Third (Üçüncü)</li>
+            <li>4th - Fourth (Dördüncü)</li>
+            <li>12th - Twelfth</li>
           </ul>
         </div>
       )
@@ -158,8 +176,8 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p><strong>When is your birthday?</strong></p>
-          <p>It is in <strong>May</strong>.</p>
-          <p>It is on the <strong>5th of May</strong>.</p>
+          <p>It is in <strong>May</strong>. (Mayıs'ta - Sadece ay)</p>
+          <p>It is on the <strong>5th of May</strong>. (Mayıs'ın 5'inde - Tam tarih)</p>
         </div>
       )
     },
@@ -169,6 +187,7 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
         <div>
           <p><strong>Can I</strong> throw a party? (Parti verebilir miyim?)</p>
           <p><strong>Must</strong> we buy a gift? (Hediye almalı mıyız?)</p>
+          <p>Sure / Of course. (Elbette.)</p>
         </div>
       )
     }
@@ -178,12 +197,15 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       title: "Making Suggestions (Öneriler)",
       content: (
         <div>
-          <p>Arkadaşımıza spor yapmayı önerirken:</p>
-          <ul className="list-disc pl-4 mt-2">
+          <p>Arkadaşımıza spor yapmayı veya bir aktiviteyi önerirken:</p>
+          <ul className="list-disc pl-4 mt-2 space-y-2">
             <li><strong>Let's</strong> go swimming. (Hadi yüzmeye gidelim.)</li>
             <li><strong>How about</strong> cycling? (Bisiklet sürmeye ne dersin?)</li>
+            <li><strong>What about</strong> running? (Koşmaya ne dersin?)</li>
             <li><strong>Would you like to</strong> play tennis? (Tenis oynamak ister misin?)</li>
           </ul>
+          <p className="mt-2"><strong>Kabul:</strong> That sounds great! / Good idea.</p>
+          <p><strong>Red:</strong> I'm sorry, I can't. / I am tired.</p>
         </div>
       )
     }
@@ -197,6 +219,7 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
           <p>I am <strong>feeding</strong> the dog. (Köpeği besliyorum.)</p>
           <p>The birds are <strong>flying</strong>. (Kuşlar uçuyor.)</p>
           <p>She is <strong>watering</strong> the flowers. (Çiçekleri suluyor.)</p>
+          <p>They are <strong>sleeping</strong>. (Onlar uyuyor.)</p>
         </div>
       )
     },
@@ -206,6 +229,8 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
         <div>
           <p><strong>Soru:</strong> What is the monkey doing?</p>
           <p><strong>Cevap:</strong> It is climbing the tree.</p>
+          <p><strong>Soru:</strong> What are the ducks doing?</p>
+          <p><strong>Cevap:</strong> They are swimming.</p>
         </div>
       )
     }
@@ -217,6 +242,7 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
         <div>
           <p>100 - one hundred</p>
           <p>250 - two hundred and fifty</p>
+          <p>500 - five hundred</p>
           <p>1000 - one thousand</p>
         </div>
       )
@@ -225,9 +251,10 @@ export const GRAMMAR_G5: Record<string, GrammarTopic[]> = {
       title: "Simple Future (Will - Gelecek Zaman)",
       content: (
         <div>
-          <p>Festivallerde ne yapacağımızı anlatırken:</p>
-          <p>We <strong>will</strong> decorate the school.</p>
-          <p>We <strong>will</strong> sing songs.</p>
+          <p>Festivallerde ne yapacağımızı veya gelecekteki planlarımızı anlatırken:</p>
+          <p>We <strong>will</strong> decorate the school. (Okulu süsleyeceğiz.)</p>
+          <p>We <strong>will</strong> sing songs. (Şarkılar söyleyeceğiz.)</p>
+          <p>I <strong>will</strong> wear a costume. (Kostüm giyeceğim.)</p>
         </div>
       )
     }

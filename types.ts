@@ -113,7 +113,7 @@ export type GradeLevel =
   | 'A1' | 'A2' | 'B1' | 'B2' | 'C1';
 
 export type StudyMode = 'vocabulary' | 'grammar';
-export type CategoryType = 'HIGH_SCHOOL' | 'MIDDLE_SCHOOL' | 'PRIMARY_SCHOOL';
+export type CategoryType = 'HIGH_SCHOOL' | 'MIDDLE_SCHOOL' | 'PRIMARY_SCHOOL' | 'GENERAL_ENGLISH';
 
 // Daily Quests
 export interface Quest {

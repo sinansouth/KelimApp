@@ -9,9 +9,11 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Tercih bildirme yapıları.</p>
-          <p><strong>Prefer:</strong> I prefer pop to rock.</p>
-          <p><strong>Would rather:</strong> I would rather listen to jazz than classical.</p>
-          <p><strong>Would prefer:</strong> I would prefer to stay home.</p>
+          <ul className="list-disc pl-4 space-y-2">
+             <li><strong>Prefer:</strong> I prefer pop to rock. (Genel tercih)</li>
+             <li><strong>Would rather:</strong> I would rather listen to jazz than classical. (Özel durum/Genel)</li>
+             <li><strong>Would prefer:</strong> I would prefer to stay home rather than go out.</li>
+          </ul>
         </div>
       )
     },
@@ -19,8 +21,9 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       title: "Expressing Opinions",
       content: (
         <div>
-          <p>Fikir beyan etme.</p>
-          <p>I think / I believe / In my opinion / To me...</p>
+          <p>Fikir beyan ederken kullanılan kalıplar.</p>
+          <p>I think... / I believe... / In my opinion... / To me...</p>
+          <p>From my point of view... / As far as I am concerned...</p>
         </div>
       )
     }
@@ -30,8 +33,8 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       title: "Adjectives describing Personality",
       content: (
         <div>
-          <p>Kişilik sıfatları ve kullanımları.</p>
-          <p>Generous, stubborn, reliable, sensible, sensitive...</p>
+          <p>İleri seviye kişilik sıfatları.</p>
+          <p>Generous (Cömert), Stubborn (İnatçı), Reliable (Güvenilir), Sensible (Mantıklı), Sensitive (Hassas), Absent-minded (Unutkan), Modest (Mütevazı).</p>
         </div>
       )
     },
@@ -39,7 +42,14 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       title: "Phrasal Verbs (Relationships)",
       content: (
         <div>
-          <p>Get on well, back up, count on, break up, fall out...</p>
+          <ul className="list-disc pl-4 space-y-1">
+            <li><strong>Get on well:</strong> İyi geçinmek</li>
+            <li><strong>Back up:</strong> Desteklemek</li>
+            <li><strong>Count on:</strong> Güvenmek</li>
+            <li><strong>Break up:</strong> Ayrılmak</li>
+            <li><strong>Fall out:</strong> Kavga etmek/Küsme</li>
+            <li><strong>Look up to:</strong> Hayranlık duymak</li>
+          </ul>
         </div>
       )
     }
@@ -49,9 +59,12 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       title: "Expressing Ability",
       content: (
         <div>
-          <p><strong>Can / Could:</strong> Genel yetenek.</p>
-          <p><strong>Be able to:</strong> Spesifik durumlarda başarma.</p>
-          <p><strong>Manage to:</strong> Zor bir işi başarma.</p>
+          <ul className="list-disc pl-4 space-y-1">
+             <li><strong>Can / Could:</strong> Genel yetenek.</li>
+             <li><strong>Be able to:</strong> Her zaman diliminde kullanılabilir (will be able to, have been able to).</li>
+             <li><strong>Manage to:</strong> Zor bir işi başarmak (spesifik durum).
+                 <br/><em className="text-sm">He managed to unlock the door.</em></li>
+          </ul>
         </div>
       )
     },
@@ -59,7 +72,9 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       title: "Modals of Prohibition/Necessity",
       content: (
         <div>
-          <p>Mustn't (Yasak), Don't have to (Gerek yok), Needn't (Gerek yok).</p>
+          <p><strong>Mustn't:</strong> Yasak. (You mustn't smoke.)</p>
+          <p><strong>Don't have to:</strong> Gerek yok (Zorunlu değil). (You don't have to come.)</p>
+          <p><strong>Needn't:</strong> Gerek yok. (You needn't worry.)</p>
         </div>
       )
     }
@@ -70,9 +85,16 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Bir işi başkasına yaptırma.</p>
-          <p><strong>Have something done:</strong> I had my car repaired.</p>
-          <p><strong>Get someone to do:</strong> I got him to help me.</p>
-          <p><strong>Make someone do:</strong> He made me cry.</p>
+          <ul className="list-disc pl-4 space-y-2">
+             <li><strong>Have something done:</strong> (Hizmet almak)
+                 <br/>I had my car repaired. (Arabamı tamir ettirdim.)</li>
+             <li><strong>Get someone to do:</strong> (İkna etmek)
+                 <br/>I got him to help me.</li>
+             <li><strong>Make someone do:</strong> (Zorlamak)
+                 <br/>He made me cry.</li>
+             <li><strong>Let someone do:</strong> (İzin vermek)
+                 <br/>Let him go.</li>
+          </ul>
         </div>
       )
     }
@@ -83,8 +105,8 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Şimdiki zaman çıkarımları.</p>
-          <p><strong>Must be:</strong> Kesin öyledir.</p>
-          <p><strong>Can't be:</strong> Olamaz.</p>
+          <p><strong>Must be:</strong> Kesin öyledir. (He is running, he must be in a hurry.)</p>
+          <p><strong>Can't be:</strong> Olamaz. (She is eating, she can't be hungry.)</p>
           <p><strong>Might/May/Could be:</strong> Olabilir (ihtimal).</p>
         </div>
       )
@@ -96,45 +118,63 @@ export const GRAMMAR_G12: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Zamanları karışık koşul cümleleri.</p>
+          <p><strong>Past Cause &rarr; Present Result:</strong></p>
           <p>If I <strong>had studied</strong> harder (Past), I <strong>would be</strong> a doctor now (Present).</p>
+          <p><strong>Present State &rarr; Past Result:</strong></p>
+          <p>If I <strong>were</strong> rich (General), I <strong>would have bought</strong> that car (Past).</p>
         </div>
       )
-    },
+    }
+  ],
+  'g12u7': [
     {
       title: "Passive Voice (Advanced)",
       content: (
         <div>
-          <p>It is said that... / He is believed to...</p>
-          <p>People say that he is rich &rarr; He is said to be rich.</p>
+          <p>Kişisel olmayan pasif yapılar.</p>
+          <p>It is said that... / It is believed that...</p>
+          <p>He is said to be rich. (Onun zengin olduğu söyleniyor.)</p>
+          <p>She is believed to have left the country.</p>
         </div>
       )
-    },
+    }
+  ],
+  'g12u8': [
     {
       title: "Inversion",
       content: (
         <div>
-          <p>Devrik cümle yapıları (Vurgu için).</p>
+          <p>Vurgu için cümleyi devrik yapma (Yardımcı fiil başa gelir).</p>
           <p><strong>Never have I seen</strong> such a thing.</p>
           <p><strong>Rarely do we</strong> go out.</p>
+          <p><strong>Not only</strong> is he smart, <strong>but also</strong> handsome.</p>
         </div>
       )
-    },
+    }
+  ],
+  'g12u9': [
     {
       title: "Conjunctions & Transitions",
       content: (
         <div>
-          <p>Not only... but also..., Either... or..., Neither... nor...</p>
-          <p>Whatever, Whenever, However...</p>
+          <ul className="list-disc pl-4 space-y-1">
+             <li><strong>Correlative:</strong> Not only... but also..., Either... or..., Neither... nor..., Both... and...</li>
+             <li><strong>Concession:</strong> However, Nevertheless, Even though.</li>
+             <li><strong>Condition:</strong> Unless, Provided that, As long as.</li>
+          </ul>
         </div>
       )
-    },
+    }
+  ],
+  'g12u10': [
     {
       title: "Emphasis (Cleft Sentences)",
       content: (
         <div>
-          <p>Cümlede vurgu yapma.</p>
-          <p>It was John <strong>who</strong> broke the window.</p>
-          <p>What I need <strong>is</strong> some rest.</p>
+          <p>Cümlede belirli bir öğeyi vurgulama.</p>
+          <p><strong>It was</strong> John <strong>who</strong> broke the window. (Camı kıran John'du.)</p>
+          <p><strong>What</strong> I need <strong>is</strong> some rest. (İhtiyacım olan şey biraz dinlenmek.)</p>
+          <p><strong>All</strong> I want <strong>is</strong> you.</p>
         </div>
       )
     }

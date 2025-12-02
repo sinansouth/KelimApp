@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { GrammarTopic } from '../types';
 
@@ -17,6 +18,7 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
               <li>Sure, why not? (Tabii, neden olmasın?)</li>
               <li>I'll be there. (Orada olacağım.)</li>
               <li>Yeah, that would be great. (Evet, harika olur.)</li>
+              <li>Of course. (Elbette.)</li>
             </ul>
           </div>
 
@@ -68,10 +70,11 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Günlük rutinlerimizi, alışkanlıklarımızı ve sevdiklerimizi anlatırken kullanırız.</p>
-          <ul className="list-disc pl-4 space-y-2">
+          <ul className="list-disc pl-4 space-y-2 mt-2">
             <li>I <strong>get up</strong> early on weekdays.</li>
             <li>She <strong>listens</strong> to rock music. (He/She/It &rarr; -s takısı)</li>
             <li>We <strong>don't like</strong> camping.</li>
+            <li><strong>Do</strong> you play an instrument?</li>
           </ul>
         </div>
       )
@@ -81,11 +84,14 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Tercihlerimizi belirtirken <strong>prefer</strong> kullanırız.</p>
-          <p><strong>Kalıp:</strong> I prefer [noun/Ving] <strong>to</strong> [noun/Ving].</p>
+          <p className="mt-2 font-bold">Kalıp: I prefer [noun/Ving] TO [noun/Ving].</p>
           <ul className="list-disc pl-4 mt-2">
-            <li>I prefer <strong>pop music</strong> to <strong>jazz music</strong>.</li>
-            <li>She prefers <strong>reading</strong> books to <strong>watching</strong> TV.</li>
+            <li>I prefer <strong>pop music</strong> to <strong>jazz music</strong>. (Pop müziği caza tercih ederim.)</li>
+            <li>She prefers <strong>reading</strong> books to <strong>watching</strong> TV. (Kitap okumayı TV izlemeye tercih eder.)</li>
           </ul>
+          <div className="mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded border border-yellow-200">
+              <strong>Not:</strong> "To" edatı "-e/-a" anlamı katar ve karşılaştırılan iki şey arasına gelir.
+          </div>
         </div>
       )
     }
@@ -95,11 +101,12 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       title: "Process (Süreç Anlatımı)",
       content: (
         <div>
-          <p>Yemek tarifi verirken sıralama kelimelerini kullanırız.</p>
-          <ul className="list-disc pl-4">
+          <p>Yemek tarifi verirken sıralama kelimelerini kullanırız (Sequence Connectors).</p>
+          <ul className="list-disc pl-4 mt-2 space-y-1">
             <li><strong>First,</strong> peel the potatoes. (İlk önce...)</li>
             <li><strong>Second,</strong> chop them. (İkinci olarak...)</li>
             <li><strong>Then,</strong> fry them. (Sonra...)</li>
+            <li><strong>Next,</strong> put them on a plate. (Sonra...)</li>
             <li><strong>After that,</strong> add some salt. (Ondan sonra...)</li>
             <li><strong>Finally,</strong> serve it hot. (Son olarak...)</li>
           </ul>
@@ -111,9 +118,11 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Tariflerde fiili başa alarak emir kipi kullanırız.</p>
-          <p><strong>Crack</strong> two eggs.</p>
-          <p><strong>Mix</strong> the flour and sugar.</p>
-          <p><strong>Don't add</strong> too much salt.</p>
+          <ul className="list-disc pl-4 mt-2">
+             <li><strong>Crack</strong> two eggs. (İki yumurta kır.)</li>
+             <li><strong>Mix</strong> the flour and sugar. (Unu ve şekeri karıştır.)</li>
+             <li><strong>Don't add</strong> too much salt. (Çok fazla tuz ekleme.)</li>
+          </ul>
         </div>
       )
     }
@@ -123,11 +132,12 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       title: "Future Tense (Will)",
       content: (
         <div>
-          <p>Gelecek zaman, tahminler ve anlık kararlar için kullanılır.</p>
-          <ul className="list-disc pl-4">
-            <li>I <strong>will</strong> call you later. (Seni sonra arayacağım.)</li>
-            <li>She <strong>will</strong> text me. (Bana mesaj atacak.)</li>
-            <li>Hold on, I <strong>will</strong> get him. (Bekle, onu çağıracağım.)</li>
+          <p>Gelecek zaman, tahminler ve konuşma anında verilen kararlar için kullanılır.</p>
+          <ul className="list-disc pl-4 mt-2 space-y-1">
+            <li>I <strong>will</strong> call you later. (Seni sonra arayacağım - Karar)</li>
+            <li>She <strong>will</strong> text me. (Bana mesaj atacak - Tahmin)</li>
+            <li>Hold on, I <strong>will</strong> get him. (Bekle, onu çağıracağım - Anlık Karar)</li>
+            <li>I <strong>won't</strong> (will not) forget. (Unutmayacağım.)</li>
           </ul>
         </div>
       )
@@ -137,11 +147,13 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Telefonda konuşurken kullanılan kalıplar:</p>
-          <ul className="list-disc pl-4">
+          <ul className="list-disc pl-4 mt-2 space-y-1">
             <li><strong>Is Tom there?</strong> (Tom orada mı?)</li>
+            <li><strong>Who is calling?</strong> (Kim arıyor?)</li>
             <li><strong>Hold on a moment, please.</strong> (Bir saniye bekleyin lütfen.)</li>
             <li><strong>I'll put you through.</strong> (Sizi bağlıyorum.)</li>
             <li><strong>Would you like to leave a message?</strong> (Mesaj bırakmak ister misiniz?)</li>
+            <li><strong>Can you repeat that, please?</strong> (Tekrar eder misiniz?)</li>
           </ul>
         </div>
       )
@@ -153,7 +165,7 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Cümleleri birbirine bağlarken:</p>
-          <ul className="list-disc pl-4">
+          <ul className="list-disc pl-4 mt-2 space-y-1">
             <li><strong>And:</strong> Ve (I have a PC and a tablet.)</li>
             <li><strong>But:</strong> Ama (I like surfing the net, but I don't like chat rooms.)</li>
             <li><strong>Because:</strong> Çünkü (I am online because I have homework.)</li>
@@ -167,7 +179,9 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>İnternet davetlerinde de 1. ünitedeki kalıplar geçerlidir.</p>
-          <p>"Would you like to join our online game?" &rarr; "Sure, why not?"</p>
+          <p>"Would you like to join our online game?"</p>
+          <p>&rarr; "Sure, why not?" (Kabul)</p>
+          <p>&rarr; "Sorry, my internet is bad." (Red)</p>
         </div>
       )
     }
@@ -178,10 +192,11 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Macera sporlarını karşılaştırırken:</p>
-          <ul className="list-disc pl-4">
+          <ul className="list-disc pl-4 mt-2 space-y-1">
             <li>Skydiving is <strong>more dangerous than</strong> rafting.</li>
             <li>Caving is <strong>harder than</strong> trekking.</li>
             <li>Motor racing is <strong>faster than</strong> cycling.</li>
+            <li>Adana is <strong>hotter than</strong> Erzurum.</li>
           </ul>
         </div>
       )
@@ -192,6 +207,9 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
         <div>
           <p><strong>Prefer:</strong> I prefer <strong>staying</strong> home to <strong>going</strong> out.</p>
           <p><strong>Would Rather:</strong> I would rather <strong>stay</strong> home than <strong>go</strong> out. (Fiil yalın kullanılır!)</p>
+          <div className="mt-2 p-2 bg-orange-50 dark:bg-orange-900/20 rounded text-sm">
+             Prefer'den sonra fiile <strong>-ing</strong>, Would rather'dan sonra <strong>yalın</strong> fiil gelir.
+          </div>
         </div>
       )
     }
@@ -202,8 +220,8 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Geçmişte olmuş ama zamanı belirsiz veya etkisi devam eden olaylar.</p>
-          <p><strong>Subject + have/has + V3</strong></p>
-          <ul className="list-disc pl-4">
+          <p><strong>Formül:</strong> Subject + have/has + V3 (Fiilin 3. hali)</p>
+          <ul className="list-disc pl-4 mt-2 space-y-1">
             <li>I <strong>have been</strong> to Rome. (Roma'da bulundum.)</li>
             <li>She <strong>has visited</strong> the museum. (Müzeyi ziyaret etti.)</li>
             <li><strong>Have</strong> you ever <strong>eaten</strong> sushi? (Hiç suşi yedin mi?)</li>
@@ -217,6 +235,7 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
         <div>
           <p>Deneyimlerimizi anlatırken "I have..." kalıbını kullanırız.</p>
           <p>I have tasted Turkish Kebab. It is delicious.</p>
+          <p>I have never been to London.</p>
         </div>
       )
     }
@@ -227,10 +246,11 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Ev işleri ve sorumluluklarımızdan bahsederken:</p>
-          <ul className="list-disc pl-4">
+          <ul className="list-disc pl-4 mt-2 space-y-1">
             <li>I <strong>must</strong> tidy my room. (Odamı toplamalıyım - İçten gelen)</li>
             <li>We <strong>have to</strong> obey the rules. (Kurallara uymak zorundayız - Dıştan gelen)</li>
             <li>She <strong>has to</strong> wash the dishes.</li>
+            <li>You <strong>don't have to</strong> cook. (Yapmana gerek yok.)</li>
           </ul>
         </div>
       )
@@ -239,8 +259,10 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       title: "Obligations (Sorumluluklar)",
       content: (
         <div>
+          <p>Sorumluluklarımızı farklı şekillerde de ifade edebiliriz:</p>
           <p><strong>It is necessary to...</strong> ( ... yapmak gereklidir.)</p>
           <p><strong>It is my responsibility to...</strong> (... yapmak benim sorumluluğumdadır.)</p>
+          <p><strong>I am in charge of...</strong> (... yapmaktan ben sorumluyum.)</p>
         </div>
       )
     }
@@ -251,8 +273,11 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Bilimsel gerçekleri anlatırken geniş zaman kullanırız.</p>
-          <p>Water <strong>boils</strong> at 100 degrees.</p>
-          <p>The Earth <strong>revolves</strong> around the Sun.</p>
+          <ul className="list-disc pl-4 mt-2 space-y-1">
+             <li>Water <strong>boils</strong> at 100 degrees.</li>
+             <li>The Earth <strong>revolves</strong> around the Sun.</li>
+             <li>Scientists <strong>do</strong> experiments in labs.</li>
+          </ul>
         </div>
       )
     },
@@ -263,6 +288,7 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
           <p>Bilimsel süreçleri ve o an yapılan deneyleri anlatırken:</p>
           <p>The scientist <strong>is looking</strong> through the microscope.</p>
           <p>They <strong>are conducting</strong> an experiment.</p>
+          <p>The cells <strong>are growing</strong> rapidly.</p>
         </div>
       )
     }
@@ -273,8 +299,9 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       content: (
         <div>
           <p>Doğal afetlerle ilgili tahminlerde ve önlemlerde:</p>
-          <p>There <strong>will be</strong> a drought in the future.</p>
-          <p>We <strong>are going to</strong> plant more trees.</p>
+          <p>There <strong>will be</strong> a drought in the future. (Tahmin)</p>
+          <p>We <strong>are going to</strong> plant more trees. (Plan/Niyet)</p>
+          <p>It <strong>won't</strong> rain tomorrow.</p>
         </div>
       )
     },
@@ -282,9 +309,12 @@ export const GRAMMAR_G8: Record<string, GrammarTopic[]> = {
       title: "Cause and Effect (Sebep Sonuç)",
       content: (
         <div>
-          <p>Because / So</p>
-          <p>Global warming happens <strong>because</strong> we pollute the air.</p>
-          <p>We pollute the air, <strong>so</strong> global warming happens.</p>
+          <p>Olayların nedenlerini ve sonuçlarını bağlamak için:</p>
+          <ul className="list-disc pl-4 mt-2 space-y-2">
+             <li><strong>Because:</strong> Global warming happens <strong>because</strong> we pollute the air. (Sebep)</li>
+             <li><strong>So:</strong> We pollute the air, <strong>so</strong> global warming happens. (Sonuç)</li>
+             <li><strong>Therefore / As a result:</strong> Buzullar eriyor. <strong>Sonuç olarak</strong>, deniz seviyesi yükseliyor.</li>
+          </ul>
         </div>
       )
     }

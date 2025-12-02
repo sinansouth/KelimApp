@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Volume2, VolumeX, MessageSquare, Lock, Key, RotateCcw } from 'lucide-react';
+import { X, Volume2, VolumeX, MessageSquare, Lock, Key, RotateCcw, HelpCircle } from 'lucide-react';
 import { AppSettings, getAppSettings, saveAppSettings, resetAppProgress } from '../services/userService';
 import { APP_CONFIG } from '../config/appConfig';
 import ResetScopeModal from './ResetScopeModal';
@@ -10,9 +10,10 @@ interface SettingsModalProps {
   onClose: () => void;
   onOpenFeedback: () => void;
   onOpenAdmin: () => void;
+  onRestartTutorial: () => void;
 }
 
-const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, onOpenAdmin }) => {
+const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, onOpenAdmin, onRestartTutorial }) => {
   const [settings, setSettings] = useState<AppSettings>({ soundEnabled: true, theme: 'dark' });
   const [showAdminInput, setShowAdminInput] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
@@ -30,7 +31,7 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
 
   const handleAdminLogin = (e: React.FormEvent) => {
       e.preventDefault();
-      if (adminPassword === 'admin123') { 
+      if (adminPassword === 'Adminullah123') { 
           onClose();
           onOpenAdmin();
           setAdminPassword('');
@@ -78,6 +79,19 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
                     <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${settings.soundEnabled ? 'left-5' : 'left-1'}`}></div>
                 </button>
             </div>
+
+            <button 
+                onClick={onRestartTutorial}
+                className="w-full flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700 text-left"
+            >
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 text-blue-600 rounded-lg">
+                    <HelpCircle size={18} />
+                </div>
+                <div>
+                    <div className="font-bold text-slate-800 dark:text-white text-sm">Rehberi Tekrar İzle</div>
+                    <div className="text-xs text-slate-500">Tanıtım turunu başlat</div>
+                </div>
+            </button>
 
             <button 
                 onClick={() => setShowResetModal(true)}
