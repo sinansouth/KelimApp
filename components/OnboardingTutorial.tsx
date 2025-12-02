@@ -1,4 +1,8 @@
 
+
+
+
+
 import React, { useState, useEffect } from 'react';
 import { X, ChevronRight, Check, Star, ShoppingBag, User, ArrowRight, Target } from 'lucide-react';
 
@@ -20,8 +24,8 @@ const steps = [
     target: "category-section",
   },
   {
-    title: "XP ve Market",
-    desc: "Çalıştıkça XP kazan. Bu puanlarla Market'ten yeni temalar ve çerçeveler alabilirsin.",
+    title: "Kozmetikler",
+    desc: "Çalıştıkça XP kazan. Bu puanlarla Kozmetikler Market'ten yeni temalar, çerçeveler ve arka planlar alabilirsin. Seviye atladıkça yeni eşyaların kilidi açılır.",
     icon: <ShoppingBag size={32} className="text-orange-500" />,
     target: "market-button",
   },

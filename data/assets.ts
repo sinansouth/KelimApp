@@ -1,6 +1,3 @@
-
-
-
 import { Avatar, Badge, FrameDef, UnitDef, GradeDef, BackgroundDef } from '../types';
 import { 
   BookOpen, GraduationCap, Target, Library, Star, 
@@ -207,58 +204,59 @@ export const UNIT_ASSETS: Record<string, UnitDef[]> = {
   ]
 };
 
-// FRAMES (Massively Expanded)
+// FRAMES (Massively Expanded - LEVELS BALANCED)
 export const FRAMES: FrameDef[] = [
     { id: 'frame_none', name: 'Yok', description: 'Çerçevesiz', cost: 0, style: '' },
-    { id: 'frame_gold', name: 'Altın', description: 'Parlak altın', cost: 2000, style: 'border-4 border-yellow-400 ring-4 ring-yellow-200 shadow-lg shadow-yellow-500/50' },
-    { id: 'frame_neon', name: 'Neon', description: 'Parlayan yeşil', cost: 3000, style: 'border-4 border-green-400 ring-2 ring-green-200 shadow-[0_0_20px_#4ade80] animate-pulse' },
-    { id: 'frame_fire', name: 'Ateş', description: 'Alevli kırmızı', cost: 4000, style: 'frame-fire border-4 border-red-500' },
-    { id: 'frame_royal', name: 'Asil', description: 'Mor ve altın', cost: 5000, style: 'border-4 border-purple-600 ring-2 ring-yellow-400 shadow-[0_0_20px_#9333ea]' },
-    { id: 'frame_diamond', name: 'Elmas', description: 'Buz mavisi', cost: 8000, style: 'border-4 border-cyan-300 ring-2 ring-blue-100 shadow-[0_0_25px_#67e8f9]' },
-    { id: 'frame_rainbow', name: 'Gökkuşağı', description: 'Renkli', cost: 10000, style: 'frame-rainbow' },
-    { id: 'frame_cyber', name: 'Siber', description: 'Fütüristik', cost: 6000, style: 'border-2 border-yellow-400 ring-2 ring-cyan-400 shadow-[0_0_15px_#22d3ee] border-dashed' },
-    { id: 'frame_nature', name: 'Doğa', description: 'Yeşil yaprak', cost: 2500, style: 'border-8 border-emerald-600 ring-2 ring-emerald-300 border-double' },
-    { id: 'frame_love', name: 'Aşk', description: 'Pembe kalp', cost: 3500, style: 'border-4 border-pink-500 ring-4 ring-rose-300 shadow-[0_0_20px_#f43f5e]' },
-    { id: 'frame_ice', name: 'Buz', description: 'Soğuk mavi', cost: 4500, style: 'border-4 border-slate-200 ring-4 ring-sky-200 shadow-[0_0_15px_#bae6fd]' },
-    { id: 'frame_dark', name: 'Karanlık', description: 'Gece siyahı', cost: 5000, style: 'border-4 border-gray-900 ring-1 ring-gray-500 shadow-2xl' },
-    { id: 'frame_star', name: 'Yıldız', description: 'Yıldızlı', cost: 1500, style: 'border-4 border-yellow-300 ring-4 ring-yellow-100 border-dotted' },
-    { id: 'frame_wood', name: 'Ahşap', description: 'Doğal ahşap', cost: 1000, style: 'border-8 border-amber-800 ring-2 ring-amber-600' },
-    { id: 'frame_metal', name: 'Metal', description: 'Gümüş metal', cost: 3000, style: 'border-4 border-slate-400 ring-2 ring-slate-200 shadow-inner' },
-    { id: 'frame_pixel', name: 'Piksel', description: 'Retro oyun', cost: 4000, style: 'border-4 border-green-500 outline-dashed outline-2 outline-black' },
-    { id: 'frame_glitch', name: 'Glitch', description: 'Bozuk efekt', cost: 7000, style: 'border-2 border-red-500 ring-2 ring-blue-500 shadow-[2px_2px_0px_#00ff00] animate-glitch' },
-    { id: 'frame_rgb', name: 'RGB Gamer', description: 'Renk değiştiren', cost: 12000, style: 'frame-rgb' },
-    { id: 'frame_ghost', name: 'Hayalet', description: 'Yarı saydam', cost: 5500, style: 'frame-ghost' },
-    { id: 'frame_lightning', name: 'Yıldırım', description: 'Elektrikli', cost: 9000, style: 'frame-lightning' },
+    { id: 'frame_wood', name: 'Ahşap', description: 'Doğal ahşap', cost: 1000, style: 'border-8 border-amber-800 ring-2 ring-amber-600', unlockLevel: 2 },
+    { id: 'frame_star', name: 'Yıldız', description: 'Yıldızlı', cost: 1500, style: 'border-4 border-yellow-300 ring-4 ring-yellow-100 border-dotted', unlockLevel: 3 },
+    { id: 'frame_gold', name: 'Altın', description: 'Parlak altın', cost: 2000, style: 'border-4 border-yellow-400 ring-4 ring-yellow-200 shadow-lg shadow-yellow-500/50', unlockLevel: 4 },
+    { id: 'frame_nature', name: 'Doğa', description: 'Yeşil yaprak', cost: 2500, style: 'border-8 border-emerald-600 ring-2 ring-emerald-300 border-double', unlockLevel: 5 },
+    { id: 'frame_metal', name: 'Metal', description: 'Gümüş metal', cost: 3000, style: 'border-4 border-slate-400 ring-2 ring-slate-200 shadow-inner', unlockLevel: 6 },
+    { id: 'frame_neon', name: 'Neon', description: 'Parlayan yeşil', cost: 3000, style: 'border-4 border-green-400 ring-2 ring-green-200 shadow-[0_0_20px_#4ade80] animate-pulse', unlockLevel: 7 },
+    { id: 'frame_love', name: 'Aşk', description: 'Pembe kalp', cost: 3500, style: 'border-4 border-pink-500 ring-4 ring-rose-300 shadow-[0_0_20px_#f43f5e]', unlockLevel: 8 },
+    { id: 'frame_fire', name: 'Ateş', description: 'Alevli kırmızı', cost: 4000, style: 'frame-fire border-4 border-red-500', unlockLevel: 9 },
+    { id: 'frame_pixel', name: 'Piksel', description: 'Retro oyun', cost: 4000, style: 'border-4 border-green-500 outline-dashed outline-2 outline-black', unlockLevel: 10 },
+    { id: 'frame_ice', name: 'Buz', description: 'Soğuk mavi', cost: 4500, style: 'border-4 border-slate-200 ring-4 ring-sky-200 shadow-[0_0_15px_#bae6fd]', unlockLevel: 11 },
+    { id: 'frame_royal', name: 'Asil', description: 'Mor ve altın', cost: 5000, style: 'border-4 border-purple-600 ring-2 ring-yellow-400 shadow-[0_0_20px_#9333ea]', unlockLevel: 12 },
+    { id: 'frame_dark', name: 'Karanlık', description: 'Gece siyahı', cost: 5000, style: 'border-4 border-gray-900 ring-1 ring-gray-500 shadow-2xl', unlockLevel: 13 },
+    { id: 'frame_ghost', name: 'Hayalet', description: 'Yarı saydam', cost: 5500, style: 'frame-ghost', unlockLevel: 14 },
+    { id: 'frame_cyber', name: 'Siber', description: 'Fütüristik', cost: 6000, style: 'border-2 border-yellow-400 ring-2 ring-cyan-400 shadow-[0_0_15px_#22d3ee] border-dashed', unlockLevel: 15 },
+    { id: 'frame_glitch', name: 'Glitch', description: 'Bozuk efekt', cost: 7000, style: 'border-2 border-red-500 ring-2 ring-blue-500 shadow-[2px_2px_0px_#00ff00] animate-glitch', unlockLevel: 16 },
+    { id: 'frame_diamond', name: 'Elmas', description: 'Buz mavisi', cost: 8000, style: 'border-4 border-cyan-300 ring-2 ring-blue-100 shadow-[0_0_25px_#67e8f9]', unlockLevel: 18 },
+    { id: 'frame_lightning', name: 'Yıldırım', description: 'Elektrikli', cost: 9000, style: 'frame-lightning', unlockLevel: 20 },
+    { id: 'frame_rainbow', name: 'Gökkuşağı', description: 'Renkli', cost: 10000, style: 'frame-rainbow', unlockLevel: 25 },
+    { id: 'frame_rgb', name: 'RGB Gamer', description: 'Renk değiştiren', cost: 12000, style: 'frame-rgb', unlockLevel: 30 },
 ];
 
-// BACKGROUNDS (Massively Expanded)
+// BACKGROUNDS (Massively Expanded - LEVELS BALANCED)
 export const BACKGROUNDS: BackgroundDef[] = [
   { id: 'bg_default', name: 'Varsayılan', description: 'Sade geçiş', cost: 0, style: 'bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-700 dark:to-slate-800' },
-  { id: 'bg_blue', name: 'Gökyüzü', description: 'Mavi tonları', cost: 500, style: 'bg-gradient-to-br from-blue-400 to-indigo-500' },
-  { id: 'bg_sunset', name: 'Gün Batımı', description: 'Turuncu ve mor', cost: 1000, style: 'bg-gradient-to-br from-orange-400 to-purple-600' },
-  { id: 'bg_nature', name: 'Doğa', description: 'Yeşil ve ferah', cost: 1500, style: 'bg-gradient-to-br from-green-400 to-emerald-600' },
-  { id: 'bg_fire', name: 'Alev', description: 'Kırmızı ve sarı', cost: 2000, style: 'bg-gradient-to-br from-red-500 to-yellow-500' },
-  { id: 'bg_galaxy', name: 'Galaksi', description: 'Uzay renkleri', cost: 3000, style: 'bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800' },
-  { id: 'bg_gold', name: 'Altın', description: 'Lüks görünüm', cost: 5000, style: 'bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600' },
-  { id: 'bg_neon', name: 'Neon', description: 'Parlak siyah', cost: 4000, style: 'bg-gradient-to-br from-gray-900 to-black border-2 border-green-400' },
-  { id: 'bg_love', name: 'Aşk', description: 'Pembe rüya', cost: 2500, style: 'bg-gradient-to-br from-pink-300 to-rose-500' },
-  { id: 'bg_ocean', name: 'Okyanus', description: 'Derin mavi', cost: 2000, style: 'bg-gradient-to-br from-cyan-500 to-blue-800' },
-  { id: 'bg_forest', name: 'Orman', description: 'Koyu yeşil', cost: 2000, style: 'bg-gradient-to-br from-emerald-700 to-green-900' },
-  { id: 'bg_lavender', name: 'Lavanta', description: 'Yumuşak mor', cost: 1500, style: 'bg-gradient-to-br from-purple-300 to-indigo-400' },
-  { id: 'bg_midnight', name: 'Gece Yarısı', description: 'Koyu lacivert', cost: 3500, style: 'bg-gradient-to-br from-slate-900 to-blue-900' },
-  { id: 'bg_aurora', name: 'Aurora', description: 'Kuzey ışıkları', cost: 6000, style: 'bg-gradient-to-tr from-green-400 via-blue-500 to-purple-600' },
-  { id: 'bg_matrix', name: 'Matrix', description: 'Dijital kod', cost: 7000, style: 'bg-black border-2 border-green-500 shadow-[inset_0_0_20px_#00ff00]' },
-  { id: 'bg_candy', name: 'Şekerleme', description: 'Tatlı renkler', cost: 4500, style: 'bg-gradient-to-r from-pink-300 via-purple-300 to-indigo-400' },
-  { id: 'bg_volcano', name: 'Volkan', description: 'Kızgın lav', cost: 5500, style: 'bg-gradient-to-t from-red-900 via-red-600 to-orange-500' },
-  { id: 'bg_deep_sea', name: 'Derin Deniz', description: 'Okyanus dibi', cost: 5000, style: 'bg-gradient-to-b from-blue-600 via-blue-900 to-black' },
-  { id: 'bg_royal', name: 'Kraliyet', description: 'Asil mor', cost: 8000, style: 'bg-gradient-to-br from-indigo-900 via-purple-800 to-fuchsia-900 border-2 border-yellow-500' },
-  { id: 'bg_ice', name: 'Buzul', description: 'Buz mavisi', cost: 4000, style: 'bg-gradient-to-br from-white via-blue-100 to-cyan-200' },
+  { id: 'bg_blue', name: 'Gökyüzü', description: 'Mavi tonları', cost: 500, style: 'bg-gradient-to-br from-blue-400 to-indigo-500', unlockLevel: 2 },
+  { id: 'bg_sunset', name: 'Gün Batımı', description: 'Turuncu ve mor', cost: 1000, style: 'bg-gradient-to-br from-orange-400 to-purple-600', unlockLevel: 3 },
+  { id: 'bg_nature', name: 'Doğa', description: 'Yeşil ve ferah', cost: 1500, style: 'bg-gradient-to-br from-green-400 to-emerald-600', unlockLevel: 4 },
+  { id: 'bg_lavender', name: 'Lavanta', description: 'Yumuşak mor', cost: 1500, style: 'bg-gradient-to-br from-purple-300 to-indigo-400', unlockLevel: 5 },
+  { id: 'bg_fire', name: 'Alev', description: 'Kırmızı ve sarı', cost: 2000, style: 'bg-gradient-to-br from-red-500 to-yellow-500', unlockLevel: 6 },
+  { id: 'bg_ocean', name: 'Okyanus', description: 'Derin mavi', cost: 2000, style: 'bg-gradient-to-br from-cyan-500 to-blue-800', unlockLevel: 7 },
+  { id: 'bg_forest', name: 'Orman', description: 'Koyu yeşil', cost: 2000, style: 'bg-gradient-to-br from-emerald-700 to-green-900', unlockLevel: 7 },
+  { id: 'bg_love', name: 'Aşk', description: 'Pembe rüya', cost: 2500, style: 'bg-gradient-to-br from-pink-300 to-rose-500', unlockLevel: 8 },
+  { id: 'bg_galaxy', name: 'Galaksi', description: 'Uzay renkleri', cost: 3000, style: 'bg-gradient-to-br from-indigo-900 via-purple-900 to-pink-800', unlockLevel: 9 },
+  { id: 'bg_midnight', name: 'Gece Yarısı', description: 'Koyu lacivert', cost: 3500, style: 'bg-gradient-to-br from-slate-900 to-blue-900', unlockLevel: 10 },
+  { id: 'bg_ice', name: 'Buzul', description: 'Buz mavisi', cost: 4000, style: 'bg-gradient-to-br from-white via-blue-100 to-cyan-200', unlockLevel: 11 },
+  { id: 'bg_neon', name: 'Neon', description: 'Parlak siyah', cost: 4000, style: 'bg-gradient-to-br from-gray-900 to-black border-2 border-green-400', unlockLevel: 12 },
+  { id: 'bg_candy', name: 'Şekerleme', description: 'Tatlı renkler', cost: 4500, style: 'bg-gradient-to-r from-pink-300 via-purple-300 to-indigo-400', unlockLevel: 13 },
+  { id: 'bg_gold', name: 'Altın', description: 'Lüks görünüm', cost: 5000, style: 'bg-gradient-to-br from-yellow-200 via-yellow-400 to-yellow-600', unlockLevel: 15 },
+  { id: 'bg_deep_sea', name: 'Derin Deniz', description: 'Okyanus dibi', cost: 5000, style: 'bg-gradient-to-b from-blue-600 via-blue-900 to-black', unlockLevel: 15 },
+  { id: 'bg_volcano', name: 'Volkan', description: 'Kızgın lav', cost: 5500, style: 'bg-gradient-to-t from-red-900 via-red-600 to-orange-500', unlockLevel: 18 },
+  { id: 'bg_aurora', name: 'Aurora', description: 'Kuzey ışıkları', cost: 6000, style: 'bg-gradient-to-tr from-green-400 via-blue-500 to-purple-600', unlockLevel: 20 },
+  { id: 'bg_matrix', name: 'Matrix', description: 'Dijital kod', cost: 7000, style: 'bg-black border-2 border-green-500 shadow-[inset_0_0_20px_#00ff00]', unlockLevel: 25 },
+  { id: 'bg_royal', name: 'Kraliyet', description: 'Asil mor', cost: 8000, style: 'bg-gradient-to-br from-indigo-900 via-purple-800 to-fuchsia-900 border-2 border-yellow-500', unlockLevel: 30 },
 ];
 
-// AVATARS (Massively Expanded)
+// ... (AVATARS array remains the same, it already had unlockLevel logic) ...
 export const AVATARS: Avatar[] = [
   // Level 1-10
-  { id: 'student', icon: '🧑‍🎓', name: 'Öğrenci', unlockLevel: 1, bgGradient: 'from-blue-400 to-indigo-500', border: 'border-blue-200' },
+  { id: 'student', icon: '🧑‍🎓', image: 'https://8upload.com/image/497d2b438666fbbd/STUDENT.png', name: 'Öğrenci', unlockLevel: 1, bgGradient: 'from-blue-400 to-indigo-500', border: 'border-blue-200' },
+  // ... (Rest of the avatars) ...
   { id: 'cat', icon: '🐱', name: 'Kedi', unlockLevel: 2, bgGradient: 'from-orange-300 to-amber-400', border: 'border-orange-200' },
   { id: 'dog', icon: '🐶', name: 'Köpek', unlockLevel: 3, bgGradient: 'from-stone-300 to-stone-500', border: 'border-stone-300' },
   { id: 'fox', icon: '🦊', name: 'Tilki', unlockLevel: 4, bgGradient: 'from-orange-500 to-red-600', border: 'border-orange-300' },

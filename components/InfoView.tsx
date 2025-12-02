@@ -1,6 +1,10 @@
 
+
+
+
+
 import React from 'react';
-import { Lightbulb, BookOpen, Target, RefreshCw, Trophy, ShoppingBag, Zap, Shield, Star, Layout, MessageCircle, GraduationCap, Repeat } from 'lucide-react';
+import { Lightbulb, BookOpen, RefreshCw, Trophy, ShoppingBag, Layout, GraduationCap } from 'lucide-react';
 
 interface InfoViewProps {
   onBack: () => void;
@@ -30,12 +34,12 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                 <h3 className="font-bold text-base">XP & Seviye Sistemi</h3>
             </div>
             <p className="text-orange-100 text-[10px] leading-relaxed mb-3">
-                Her etkinlik sana XP kazandırır. XP kazandıkça seviye atlarsın ve yeni <strong>Avatarlar</strong> açarsın.
+                Her etkinlik sana XP kazandırır. XP kazandıkça seviye atlarsın. Seviyen yükseldikçe Kozmetikler Market'indeki yeni eşyaların kilidi açılır.
             </p>
             <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-orange-50">
                 <div className="bg-black/10 px-2 py-1 rounded flex justify-between"><span>Kart Bakma</span><span>+2 XP</span></div>
                 <div className="bg-black/10 px-2 py-1 rounded flex justify-between"><span>Quiz Doğru</span><span>+15 XP</span></div>
-                <div className="bg-black/10 px-2 py-1 rounded flex justify-between"><span>Ezberleme</span><span>+20 XP</span></div>
+                <div className="bg-black/10 px-2 py-1 rounded flex justify-between"><span>Oyun Puanı</span><span>+XP</span></div>
                 <div className="bg-black/10 px-2 py-1 rounded flex justify-between"><span>Günlük Görev</span><span>+50-200 XP</span></div>
             </div>
         </div>
@@ -45,23 +49,15 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
              <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
              <div className="flex items-center gap-2 mb-2">
                 <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm"><ShoppingBag size={16} /></div>
-                <h3 className="font-bold text-base">XP Market</h3>
+                <h3 className="font-bold text-base">Kozmetikler</h3>
             </div>
             <p className="text-yellow-100 text-[10px] leading-relaxed mb-3">
-                Kazandığın XP'leri markette harcayarak profilini özelleştir ve güçlendirmeler al.
+                Kazandığın XP'leri kozmetik markette harcayarak profilini özelleştir. Eşyaların kilidini açmak için seviye atlaman gerekir.
             </p>
             <div className="space-y-1.5">
                  <div className="px-2 py-1.5 bg-white/20 rounded text-[10px] flex items-center gap-2 font-medium">
                     <Layout size={12} /> 
                     <span><strong>Temalar & Arka Planlar:</strong> Uygulamanın görünümünü değiştir.</span>
-                 </div>
-                 <div className="px-2 py-1.5 bg-white/20 rounded text-[10px] flex items-center gap-2 font-medium">
-                    <Shield size={12} /> 
-                    <span><strong>Dondurma:</strong> Bir gün girmezsen serin bozulmaz.</span>
-                 </div>
-                 <div className="px-2 py-1.5 bg-white/20 rounded text-[10px] flex items-center gap-2 font-medium">
-                    <Zap size={12} /> 
-                    <span><strong>XP Boost:</strong> 30 dakika boyunca 2 kat XP kazan.</span>
                  </div>
             </div>
         </div>
@@ -86,8 +82,8 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                     <span style={{color: 'var(--color-text-muted)'}}>Çoktan seçmeli testler. Yanlış yaptığın kelimeler otomatik olarak favorilere eklenir, böylece sonra tekrar edebilirsin.</span>
                 </div>
                 <div className="p-2.5 rounded-lg bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700">
-                    <strong className="block mb-1 text-teal-600 dark:text-teal-400 text-xs">Gramer & Diğerleri</strong>
-                    <span style={{color: 'var(--color-text-muted)'}}>Her üniteye özel gramer notları, seçmeli kelime çalışmaları ve favori/ezber testleri.</span>
+                    <strong className="block mb-1 text-teal-600 dark:text-teal-400 text-xs">Eğlenceli Oyunlar</strong>
+                    <span style={{color: 'var(--color-text-muted)'}}>Eşleştirme, Yazma ve Kelime Türetmece oyunları ile kelimeleri pekiştir ve lider tablosunda yüksel.</span>
                 </div>
             </div>
         </div>
@@ -125,11 +121,10 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                  <GraduationCap size={24} />
              </div>
              <div className="text-center sm:text-left">
-                 <h3 className="font-bold text-sm mb-1" style={{color: 'var(--color-text-main)'}}>Ligler ve Sıralama</h3>
+                 <h3 className="font-bold text-sm mb-1" style={{color: 'var(--color-text-main)'}}>Lider Tablosu</h3>
                  <p className="text-[10px] leading-relaxed" style={{color: 'var(--color-text-muted)'}}>
-                     Her hafta kazandığın XP'ye göre lig atlayabilir veya düşebilirsin.
-                     Lider tablosunda kendi sınıfındaki ve genel sıralamadaki yerini gör.
-                     En iyiler arasına girerek <strong>Efsanevi Rozetler</strong> kazan!
+                     Lider tablosunda genel sıralamadaki yerini gör.
+                     Oyun modlarında en yüksek puanı yaparak zirveye çık!
                  </p>
              </div>
         </div>

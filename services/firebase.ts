@@ -27,8 +27,8 @@ import {
   createUserWithEmailAndPassword, 
   updateProfile, 
   signInWithEmailAndPassword, 
-  signOut,
-  deleteUser
+  signOut, 
+  deleteUser 
 } from 'firebase/auth';
 import { 
     UserStats, 
@@ -54,13 +54,12 @@ const firebaseConfig = {
 
 let db: any;
 let auth: any;
-let isFirebaseReady = false;
+export let isFirebaseReady = false;
 
 try {
     if (firebaseConfig.apiKey !== "AIzaSyB...") {
         const app = initializeApp(firebaseConfig);
         
-        // Updated Firestore Initialization with new Cache Settings
         db = initializeFirestore(app, {
             localCache: persistentLocalCache({
                 tabManager: persistentMultipleTabManager()
@@ -68,7 +67,6 @@ try {
         });
 
         auth = getAuth(app);
-        
         isFirebaseReady = true;
     }
 } catch (e) {
@@ -77,20 +75,16 @@ try {
 
 export const getAuthInstance = () => auth;
 
-// --- HELPER: Name to Fake Email Converter ---
+// ... (Authentication helpers remain same) ...
 const generateFakeEmail = (name: string): string => {
     const trMap: Record<string, string> = {
         'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
         'Ç': 'c', 'Ğ': 'g', 'İ': 'i', 'Ö': 'o', 'Ş': 's', 'Ü': 'u', ' ': ''
     };
-    
     let cleanName = name.toLowerCase().replace(/[çğıöşüÇĞİÖŞÜ ]/g, (match) => trMap[match] || '');
     cleanName = cleanName.replace(/[^a-z0-9]/g, '');
-    
     return `${cleanName}@kelimapp.user`;
 };
-
-// --- AUTHENTICATION ---
 
 export const checkUsernameExists = async (name: string): Promise<boolean> => {
     if (!isFirebaseReady) return false;
@@ -102,32 +96,22 @@ export const checkUsernameExists = async (name: string): Promise<boolean> => {
 
 export const registerUser = async (name: string, pass: string, grade: string = '') => {
     if (!isFirebaseReady) throw new Error("Firebase ayarlanmamış");
-    
     const exists = await checkUsernameExists(name);
     if (exists) {
         throw new Error("Bu kullanıcı adı zaten kullanılıyor. Lütfen başka bir ad seçin.");
     }
-
     const fakeEmail = generateFakeEmail(name);
-    
     await setPersistence(auth, browserLocalPersistence);
-    
     try {
         const userCredential = await createUserWithEmailAndPassword(auth, fakeEmail, pass);
         await updateProfile(userCredential.user, { displayName: name });
-        
         clearLocalUserData();
-
         const initialProfile = getUserProfile();
         initialProfile.name = name;
         initialProfile.grade = grade;
-        
         localStorage.setItem('lgs_user_profile', JSON.stringify(initialProfile));
         updateLastUpdatedTimestamp();
-
-        // Push initial data to cloud
         await syncLocalToCloud(userCredential.user.uid);
-        
         return userCredential.user;
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
@@ -139,16 +123,10 @@ export const registerUser = async (name: string, pass: string, grade: string = '
 
 export const loginUser = async (name: string, pass: string, rememberMe: boolean = true) => {
     if (!isFirebaseReady) throw new Error("Firebase ayarlanmamış");
-    
     const fakeEmail = generateFakeEmail(name);
-
     await setPersistence(auth, rememberMe ? browserLocalPersistence : browserSessionPersistence);
-    
     try {
         const userCredential = await signInWithEmailAndPassword(auth, fakeEmail, pass);
-        
-        // Trigger Smart Sync will happen via listener in App.tsx
-        
         return userCredential.user;
     } catch (error: any) {
         if (error.code === 'auth/invalid-credential' || error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
@@ -161,32 +139,23 @@ export const loginUser = async (name: string, pass: string, rememberMe: boolean 
 export const logoutUser = async () => {
     if (!isFirebaseReady) return;
     try {
-        clearLocalUserData(); // Wipe first to ensure
+        clearLocalUserData(); 
         await signOut(auth);
     } catch (e) {
         console.error("Sign out error", e);
     } finally {
-        // Always reload to clear state
         window.location.reload();
     }
 };
 
 export const deleteAccount = async () => {
     if (!isFirebaseReady || !auth.currentUser) return;
-    
     const user = auth.currentUser;
     const uid = user.uid;
-
     try {
-        // 1. Delete User Data from Firestore
         await deleteDoc(doc(db, "users", uid));
-        
-        // 2. Delete User from Authentication
         await deleteUser(user);
-        
-        // 3. Clear Local Storage
         localStorage.clear();
-        
         window.location.reload();
     } catch (error) {
         console.error("Error deleting account:", error);
@@ -203,15 +172,11 @@ export const updateCloudUsername = async (uid: string, newName: string) => {
     });
 };
 
-// --- FEEDBACK SYSTEM ---
-
 export const sendFeedback = async (type: 'bug' | 'suggestion', message: string, contact?: string) => {
     if (!isFirebaseReady) return;
-    
     const user = auth.currentUser;
     const profile = getUserProfile();
     const stats = getUserStats();
-
     try {
         await addDoc(collection(db, "feedback"), {
             type,
@@ -223,7 +188,7 @@ export const sendFeedback = async (type: 'bug' | 'suggestion', message: string, 
             userLevel: stats.level || 1,
             timestamp: serverTimestamp(),
             platform: navigator.userAgent,
-            version: '1.0' // Can be pulled from config
+            version: '1.0'
         });
     } catch (e) {
         console.error("Feedback error:", e);
@@ -231,9 +196,8 @@ export const sendFeedback = async (type: 'bug' | 'suggestion', message: string, 
     }
 };
 
-// --- SMART DATA SYNC (HYBRID STRATEGY) ---
+// --- SMART DATA SYNC ---
 
-// Helper to merge cloud data into local storage
 const mergeWithLocalData = (cloudData: any, uid: string): boolean => {
     try {
         const localProfile = getUserProfile();
@@ -251,14 +215,10 @@ const mergeWithLocalData = (cloudData: any, uid: string): boolean => {
         const cloudTimestamp = cloudData.lastDataUpdate || 0;
         
         const isLocalNewer = localTimestamp >= cloudTimestamp;
-        
         let useLocalState = isLocalNewer;
 
-        if (cloudProfile.name === "Deneme Hesap") {
-             useLocalState = false;
-        }
+        if (cloudProfile.name === "Deneme Hesap") { useLocalState = false; }
 
-        // --- STRATEGY 1: MERGE LISTS (Union) ---
         const cloudMemorized = new Set(JSON.parse(cloudData.memorized || '[]'));
         const cloudBookmarks = new Set(JSON.parse(cloudData.bookmarks || '[]'));
         
@@ -274,22 +234,17 @@ const mergeWithLocalData = (cloudData: any, uid: string): boolean => {
         const mergedCompletedGrades = Array.from(new Set([...(localStats.completedGrades || []), ...(cloudStats.completedGrades || [])]));
         const mergedViewedWordsToday = Array.from(new Set([...(localStats.viewedWordsToday || []), ...(cloudStats.viewedWordsToday || [])]));
 
-        // --- STRATEGY 1.5: MERGE SRS DATA ---
-        // If both exist, prefer highest box (progress)
         const mergedSRS = { ...cloudSRS }; 
         Object.keys(localSRS).forEach(key => {
             if (mergedSRS[key]) {
-                // If present in both, take the one with higher box count
                 if (localSRS[key].box > mergedSRS[key].box) {
                     mergedSRS[key] = localSRS[key];
                 }
             } else {
-                // If only local has it, add it
                 mergedSRS[key] = localSRS[key];
             }
         });
 
-        // --- STRATEGY 2: MAX VALUE FOR CUMULATIVE STATS ---
         const flashcardsViewed = Math.max(localStats.flashcardsViewed, cloudStats.flashcardsViewed || 0);
         const quizCorrect = Math.max(localStats.quizCorrect, cloudStats.quizCorrect || 0);
         const quizWrong = Math.max(localStats.quizWrong, cloudStats.quizWrong || 0);
@@ -297,7 +252,6 @@ const mergeWithLocalData = (cloudData: any, uid: string): boolean => {
         const questsCompleted = Math.max(localStats.questsCompleted, cloudStats.questsCompleted || 0);
         const totalTimeSpent = Math.max(localStats.totalTimeSpent, cloudStats.totalTimeSpent || 0);
 
-        // --- STRATEGY 3: LATEST TIMESTAMP FOR STATE/CURRENCY ---
         const xp = useLocalState ? localStats.xp : (cloudStats.xp || 0);
         const level = useLocalState ? localStats.level : (cloudStats.level || 1);
         const streak = useLocalState ? localStats.streak : (cloudStats.streak || 0);
@@ -305,6 +259,9 @@ const mergeWithLocalData = (cloudData: any, uid: string): boolean => {
         const dailyGoal = useLocalState ? localStats.dailyGoal : (cloudStats.dailyGoal || 5);
         const xpBoostEndTime = useLocalState ? localStats.xpBoostEndTime : (cloudStats.xpBoostEndTime || 0);
         
+        // Merge weekly stats carefully
+        const weeklyStats = useLocalState ? localStats.weekly : (cloudStats.weekly || localStats.weekly);
+
         const currentAvatar = useLocalState ? localProfile.avatar : cloudProfile.avatar;
         const currentFrame = useLocalState ? localProfile.frame : cloudProfile.frame;
         const currentBackground = useLocalState ? localProfile.background : cloudProfile.background;
@@ -314,7 +271,6 @@ const mergeWithLocalData = (cloudData: any, uid: string): boolean => {
         const name = (useLocalState ? localProfile.name : cloudProfile.name) || localProfile.name || cloudProfile.name;
         const grade = (useLocalState ? localProfile.grade : cloudProfile.grade) || localProfile.grade || cloudProfile.grade;
         
-        // Merge Settings
         const mergedSettings = { ...localSettings, ...cloudSettings };
 
         const mergedStats: UserStats = {
@@ -335,7 +291,8 @@ const mergeWithLocalData = (cloudData: any, uid: string): boolean => {
             completedGrades: mergedCompletedGrades,
             viewedWordsToday: mergedViewedWordsToday,
             breakdown: localStats.flashcardsViewed > (cloudStats.flashcardsViewed || 0) ? localStats.breakdown : cloudStats.breakdown,
-            xpBoostEndTime
+            xpBoostEndTime,
+            weekly: weeklyStats
         };
 
         const mergedProfile: UserProfile = {
@@ -371,19 +328,14 @@ const mergeWithLocalData = (cloudData: any, uid: string): boolean => {
     }
 };
 
-// Manual Sync (Push/Pull)
 export const syncData = async (uid: string) => {
     if (!isFirebaseReady) return;
-
     try {
         const docRef = doc(db, "users", uid);
         const docSnap = await getDoc(docRef);
-        
         if (docSnap.exists()) {
             const cloudData = docSnap.data();
-            // Merge incoming data
             mergeWithLocalData(cloudData, uid);
-            // Then push back the merged state to ensure consistency
             await syncLocalToCloud(uid);
         } else {
             await syncLocalToCloud(uid);
@@ -393,34 +345,24 @@ export const syncData = async (uid: string) => {
     }
 };
 
-// Real-time Listener
 export const subscribeToUserChanges = (uid: string, onUpdate: () => void) => {
     if (!isFirebaseReady) return () => {};
-
     const docRef = doc(db, "users", uid);
-    
     const unsubscribe = onSnapshot(docRef, (docSnap) => {
-        if (docSnap.metadata.hasPendingWrites) {
-            return;
-        }
-
+        if (docSnap.metadata.hasPendingWrites) { return; }
         if (docSnap.exists()) {
             const cloudData = docSnap.data();
             const updated = mergeWithLocalData(cloudData, uid);
-            if (updated) {
-                onUpdate();
-            }
+            if (updated) { onUpdate(); }
         }
     }, (error) => {
         console.error("Real-time sync error:", error);
     });
-
     return unsubscribe;
 };
 
 export const syncLocalToCloud = async (userId?: string) => {
     if (!isFirebaseReady) return;
-    
     const uid = userId || auth?.currentUser?.uid;
     if (!uid) return;
 
@@ -437,7 +379,7 @@ export const syncLocalToCloud = async (userId?: string) => {
         await setDoc(doc(db, "users", uid), {
             uid: uid,
             profile: profile,
-            stats: stats,
+            stats: stats, 
             settings: settings,
             memorized: memorized, 
             bookmarks: bookmarks, 
@@ -450,16 +392,19 @@ export const syncLocalToCloud = async (userId?: string) => {
                 grade: profile.grade || 'General',
                 xp: stats.xp,
                 level: stats.level,
+                streak: stats.streak, 
                 avatar: profile.avatar,
                 frame: profile.frame,
                 background: profile.background,
                 theme: currentTheme,
-                streak: stats.streak,
-                totalBadges: stats.badges.length,
-                cardsViewed: stats.flashcardsViewed,
-                quizScore: stats.quizCorrect,
-                quizWrong: stats.quizWrong, 
-                memorizedCount: (JSON.parse(memorized) as string[]).length
+                
+                weekId: stats.weekly.weekId,
+                quizCorrect: stats.weekly.quizCorrect,
+                quizWrong: stats.weekly.quizWrong || 0, // New field added
+                cardsViewed: stats.weekly.cardsViewed,
+                matchingBestTime: stats.weekly.matchingBestTime,
+                typingHighScore: stats.weekly.typingHighScore,
+                chainHighScore: stats.weekly.chainHighScore
             }
         }, { merge: true });
     } catch (e) {
@@ -472,33 +417,46 @@ export interface LeaderboardEntry {
     name: string;
     xp: number;
     level: number;
+    streak?: number; 
     avatar: string;
     frame?: string;
     background?: string;
     theme?: string;
     grade: string;
-    streak: number;
-    badges: number;
-    cards: number;
-    quiz: number;
-    quizWrong: number;
-    memorized: number;
+    
+    quizWrong?: number; // Added for detailed view
+    value: number; 
 }
 
-export const getLeaderboard = async (filterGrade: string | 'ALL'): Promise<LeaderboardEntry[]> => {
+export const getLeaderboard = async (filterGrade: string | 'ALL', mode: 'xp' | 'quiz' | 'flashcard' | 'matching' | 'typing' | 'chain' = 'xp'): Promise<LeaderboardEntry[]> => {
     if (!isFirebaseReady) return [];
 
     try {
         const usersRef = collection(db, "users");
         let q;
+        
+        let sortField = "leaderboardData.xp";
+        let direction: 'asc' | 'desc' = 'desc';
+
+        switch(mode) {
+            case 'quiz': sortField = "leaderboardData.quizCorrect"; break;
+            case 'flashcard': sortField = "leaderboardData.cardsViewed"; break;
+            case 'typing': sortField = "leaderboardData.typingHighScore"; break;
+            case 'chain': sortField = "leaderboardData.chainHighScore"; break;
+            case 'matching': 
+                sortField = "leaderboardData.matchingBestTime"; 
+                direction = 'desc'; 
+                break;
+            default: sortField = "leaderboardData.xp";
+        }
 
         if (filterGrade === 'ALL') {
-            q = query(usersRef, orderBy("leaderboardData.xp", "desc"), limit(50));
+            q = query(usersRef, orderBy(sortField, direction), limit(50));
         } else {
             q = query(
                 usersRef, 
                 where("leaderboardData.grade", "==", filterGrade),
-                orderBy("leaderboardData.xp", "desc"), 
+                orderBy(sortField, direction), 
                 limit(50)
             );
         }
@@ -509,25 +467,34 @@ export const getLeaderboard = async (filterGrade: string | 'ALL'): Promise<Leade
         querySnapshot.forEach((doc) => {
             const d = doc.data().leaderboardData;
             if (d) {
+                let val = 0;
+                if (mode === 'xp') val = d.xp;
+                else if (mode === 'quiz') val = d.quizCorrect;
+                else if (mode === 'flashcard') val = d.cardsViewed;
+                else if (mode === 'typing') val = d.typingHighScore;
+                else if (mode === 'chain') val = d.chainHighScore;
+                else if (mode === 'matching') val = d.matchingBestTime;
+
+                if (mode === 'matching' && val === 0) return;
+
                 results.push({
                     uid: doc.id,
                     name: d.name,
-                    xp: d.xp,
+                    xp: d.xp, 
                     level: d.level,
+                    streak: d.streak || 0,
                     avatar: d.avatar,
                     frame: d.frame,
                     background: d.background,
                     theme: d.theme || 'dark',
                     grade: d.grade,
-                    streak: d.streak || 0,
-                    badges: d.totalBadges || 0,
-                    cards: d.cardsViewed || 0,
-                    quiz: d.quizScore || 0,
                     quizWrong: d.quizWrong || 0,
-                    memorized: d.memorizedCount || 0
+                    value: val
                 });
             }
         });
+
+        results.sort((a, b) => b.value - a.value);
 
         return results;
     } catch (e) {
@@ -535,5 +502,3 @@ export const getLeaderboard = async (filterGrade: string | 'ALL'): Promise<Leade
         return [];
     }
 };
-
-export { isFirebaseReady };

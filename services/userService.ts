@@ -21,7 +21,6 @@ export const adminAddXP = (amount: number) => {
 
 export const adminSetLevel = (level: number) => {
     const stats = getUserStats();
-    // Calculate approx XP needed for this level
     let requiredXP = 0;
     if (level <= 1) requiredXP = 0;
     else if (level <= 2) requiredXP = 100;
@@ -43,14 +42,11 @@ export const adminSetLevel = (level: number) => {
 export const adminUnlockAllItems = () => {
     const profile = getUserProfile();
     
-    // Unlock all Themes
     const allThemes = ['light', 'dark', 'neon', 'ocean', 'sunset', 'forest', 'royal', 'candy', 'cyberpunk', 'coffee', 'galaxy', 'retro', 'matrix', 'midnight', 'volcano', 'ice', 'lavender', 'gamer', 'luxury', 'comic', 'nature_soft'];
     profile.purchasedThemes = allThemes;
 
-    // Unlock all Frames
     profile.purchasedFrames = FRAMES.map(f => f.id);
 
-    // Unlock all Backgrounds
     profile.purchasedBackgrounds = BACKGROUNDS.map(b => b.id);
 
     saveUserProfile(profile);
@@ -58,7 +54,6 @@ export const adminUnlockAllItems = () => {
 
 export const adminResetDailyQuests = () => {
     localStorage.removeItem(DAILY_STATE_KEY);
-    // This will force regeneration on next getDailyState call
     getDailyState();
 };
 
@@ -72,9 +67,15 @@ export interface UserProfile {
   purchasedFrames: string[]; 
   purchasedBackgrounds: string[];
   inventory: {
-    streakFreezes: number;
+    streakFreezes: number; // Kept for backward compatibility but not used
   };
   lastUsernameChange?: number; 
+}
+
+export interface LastActivity {
+  grade: string;
+  unitId: string;
+  timestamp: number;
 }
 
 export interface UserStats {
@@ -88,7 +89,7 @@ export interface UserStats {
   streak: number;
   lastStudyDate: string | null;
   badges: string[];
-  xpBoostEndTime: number;
+  xpBoostEndTime: number; // Kept for backward compatibility but not used
   lastGoalMetDate: string | null; 
   viewedWordsToday: string[]; 
   breakdown?: Record<string, { 
@@ -100,7 +101,18 @@ export interface UserStats {
   questsCompleted: number;
   totalTimeSpent: number; 
   completedUnits: string[];
-  completedGrades: string[]; 
+  completedGrades: string[];
+  lastActivity?: LastActivity | null; // New persistent field
+  
+  weekly: {
+      weekId: string; 
+      quizCorrect: number;
+      quizWrong?: number; // Added for leaderboard accuracy
+      cardsViewed: number;
+      matchingBestTime: number; 
+      typingHighScore: number;
+      chainHighScore: number; 
+  }
 }
 
 export interface AppSettings {
@@ -108,10 +120,11 @@ export interface AppSettings {
   theme: ThemeType;
 }
 
-export interface LastActivity {
-  grade: string;
-  unitId: string;
-  timestamp: number;
+export interface SRSData {
+  [key: string]: {
+    box: number;
+    nextReview: number;
+  };
 }
 
 const PROFILE_KEY = 'lgs_user_profile';
@@ -120,35 +133,34 @@ const SETTINGS_KEY = 'lgs_app_settings';
 const MEMORIZED_KEY = 'lgs_memorized';
 const BOOKMARKS_KEY = 'lgs_bookmarks';
 const SRS_KEY = 'lgs_srs_data';
-const LAST_ACTIVITY_KEY = 'lgs_last_activity';
+const OLD_LAST_ACTIVITY_KEY = 'lgs_last_activity'; // Deprecated
 const READ_ANNOUNCEMENT_KEY = 'lgs_read_announcement_id';
 const DAILY_STATE_KEY = 'lgs_daily_state';
-
 const SRS_INTERVALS = [0, 1, 3, 7, 14, 30]; 
-
-interface SRSData {
-  [uniqueKey: string]: {
-    box: number;
-    nextReview: number; 
-  }
-}
-
 const GOAL_STEPS = [5, 10, 15, 20, 30];
 
-// IMPORTANT: SETTINGS_KEY must be here so theme is reset on logout
 const USER_SPECIFIC_KEYS = [
     PROFILE_KEY, 
     STATS_KEY, 
     MEMORIZED_KEY, 
     BOOKMARKS_KEY, 
     SRS_KEY, 
-    LAST_ACTIVITY_KEY, 
+    OLD_LAST_ACTIVITY_KEY, 
     READ_ANNOUNCEMENT_KEY, 
     DAILY_STATE_KEY, 
     LAST_UPDATED_KEY,
     SETTINGS_KEY 
 ];
 const ALL_STORAGE_KEYS = [...USER_SPECIFIC_KEYS, DATA_VERSION_KEY, LAST_UID_KEY];
+
+const getCurrentWeekId = (): string => {
+    const now = new Date();
+    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
+    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
+    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+    const weekNo = Math.ceil(( ( (d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+    return `${d.getUTCFullYear()}-W${weekNo}`;
+};
 
 
 export const checkIfBrowser = (): boolean => {
@@ -286,11 +298,11 @@ export const getUserStats = (): UserStats => {
   try {
     const stored = localStorage.getItem(STATS_KEY);
     const today = new Date();
-    // Normalize today to midnight for accurate comparison
     const todayMidnight = new Date(today);
     todayMidnight.setHours(0, 0, 0, 0);
     const todayStr = today.toISOString().split('T')[0];
-    
+    const currentWeekId = getCurrentWeekId();
+
     const defaultStats: UserStats = { 
       flashcardsViewed: 0, 
       quizCorrect: 0, 
@@ -300,7 +312,17 @@ export const getUserStats = (): UserStats => {
       xp: 0, level: 1, streak: 0, lastStudyDate: null, badges: [],
       xpBoostEndTime: 0,
       lastGoalMetDate: null, viewedWordsToday: [], breakdown: {},
-      perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, completedUnits: [], completedGrades: []
+      perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, completedUnits: [], completedGrades: [],
+      lastActivity: null,
+      weekly: {
+          weekId: currentWeekId,
+          quizCorrect: 0,
+          quizWrong: 0,
+          cardsViewed: 0,
+          matchingBestTime: 0,
+          typingHighScore: 0,
+          chainHighScore: 0
+      }
     };
 
     if (!stored) return defaultStats;
@@ -308,58 +330,76 @@ export const getUserStats = (): UserStats => {
     const parsedStats = JSON.parse(stored);
     let needsUpdate = false;
     
-    // Ensure defaults for missing properties
-    if (typeof parsedStats.dailyGoal !== 'number') parsedStats.dailyGoal = 5;
-    if (!parsedStats.viewedWordsToday) parsedStats.viewedWordsToday = [];
-    if (!parsedStats.breakdown) parsedStats.breakdown = {};
-    if (parsedStats.xp === undefined) parsedStats.xp = 0;
-    if (parsedStats.level === undefined) parsedStats.level = 1;
-    if (parsedStats.badges === undefined) parsedStats.badges = [];
-    if (parsedStats.lastStudyDate === undefined) parsedStats.lastStudyDate = null;
-    if (parsedStats.xpBoostEndTime === undefined) parsedStats.xpBoostEndTime = 0;
-    if (parsedStats.perfectQuizzes === undefined) parsedStats.perfectQuizzes = 0;
-    if (parsedStats.questsCompleted === undefined) parsedStats.questsCompleted = 0;
-    if (parsedStats.totalTimeSpent === undefined) parsedStats.totalTimeSpent = 0;
-    if (parsedStats.completedUnits === undefined) parsedStats.completedUnits = [];
-    if (parsedStats.completedGrades === undefined) parsedStats.completedGrades = [];
+    if (!parsedStats.weekly) {
+        parsedStats.weekly = defaultStats.weekly;
+        needsUpdate = true;
+    }
+    
+    if (typeof parsedStats.weekly.chainHighScore === 'undefined') {
+        parsedStats.weekly.chainHighScore = 0;
+        needsUpdate = true;
+    }
 
-    // Daily Reset for stats
+    if (typeof parsedStats.weekly.quizWrong === 'undefined') {
+        parsedStats.weekly.quizWrong = 0;
+        needsUpdate = true;
+    }
+    
+    if (parsedStats.lastActivity === undefined) {
+        parsedStats.lastActivity = null;
+        // Try to migrate old activity if exists
+        try {
+            const oldActivity = localStorage.getItem(OLD_LAST_ACTIVITY_KEY);
+            if (oldActivity) {
+                parsedStats.lastActivity = JSON.parse(oldActivity);
+            }
+        } catch(e) {}
+        needsUpdate = true;
+    }
+
+    if (parsedStats.weekly.weekId !== currentWeekId) {
+        console.log("New week detected. Resetting weekly leaderboard stats.");
+        parsedStats.weekly = {
+            weekId: currentWeekId,
+            quizCorrect: 0,
+            quizWrong: 0,
+            cardsViewed: 0,
+            matchingBestTime: 0,
+            typingHighScore: 0,
+            chainHighScore: 0
+        };
+        needsUpdate = true;
+    }
+
     const storedDate = new Date(parsedStats.date);
     const storedDateStr = storedDate.toDateString();
     const currentDateStr = today.toDateString();
 
     if (storedDateStr !== currentDateStr) {
-        // NEW DAY detected: Reset counters
         parsedStats.viewedWordsToday = [];
-        parsedStats.flashcardsViewed = 0;
-        parsedStats.quizCorrect = 0;
-        parsedStats.quizWrong = 0;
+        parsedStats.flashcardsViewed = 0; 
+        parsedStats.quizCorrect = 0; 
+        parsedStats.quizWrong = 0; 
+        
         parsedStats.date = currentDateStr;
         needsUpdate = true;
     }
     
-    // Streak Logic Check - Immediate update if broken
+    // Streak Logic Check
     if (parsedStats.lastStudyDate) {
         const lastDate = new Date(parsedStats.lastStudyDate);
-        lastDate.setHours(0, 0, 0, 0); // Normalize
+        lastDate.setHours(0, 0, 0, 0);
         
-        const diffTime = todayMidnight.getTime() - lastDate.getTime();
-        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+        const yesterdayMidnight = new Date(todayMidnight);
+        yesterdayMidnight.setDate(yesterdayMidnight.getDate() - 1);
 
-        // If difference is greater than 1 day (meaning they skipped yesterday), reset streak
-        // unless they have a freeze item (handled in updateStats but we need to reflect display here)
-        if (diffDays > 1 && parsedStats.streak > 0) {
-             const profile = getUserProfile();
-             if (profile.inventory.streakFreezes <= 0) {
-                 // No freeze, reset streak
-                 parsedStats.streak = 0;
-                 needsUpdate = true;
-             }
+        // If last study date is strictly less than yesterday, streak is broken
+        if (lastDate.getTime() < yesterdayMidnight.getTime() && parsedStats.streak > 0) {
+             parsedStats.streak = 0;
+             needsUpdate = true;
         }
     }
 
-    // If we detected a streak break or day change during read, save it immediately
-    // so the UI reflects "0 streak" or empty daily progress without needing an action.
     if (needsUpdate) {
         localStorage.setItem(STATS_KEY, JSON.stringify(parsedStats));
     }
@@ -367,12 +407,14 @@ export const getUserStats = (): UserStats => {
     return parsedStats;
   } catch (e) {
     return { 
-      flashcardsViewed: 0, quizCorrect: 0, quizWrong: 0, 
-      date: new Date().toDateString(), dailyGoal: 5,
-      xp: 0, level: 1, streak: 0, lastStudyDate: null, badges: [],
-      xpBoostEndTime: 0,
-      lastGoalMetDate: null, viewedWordsToday: [], breakdown: {},
-      perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, completedUnits: [], completedGrades: []
+        flashcardsViewed: 0, quizCorrect: 0, quizWrong: 0, 
+        date: new Date().toDateString(), dailyGoal: 5,
+        xp: 0, level: 1, streak: 0, lastStudyDate: null, badges: [],
+        xpBoostEndTime: 0,
+        lastGoalMetDate: null, viewedWordsToday: [], breakdown: {},
+        perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, completedUnits: [], completedGrades: [],
+        lastActivity: null,
+        weekly: { weekId: getCurrentWeekId(), quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, typingHighScore: 0, chainHighScore: 0 }
     };
   }
 };
@@ -433,23 +475,6 @@ const XP_REWARDS = {
     REVIEW_FORGOT: 5
 };
 
-export const activateXPBoost = () => {
-    const stats = getUserStats();
-    stats.xpBoostEndTime = Date.now() + (30 * 60 * 1000);
-    saveUserStats(stats);
-};
-
-export const buyXPBoost = (cost: number): boolean => {
-    const stats = getUserStats();
-    if (stats.xpBoostEndTime > Date.now()) return false; 
-    
-    if (spendXP(cost)) {
-        activateXPBoost();
-        return true;
-    }
-    return false;
-};
-
 export const updateTimeSpent = (minutes: number) => {
     const stats = getUserStats();
     stats.totalTimeSpent += minutes;
@@ -497,51 +522,69 @@ const checkCompletion = (stats: UserStats): string[] => {
     return newlyCompleted;
 }
 
+export const updateGameStats = (game: 'matching' | 'typing' | 'chain', scoreOrTime: number) => {
+    const stats = getUserStats();
+    let updated = false;
+    
+    let xpGain = 0;
+
+    if (game === 'matching') {
+        xpGain = 20;
+        if (scoreOrTime > 200) xpGain += 10;
+
+        if (scoreOrTime > stats.weekly.matchingBestTime) {
+            stats.weekly.matchingBestTime = scoreOrTime;
+            updated = true;
+        }
+        updateQuestProgress('play_matching', 1);
+    } else if (game === 'typing') {
+        xpGain = Math.floor(scoreOrTime / 2);
+        
+        if (scoreOrTime > stats.weekly.typingHighScore) {
+            stats.weekly.typingHighScore = scoreOrTime;
+            updated = true;
+        }
+        updateQuestProgress('play_typing', 1);
+    } else if (game === 'chain') {
+        xpGain = Math.floor(scoreOrTime / 2);
+
+        if (scoreOrTime > stats.weekly.chainHighScore) {
+            stats.weekly.chainHighScore = scoreOrTime;
+            updated = true;
+        }
+        updateQuestProgress('play_chain', 1);
+    }
+    
+    if (xpGain > 0) {
+        stats.xp += xpGain;
+        stats.level = calculateLevel(stats.xp);
+        updateQuestProgress('earn_xp', xpGain);
+        updated = true;
+    }
+
+    if (updated) {
+        saveUserStats(stats);
+        syncLocalToCloud();
+    }
+};
+
 export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 'perfect_quiz' | 'memorized' | 'review_remember' | 'review_forgot', grade?: string | null, wordId?: string, quizSize?: number): Badge[] => {
   const stats = getUserStats(); 
   const today = new Date();
   const todayStr = today.toISOString().split('T')[0];
   const newBadges: Badge[] = [];
 
-  // Streak Logic on Action
   if (stats.lastStudyDate !== todayStr) {
       const yesterday = new Date(today);
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = yesterday.toISOString().split('T')[0];
-      const lastDate = stats.lastStudyDate ? new Date(stats.lastStudyDate) : null;
       
-      // Normalize for compare
-      yesterday.setHours(0,0,0,0);
-      const lastDateObj = lastDate ? new Date(lastDate) : null;
-      if(lastDateObj) lastDateObj.setHours(0,0,0,0);
-
-      const diffDays = lastDateObj ? Math.round((today.getTime() - lastDateObj.getTime()) / (1000 * 60 * 60 * 24)) : 100;
-
       if (stats.lastStudyDate === yesterdayStr) {
-          // Worked yesterday, simple increment
           stats.streak += 1;
-      } else if (diffDays > 1) {
-           // Missed a day or more
-           const profile = getUserProfile();
-           if (profile.inventory.streakFreezes > 0) {
-               // Use freeze to recover streak
-               profile.inventory.streakFreezes--;
-               saveUserProfile(profile, true);
-               // Don't reset streak, just increment as if they didn't miss (or keep same? usually increment from previous)
-               // Let's just keep the streak alive.
-               // Actually, if they missed yesterday, and use freeze, they keep the streak.
-               // So streak count stays same, but date updates to today.
-               // OR, we can act like they didn't miss.
-               // Let's increment to reward coming back.
-               stats.streak += 1;
-           } else {
-               // Reset
-               stats.streak = 1;
-           }
       } else {
-          // First time or reset previously
           stats.streak = 1;
       }
+      
       stats.lastStudyDate = todayStr;
   }
 
@@ -549,7 +592,8 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
 
   if (type === 'card_view') {
       if (wordId && !stats.viewedWordsToday.includes(wordId)) {
-          stats.flashcardsViewed += 1;
+          stats.flashcardsViewed += 1; 
+          stats.weekly.cardsViewed += 1; 
           stats.viewedWordsToday.push(wordId);
           xpGained = XP_REWARDS.CARD_VIEW;
           if (grade) {
@@ -559,10 +603,12 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
           }
       } else if (!wordId) {
            stats.flashcardsViewed += 1;
+           stats.weekly.cardsViewed += 1;
            xpGained = 2;
       }
   } else if (type === 'quiz_correct') {
-      stats.quizCorrect += 1;
+      stats.quizCorrect += 1; 
+      stats.weekly.quizCorrect += 1; 
       xpGained = XP_REWARDS.QUIZ_CORRECT;
       if (grade) {
           if (!stats.breakdown) stats.breakdown = {};
@@ -570,7 +616,10 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
           stats.breakdown[grade].correct += 1;
       }
   } else if (type === 'quiz_wrong') {
-      stats.quizWrong += 1;
+      stats.quizWrong += 1; 
+      if (!stats.weekly.quizWrong) stats.weekly.quizWrong = 0;
+      stats.weekly.quizWrong += 1; // Track weekly wrong answers
+      
       xpGained = XP_REWARDS.QUIZ_WRONG;
       if (grade) {
           if (!stats.breakdown) stats.breakdown = {};
@@ -589,17 +638,15 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
       xpGained = 60; 
   }
 
-  if (stats.xpBoostEndTime > Date.now()) {
-      xpGained *= 2;
-  }
-
+  // Add XP
   if (xpGained > 0) {
+      stats.xp += xpGained;
       updateQuestProgress('earn_xp', xpGained);
   }
 
-  stats.xp += xpGained;
   stats.level = calculateLevel(stats.xp);
 
+  // Badge Checks
   BADGES.forEach(badge => {
       if (!stats.badges.includes(badge.id)) {
           if (badge.condition(stats, { quizSize })) { 
@@ -610,9 +657,8 @@ export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 
   });
 
   const totalInteractions = stats.flashcardsViewed + stats.quizCorrect + stats.quizWrong;
-  const todayDateStr = new Date().toDateString();
   if (totalInteractions >= stats.dailyGoal) {
-      stats.lastGoalMetDate = todayDateStr;
+      stats.lastGoalMetDate = todayStr;
   }
 
   saveUserStats(stats);
@@ -626,7 +672,6 @@ export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?
     const memorized = getMemorizedSet('lgs_memorized');
 
     if (scope.type === 'all') {
-        // Reset everything except profile basics
         stats.flashcardsViewed = 0;
         stats.quizCorrect = 0;
         stats.quizWrong = 0;
@@ -641,20 +686,28 @@ export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?
         stats.questsCompleted = 0;
         stats.totalTimeSpent = 0;
         stats.breakdown = {};
+        stats.lastActivity = null;
+        stats.weekly = {
+            weekId: getCurrentWeekId(),
+            quizCorrect: 0,
+            quizWrong: 0,
+            cardsViewed: 0,
+            matchingBestTime: 0,
+            typingHighScore: 0,
+            chainHighScore: 0
+        };
 
         localStorage.setItem(SRS_KEY, JSON.stringify({}));
         localStorage.setItem(MEMORIZED_KEY, JSON.stringify([]));
         localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([]));
-        localStorage.removeItem(LAST_ACTIVITY_KEY);
+        localStorage.removeItem(OLD_LAST_ACTIVITY_KEY);
     } 
     else if (scope.type === 'grade' && scope.value) {
         const grade = scope.value;
         
-        // Remove from completed units/grades
         stats.completedGrades = stats.completedGrades.filter(g => g !== grade);
-        stats.completedUnits = stats.completedUnits.filter(u => !u.startsWith(`g${grade}u`)); // Heuristic for unit ID
+        stats.completedUnits = stats.completedUnits.filter(u => !u.startsWith(`g${grade}u`)); 
         
-        // Filter SRS, Bookmarks, Memorized
         const filterSet = (set: Set<string>) => {
             const newSet = new Set<string>();
             set.forEach(key => {
@@ -677,7 +730,6 @@ export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?
         localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...newMem]));
         localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...newBook]));
         
-        // SRS
         const newSrs: SRSData = {};
         Object.keys(srs).forEach(key => {
             if (key.includes('|')) {
@@ -696,7 +748,6 @@ export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?
         const unitId = scope.value;
         stats.completedUnits = stats.completedUnits.filter(u => u !== unitId);
         
-        // Filter Sets
         const filterSet = (set: Set<string>) => {
              const newSet = new Set<string>();
              set.forEach(key => {
@@ -716,7 +767,6 @@ export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?
         localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...newMem]));
         localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...newBook]));
 
-        // SRS
         const newSrs: SRSData = {};
         Object.keys(srs).forEach(key => {
             if (key.includes('|')) {
@@ -734,26 +784,19 @@ export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?
     syncLocalToCloud();
 };
 
-export const resetActivityStats = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {
-    // Deprecated - use resetAppProgress
-    resetAppProgress(scope);
-};
 export const resetSRSData = () => { localStorage.setItem(SRS_KEY, JSON.stringify({})); updateLastUpdatedTimestamp(); syncLocalToCloud(); };
 export const resetBookmarks = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => { resetAppProgress(scope); };
 export const resetMemorized = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => { resetAppProgress(scope); };
 
 export const saveLastActivity = (grade: string, unitId: string) => {
-  const activity: LastActivity = { grade, unitId, timestamp: Date.now() };
-  localStorage.setItem(LAST_ACTIVITY_KEY, JSON.stringify(activity));
+  const stats = getUserStats();
+  stats.lastActivity = { grade, unitId, timestamp: Date.now() };
+  saveUserStats(stats); // This syncs to cloud automatically
 };
 
 export const getLastActivity = (): LastActivity | null => {
-  try {
-    const stored = localStorage.getItem(LAST_ACTIVITY_KEY);
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
+  const stats = getUserStats();
+  return stats.lastActivity || null;
 };
 
 const getSRSData = (): SRSData => {
@@ -907,7 +950,6 @@ export const getDueGrades = (): string[] => {
     return Array.from(grades);
 };
 
-// helper for getMemorizedSet to accept optional key for cleaner internal usage
 export const getMemorizedSet = (key: string = MEMORIZED_KEY): Set<string> => {
   try {
     const stored = localStorage.getItem(key);
@@ -978,6 +1020,7 @@ export const setLastReadAnnouncementId = (id: string) => { localStorage.setItem(
 export const buyTheme = (themeId: ThemeType, cost: number): boolean => {
     const profile = getUserProfile();
     if (profile.purchasedThemes.includes(themeId)) return true;
+    
     if (spendXP(cost)) {
         profile.purchasedThemes.push(themeId);
         saveUserProfile(profile);
@@ -1025,21 +1068,14 @@ export const equipBackground = (bgId: string) => {
     }
 };
 
-export const buyFreeze = (cost: number): boolean => {
-    if (spendXP(cost)) {
-        const profile = getUserProfile();
-        profile.inventory.streakFreezes += 1;
-        saveUserProfile(profile);
-        return true;
-    }
-    return false;
-};
-
 const QUEST_TYPES: { type: Quest['type'], desc: (target: number) => string, reward: number, range: number[] }[] = [
     { type: 'view_cards', desc: (t) => `Bugün ${t} kelime kartı çalış`, reward: 50, range: [10, 20, 30, 50] },
     { type: 'finish_quiz', desc: (t) => `Bugün ${t} test bitir`, reward: 100, range: [1, 2, 3] },
     { type: 'perfect_quiz', desc: (t) => `Bugün ${t} testi hatasız bitir`, reward: 200, range: [1, 2] },
-    { type: 'earn_xp', desc: (t) => `Bugün ${t} XP kazan`, reward: 50, range: [50, 100, 150, 200] },
+    { type: 'earn_xp', desc: (t) => `Bugün ${t} XP kazan`, reward: 50, range: [100, 200, 300, 500] },
+    { type: 'play_matching', desc: (t) => `Eşleştirme oyununda ${t} puan yap`, reward: 75, range: [200, 500, 1000] },
+    { type: 'play_typing', desc: (t) => `Yazma oyununda ${t} puan yap`, reward: 75, range: [50, 100, 200] },
+    { type: 'play_chain', desc: (t) => `Kelime türetmecede ${t} kelime bul`, reward: 100, range: [5, 10, 15] },
 ];
 
 export const getDailyState = (): DailyState => {
@@ -1052,7 +1088,7 @@ export const getDailyState = (): DailyState => {
             if (parsed.date === today) {
                 return parsed;
             } else {
-                // ...
+                
             }
         }
 

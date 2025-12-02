@@ -1,4 +1,3 @@
-
 import { ReactNode } from 'react';
 
 export interface WordCard {
@@ -14,6 +13,9 @@ export enum AppMode {
   HOME = 'HOME',
   LOADING = 'LOADING',
   FLASHCARDS = 'FLASHCARDS',
+  MATCHING = 'MATCHING',
+  TYPING = 'TYPING',
+  WORD_CHAIN = 'WORD_CHAIN',
   QUIZ = 'QUIZ',
   GRAMMAR = 'GRAMMAR',
   ERROR = 'ERROR',
@@ -42,7 +44,7 @@ export interface UnitDef {
   unitNo: string;
   title: string;
   icon: ReactNode;
-  image?: string; // Custom image URL or local path (e.g., '/myassets/unit1.png')
+  image?: string; 
 }
 
 export interface GradeDef {
@@ -50,7 +52,7 @@ export interface GradeDef {
   label: string;
   subLabel?: string;
   icon: ReactNode;
-  image?: string; // Custom image URL
+  image?: string;
   color?: string;
 }
 
@@ -59,7 +61,7 @@ export interface Badge {
   name: string;
   description: string;
   icon: string;
-  image?: string; // Custom image URL
+  image?: string;
   condition: (stats: any, context?: any) => boolean;
   unlocked: boolean;
 }
@@ -67,7 +69,7 @@ export interface Badge {
 export interface Avatar {
   id: string;
   icon: string;
-  image?: string; // Custom image URL
+  image?: string;
   name: string;
   unlockLevel: number;
   bgGradient: string;
@@ -80,7 +82,8 @@ export interface FrameDef {
   description: string;
   cost: number;
   style: string;
-  image?: string; // Custom image URL
+  image?: string;
+  unlockLevel?: number;
 }
 
 export interface BackgroundDef {
@@ -88,8 +91,9 @@ export interface BackgroundDef {
   name: string;
   description: string;
   cost: number;
-  style: string; // CSS classes for gradient or color
-  image?: string; // Custom image URL
+  style: string;
+  image?: string;
+  unlockLevel?: number;
 }
 
 export type ThemeType = 'light' | 'dark' | 'neon' | 'ocean' | 'sunset' | 'forest' | 'royal' | 'candy' | 'cyberpunk' | 'coffee' | 'galaxy' | 'retro' | 'matrix' | 'midnight' | 'volcano' | 'ice' | 'lavender' | 'gamer' | 'luxury' | 'comic' | 'nature_soft';
@@ -99,11 +103,12 @@ export interface MarketItem {
   name: string;
   description: string;
   cost: number;
-  type: 'theme' | 'consumable' | 'frame' | 'background'; 
+  type: 'theme' | 'frame' | 'background'; 
   value: string;
   icon: ReactNode;
   image?: string;
   previewColor?: string;
+  unlockLevel?: number;
 }
 
 export type GradeLevel = 
@@ -123,7 +128,7 @@ export interface Quest {
   current: number;
   rewardXP: number;
   isCompleted: boolean;
-  type: 'view_cards' | 'finish_quiz' | 'perfect_quiz' | 'earn_xp';
+  type: 'view_cards' | 'finish_quiz' | 'perfect_quiz' | 'earn_xp' | 'play_matching' | 'play_typing' | 'play_chain';
 }
 
 export interface DailyState {

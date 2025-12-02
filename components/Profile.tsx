@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Save, Edit2, BarChart2, Trophy, Flame, Star, User, ShoppingBag, Target, CheckCircle, ChevronDown, ChevronUp, LogOut, Trash2 } from 'lucide-react';
 import { getUserProfile, getUserStats, saveUserProfile, getDailyState, UserProfile as IUserProfile, UserStats } from '../services/userService';
@@ -292,8 +294,8 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                          <div className="flex items-center gap-2 text-yellow-100 font-bold text-[10px] uppercase tracking-wide mb-0.5">
                              <ShoppingBag size={12} /> Mağaza
                          </div>
-                         <div className="text-lg font-black text-white">XP Market</div>
-                         <div className="text-yellow-100 text-[10px] font-medium">Temalar ve güçlendirmeler</div>
+                         <div className="text-lg font-black text-white">Kozmetikler</div>
+                         <div className="text-yellow-100 text-[10px] font-medium">Temalar, çerçeveler ve arka planlar</div>
                      </div>
                      <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-md shadow-inner group-hover:scale-110 transition-transform z-10 shrink-0">
                          <Star size={16} className="fill-white ml-0.5 text-white" />

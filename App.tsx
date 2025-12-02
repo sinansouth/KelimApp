@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType } from './types';
 import { VOCABULARY } from './data/vocabulary';
@@ -34,15 +35,16 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { onAuthStateChanged } from 'firebase/auth';
+import MatchingGame from './components/MatchingGame'; // New
+import TypingGame from './components/TypingGame'; // New
+import WordChainGame from './components/WordChainGame'; // New
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.HOME);
   const [currentTheme, setCurrentTheme] = useState<ThemeType>('dark');
   
-  // Lifted State for Profile Updates
   const [userStats, setUserStats] = useState<UserStats>(getUserStats());
 
-  // Modal States
   const [showSettings, setShowSettings] = useState(false);
   const [showSRSInfo, setShowSRSInfo] = useState(false);
   const [showMarket, setShowMarket] = useState(false);
@@ -72,7 +74,6 @@ const App: React.FC = () => {
   
   const lastQuizConfig = useRef<{count: number, originalWords: WordCard[], allDistractors: WordCard[]} | null>(null);
   
-  // Track last active time for auto-refresh logic
   const lastActiveTime = useRef<number>(Date.now());
 
   const [isSRSReview, setIsSRSReview] = useState(false);
@@ -91,43 +92,34 @@ const App: React.FC = () => {
       setHeaderProfile(getUserProfile());
   };
 
-  // --- PRELOADER ---
-  // Preload critical images to cache them on app start
   useEffect(() => {
     const preloadImages = () => {
       const imagesToPreload: string[] = [
-        // Mascot GIFs (from components/Mascot.tsx)
         'https://8upload.com/image/1641107f2693dc1d/WAIT.gif',
         'https://8upload.com/image/596771d7c98774d8/HAPPY.gif',
         'https://8upload.com/image/53ce9b7a4f38eefa/SAD.gif',
         'https://8upload.com/image/1641107f2693dc1d/WAIT.gif',
-        // Logo
         'https://8upload.com/image/24fff6d1ca0ec801/Gemini_Generated_Image_1ri1941ri1941ri1.png'
       ];
 
-      // Add Avatar images
       AVATARS.forEach(a => {
           if (a.image) imagesToPreload.push(a.image);
           else if (a.icon && a.icon.startsWith('http')) imagesToPreload.push(a.icon);
       });
 
-      // Add Badge images
       BADGES.forEach(b => {
           if (b.image) imagesToPreload.push(b.image);
           else if (b.icon && b.icon.startsWith('http')) imagesToPreload.push(b.icon);
       });
 
-      // Add Frame images
       FRAMES.forEach(f => {
           if (f.image) imagesToPreload.push(f.image);
       });
 
-      // Add Background images
       BACKGROUNDS.forEach(b => {
           if (b.image) imagesToPreload.push(b.image);
       });
       
-      // Add Unit images
       Object.values(UNIT_ASSETS).flat().forEach(u => {
           if (u.image) imagesToPreload.push(u.image);
       });
@@ -140,12 +132,10 @@ const App: React.FC = () => {
       });
     };
 
-    // Defer preloading slightly to prioritize initial render
     setTimeout(preloadImages, 2000);
   }, []);
 
 
-  // --- Helper to apply grade from profile ---
   const applyUserProfileGrade = useCallback(() => {
     const userProfile = getUserProfile();
     const g = userProfile.grade;
@@ -155,10 +145,11 @@ const App: React.FC = () => {
     else if (['9', '10', '11', '12'].includes(g)) setSelectedCategory('HIGH_SCHOOL');
     else if (['A1', 'A2', 'B1', 'B2', 'C1'].includes(g)) setSelectedCategory('GENERAL_ENGLISH');
     
-    if (g) { setSelectedGrade(g as GradeLevel); } else { setSelectedGrade(null); }
+    // NOTE: We do NOT force selectedGrade here to avoid trapping the user.
+    // User must manually select grade from the category menu if they are not already there.
+    // Only set if explicitly desired or on very first load? No, safer to just set Category.
   }, []);
 
-  // --- Helper to apply Theme ---
   const applyTheme = (theme: ThemeType) => {
       document.documentElement.classList.remove('dark');
       if (theme === 'light' || theme === 'retro' || theme === 'comic' || theme === 'nature_soft') {
@@ -169,7 +160,6 @@ const App: React.FC = () => {
       setCurrentTheme(theme);
   };
 
-  // Auth Check Effect & Real-time Sync
   useEffect(() => {
       const auth = getAuthInstance();
       let unsubscribeSnapshot: (() => void) | undefined;
@@ -181,41 +171,34 @@ const App: React.FC = () => {
                   if (!localProfile.name) {
                        setShowAuthModal(true);
                   }
-                  // Stop listening if user logs out
                   if (unsubscribeSnapshot) {
                       unsubscribeSnapshot();
                       unsubscribeSnapshot = undefined;
                   }
               } else {
-                   // Check if user changed on this device
                   const lastUid = localStorage.getItem('lgs_last_uid');
                   if (lastUid && lastUid !== user.uid) {
-                      // User changed! Wipe local data to prevent mixing.
                       clearLocalUserData();
                   }
                   localStorage.setItem('lgs_last_uid', user.uid);
 
-                  // 1. Initial Sync (Pull/Merge)
                   if (navigator.onLine) {
                       await syncData(user.uid);
                   }
 
-                  // 2. Update UI with fresh data
                   refreshGlobalState();
-                  applyUserProfileGrade();
                   
-                  // Apply theme from synced settings
+                  // Only apply grade on initial login/load, not every sync
+                  // applyUserProfileGrade(); 
+                  
                   const currentSettings = getAppSettings();
                   applyTheme(currentSettings.theme);
                   
-                  // 3. Start Real-time Sync
                   if (navigator.onLine) {
                            unsubscribeSnapshot = subscribeToUserChanges(user.uid, () => {
-                               // When cloud data changes and merges into local storage, force update UI
                                refreshGlobalState();
-                               applyUserProfileGrade();
+                               // Removed applyUserProfileGrade() from here to prevent auto-redirect
                                
-                               // Also update theme if changed remotely
                                const updatedSettings = getAppSettings();
                                applyTheme(updatedSettings.theme);
                            });
@@ -233,39 +216,33 @@ const App: React.FC = () => {
                setShowAuthModal(true);
           }
       }
-  }, [applyUserProfileGrade]);
+  }, []);
 
-  // --- VISIBILITY CHANGE & AUTO REFRESH LOGIC ---
   useEffect(() => {
       const handleVisibilityChange = async () => {
           if (document.visibilityState === 'visible') {
               const now = Date.now();
               const hoursSinceLastActive = (now - lastActiveTime.current) / (1000 * 60 * 60);
 
-              // If app was in background for more than 3 hours, force a full reload to prevent stale state
               if (hoursSinceLastActive > 3) {
                   window.location.reload();
                   return;
               }
 
-              // Otherwise, just sync data to be fresh
               const auth = getAuthInstance();
               const user = auth?.currentUser;
               if (user && navigator.onLine) {
                   console.log("App back in foreground, syncing data...");
                   await syncData(user.uid);
                   
-                  // Update UI
                   refreshGlobalState();
-                  applyUserProfileGrade();
+                  // applyUserProfileGrade(); // Avoid auto-redirect here too
                   const currentSettings = getAppSettings();
                   applyTheme(currentSettings.theme);
               }
               
-              // Update last active time
               lastActiveTime.current = now;
           } else {
-              // App went to background
               lastActiveTime.current = Date.now();
           }
       };
@@ -274,7 +251,7 @@ const App: React.FC = () => {
       return () => {
           document.removeEventListener("visibilitychange", handleVisibilityChange);
       };
-  }, [applyUserProfileGrade]);
+  }, []);
 
 
   useEffect(() => {
@@ -357,7 +334,6 @@ const App: React.FC = () => {
   useEffect(() => {
       const checkBoost = () => {
           const currentStats = getUserStats();
-          // Only update state if changed to avoid re-renders
           if (currentStats.xpBoostEndTime !== userStats.xpBoostEndTime) {
              refreshGlobalState();
           }
@@ -393,7 +369,6 @@ const App: React.FC = () => {
         setShowAuthModal(true); 
     } else {
         applyUserProfileGrade(); 
-        // Check if tutorial should be shown
         const tutorialSeen = localStorage.getItem('tutorial_seen');
         if (!tutorialSeen) {
             setShowTutorial(true);
@@ -427,10 +402,10 @@ const App: React.FC = () => {
       if (mode !== AppMode.HOME) {
           setMode(AppMode.HOME);
           setIsSRSReview(false);
-          // FIX: Do not clear words immediately to prevent black screen / flash during transition
-          // setWords([]); 
-          // setAllUnitWords([]);
-          // Refresh stats when coming back home
+          // Fix for black screen: Do NOT clear data immediately. 
+          // Let the mode switch hide the component, then React handles unmount.
+          // setWords([]);  <-- REMOVED
+          // setAllUnitWords([]); <-- REMOVED
           refreshGlobalState();
           return true;
       }
@@ -488,7 +463,7 @@ const App: React.FC = () => {
   const handleTriggerCelebration = (message: string, type: 'unit' | 'quiz' | 'goal') => { 
       playSound('success'); 
       setCelebration({ show: true, message, type });
-      refreshGlobalState(); // Refresh stats to show XP immediately
+      refreshGlobalState();
   };
   
   const handleBadgeUnlock = (badge: Badge) => { 
@@ -549,7 +524,7 @@ const App: React.FC = () => {
       let unitWords: WordCard[] = []; 
       let allDistractors: WordCard[] = []; 
       const isAllInOne = unit.id.endsWith('all') || unit.id === 'uAll'; 
-      
+
       if (action === 'review' || action === 'review-flashcards') { 
           let allowedUnitIds: string[] | undefined = undefined; 
           if (selectedGrade) { 
@@ -606,6 +581,21 @@ const App: React.FC = () => {
           setWords(shuffleArray(unitWords)); 
           setTopicTitle(newTitle); 
           setMode(AppMode.FLASHCARDS); 
+       } else if (action === 'matching') {
+          setAllUnitWords(allDistractors);
+          setWords(shuffleArray(unitWords)); 
+          setTopicTitle(newTitle + ' (Eşleştirme)');
+          setMode(AppMode.MATCHING);
+      } else if (action === 'typing') {
+          setAllUnitWords(allDistractors);
+          setWords(shuffleArray(unitWords)); 
+          setTopicTitle(newTitle + ' (Yazma)');
+          setMode(AppMode.TYPING);
+      } else if (action === 'chain') {
+          setAllUnitWords(allDistractors);
+          setWords(shuffleArray(unitWords)); 
+          setTopicTitle(newTitle + ' (Kelime Türet)');
+          setMode(AppMode.WORD_CHAIN);
       } else if (action === 'grammar') { 
           setTopicTitle(newTitle + ' (Gramer)'); 
           setMode(AppMode.GRAMMAR); 
@@ -613,7 +603,16 @@ const App: React.FC = () => {
           setAllUnitWords(allDistractors); 
           setTopicTitle(newTitle + ' (Özel Çalışma)'); 
           setMode(AppMode.CUSTOM_PRACTICE); 
-      } else if (action === 'review-flashcards' || action === 'review') { 
+      } else if (action === 'review') {
+          // SWITCH TO QUIZ FOR DAILY REVIEW
+          setAllUnitWords(allDistractors); 
+          setWords(shuffleArray(unitWords)); 
+          setTopicTitle(newTitle + ' (Test)'); 
+          setIsSRSReview(true); 
+          setActiveQuizType('review');
+          setMode(AppMode.QUIZ);
+      } else if (action === 'review-flashcards') { 
+          // Optional fallback if users really want flashcards (can be triggered differently)
           setAllUnitWords(allDistractors); 
           setWords(shuffleArray(unitWords)); 
           setTopicTitle(newTitle + ' (Kartlar)'); 
@@ -665,11 +664,13 @@ const App: React.FC = () => {
       if (gradeUnits) { allowedUnitIds = gradeUnits.map(u => u.id); } 
       const dueWords = getDueWords(allowedUnitIds); 
       const allDistractors = Object.entries(VOCABULARY).flatMap(([uid, words]) => words.map(w => ({...w, unitId: uid}))); 
+      
       setWords(shuffleArray(dueWords)); 
       setAllUnitWords(allDistractors); 
       setTopicTitle(`Günlük Tekrar (${grade}. Sınıf)`); 
       setIsSRSReview(true); 
-      setMode(AppMode.FLASHCARDS); 
+      setActiveQuizType('review');
+      setMode(AppMode.QUIZ); 
   };
 
   const handleCustomPracticeStart = (selectedWords: WordCard[], startMode: 'study' | 'quiz') => { 
@@ -691,7 +692,20 @@ const App: React.FC = () => {
     case AppMode.HOME: content = ( <TopicSelector selectedCategory={selectedCategory} selectedGrade={selectedGrade} selectedMode={selectedStudyMode} selectedUnit={selectedUnit} onSelectCategory={onSelectCategoryHandler} onSelectGrade={onSelectGradeHandler} onSelectMode={(mode) => setSelectedStudyMode(mode)} onSelectUnit={onSelectUnitHandler} onStartModule={handleStartModule} onGoHome={handleGoHome} onOpenMarket={handleOpenMarket} /> ); break;
     case AppMode.LOADING: content = <div className="text-center mt-20" style={{color: 'var(--color-text-muted)'}}>Yükleniyor...</div>; break;
     case AppMode.FLASHCARDS: content = ( <FlashcardDeck words={words} onFinish={handleManualBack} onBack={handleManualBack} onHome={handleGoHome} isReviewMode={isSRSReview} onCelebrate={handleTriggerCelebration} onBadgeUnlock={handleBadgeUnlock} grade={selectedGrade} /> ); break;
-    case AppMode.QUIZ: content = ( <Quiz words={words} allWords={allUnitWords} onRestart={handleQuizRestart} onBack={handleManualBack} onHome={handleGoHome} isBookmarkQuiz={activeQuizType === 'bookmarks'} onCelebrate={handleTriggerCelebration} onBadgeUnlock={handleBadgeUnlock} grade={selectedGrade} /> ); break;
+    case AppMode.QUIZ: content = ( 
+        <Quiz 
+            words={words} 
+            allWords={allUnitWords} 
+            onRestart={handleQuizRestart} 
+            onBack={handleManualBack} 
+            onHome={handleGoHome} 
+            isBookmarkQuiz={activeQuizType === 'bookmarks'} 
+            isReviewMode={isSRSReview}
+            onCelebrate={handleTriggerCelebration} 
+            onBadgeUnlock={handleBadgeUnlock} 
+            grade={selectedGrade} 
+        /> 
+    ); break;
     case AppMode.CUSTOM_PRACTICE: content = ( <WordSelector words={allUnitWords} unitTitle={topicTitle.replace(' (Özel Çalışma)', '')} onStart={handleCustomPracticeStart} onBack={handleManualBack} /> ); break;
     case AppMode.GRAMMAR: if (selectedUnit) { content = <GrammarView unit={selectedUnit} onBack={handleManualBack} onHome={handleGoHome} />; } break;
     case AppMode.EMPTY_WARNING: content = <EmptyStateWarning type={emptyWarningType || 'bookmarks'} onStudy={() => { selectedUnit && handleStartModule('study', selectedUnit); }} onHome={handleGoHome} />; break;
@@ -701,11 +715,43 @@ const App: React.FC = () => {
         onProfileUpdate={handleProfileUpdate} 
         onOpenMarket={handleOpenMarket}
         onLoginRequest={() => setShowAuthModal(true)} 
-        externalStats={userStats} // Pass stats to keep profile updated
+        externalStats={userStats}
       />
     ); break;
     case AppMode.INFO: content = <InfoView onBack={handleManualBack} />; break;
     case AppMode.ANNOUNCEMENTS: content = <AnnouncementsView onBack={handleManualBack} />; break;
+    case AppMode.MATCHING: content = (
+         <MatchingGame 
+            words={words} 
+            onFinish={handleManualBack} 
+            onBack={handleManualBack} 
+            onHome={handleGoHome} 
+            onCelebrate={handleTriggerCelebration} 
+            onBadgeUnlock={handleBadgeUnlock} 
+            grade={selectedGrade} 
+         />
+    ); break;
+    case AppMode.TYPING: content = (
+         <TypingGame 
+            words={words} 
+            onFinish={handleManualBack} 
+            onBack={handleManualBack} 
+            onHome={handleGoHome} 
+            onCelebrate={handleTriggerCelebration} 
+            grade={selectedGrade} 
+         />
+    ); break;
+    case AppMode.WORD_CHAIN: content = (
+         <WordChainGame 
+            unitWords={words}
+            allWords={Object.values(VOCABULARY).flat()}
+            onFinish={handleManualBack} 
+            onBack={handleManualBack} 
+            onHome={handleGoHome} 
+            onCelebrate={handleTriggerCelebration} 
+            grade={selectedGrade} 
+         />
+    ); break;
     case AppMode.ERROR: content = <div className="text-center p-10 text-red-500">Bir hata oluştu.</div>; break;
   }
 
@@ -754,7 +800,6 @@ const App: React.FC = () => {
             onUpdate={() => { handleProfileUpdate(); }} 
         />
       )}
-      {/* Install Prompt Modal */}
       <InstallPromptModal />
       
       {showSRSInfo && <SRSInfoModal onClose={handleManualBack} />}

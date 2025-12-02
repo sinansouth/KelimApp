@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 // Use specific distinct URLs for testing logic, although these are placeholders.
@@ -14,7 +13,7 @@ const MASCOT_GIFS = {
 interface MascotProps {
     mood: 'neutral' | 'happy' | 'sad' | 'thinking';
     size?: number;
-    message?: string;
+    message?: React.ReactNode; // Changed from string to ReactNode
 }
 
 const Mascot: React.FC<MascotProps> = ({ mood, size = 100, message }) => {

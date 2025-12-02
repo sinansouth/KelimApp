@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
-import { CheckCircle, XCircle, Bookmark, Info } from 'lucide-react';
-import { updateStats, handleQuizResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress } from '../services/userService';
+import { CheckCircle, XCircle, Bookmark, Info, Clock } from 'lucide-react';
+import { updateStats, handleQuizResult, handleReviewResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress } from '../services/userService';
 import { playSound } from '../services/soundService';
 import Mascot from './Mascot';
 
@@ -12,12 +12,15 @@ interface QuizProps {
   onBack: () => void;
   onHome: () => void;
   isBookmarkQuiz?: boolean;
+  isReviewMode?: boolean;
   onCelebrate?: (message: string, type: 'unit' | 'quiz' | 'goal') => void;
   onBadgeUnlock?: (badge: Badge) => void;
   grade?: GradeLevel | null;
 }
 
-const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome, isBookmarkQuiz, onCelebrate, onBadgeUnlock, grade }) => {
+const QUESTION_TIME_LIMIT = 15; // 15 seconds per question
+
+const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome, isBookmarkQuiz, isReviewMode, onCelebrate, onBadgeUnlock, grade }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -26,26 +29,27 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
   const [autoBookmarked, setAutoBookmarked] = useState(false);
   const [addedToMemorized, setAddedToMemorized] = useState(false);
   
+  // Timer State
+  const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT);
+  
   // Mascot State
   const [mascotMood, setMascotMood] = useState<'neutral' | 'happy' | 'sad' | 'thinking'>('thinking');
-  const [mascotMessage, setMascotMessage] = useState<string | undefined>(undefined);
+  const [mascotMessage, setMascotMessage] = useState<React.ReactNode | undefined>(undefined);
 
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const questionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const questions = useMemo(() => {
     if (!words || words.length === 0) return [];
     const distractorPool = (allWords && allWords.length > 3) ? allWords : words;
 
     return words.map((word) => {
-      // SMART DISTRACTOR LOGIC:
-      // 1. Try to find words with the same context/category first
       const sameContextWords = distractorPool.filter(w => 
           w.english !== word.english && 
           w.turkish.trim().toLowerCase() !== word.turkish.trim().toLowerCase() &&
           w.context === word.context
       );
 
-      // 2. If not enough context matches, use random words
       const otherWords = distractorPool.filter(w => 
         w.english !== word.english && 
         w.turkish.trim().toLowerCase() !== word.turkish.trim().toLowerCase() &&
@@ -56,7 +60,6 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
       const seenMeanings = new Set<string>();
       seenMeanings.add(word.turkish.trim().toLowerCase());
 
-      // Helper to add unique distractors
       const addDistractor = (pool: WordCard[]) => {
           const shuffledPool = [...pool].sort(() => 0.5 - Math.random());
           for (const d of shuffledPool) {
@@ -69,15 +72,12 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
           }
       };
 
-      // First fill with same context
       addDistractor(sameContextWords);
       
-      // If we still need more, fill with others
       if (selectedDistractors.length < 3) {
           addDistractor(otherWords);
       }
 
-      // Fallback if still not enough (rare, but possible in very small sets)
       if (selectedDistractors.length < 3 && words.length > 3) {
          const remaining = words.filter(w => !seenMeanings.has(w.turkish.trim().toLowerCase()) && w.english !== word.english);
          addDistractor(remaining);
@@ -101,89 +101,138 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
   const getUniqueId = (word: WordCard) => word.unitId ? `${word.unitId}|${word.english}` : word.english;
 
-  // Effect to update Mascot with example sentence when question changes
+  // Helper to highlight the target word in the example sentence
+  const getHighlightedSentence = (sentence: string, targetWord: string) => {
+      const parts = sentence.split(new RegExp(`(${targetWord})`, 'gi'));
+      return (
+          <span>
+              "{parts.map((part, i) => 
+                  part.toLowerCase() === targetWord.toLowerCase() ? (
+                      <span key={i} className="text-indigo-600 dark:text-indigo-400 font-black border-b-2 border-indigo-400">{part}</span>
+                  ) : (
+                      part
+                  )
+              )}"
+          </span>
+      );
+  };
+
   useEffect(() => {
     if (questions[currentQuestionIndex] && !isAnswered) {
         const currentQ = questions[currentQuestionIndex];
-        // Hide the target word in the example sentence
-        const hiddenSentence = currentQ.wordObj.exampleEng.replace(new RegExp(currentQ.word, 'gi'), '______');
-        setMascotMessage(`"${hiddenSentence}"`);
+        
+        setMascotMessage(getHighlightedSentence(currentQ.wordObj.exampleEng, currentQ.word));
         setMascotMood('thinking');
+        
+        // Reset and Start Timer
+        setTimeLeft(QUESTION_TIME_LIMIT);
+        if (questionTimerRef.current) clearInterval(questionTimerRef.current);
+        
+        questionTimerRef.current = setInterval(() => {
+            setTimeLeft((prev) => {
+                if (prev <= 1) {
+                    // Time is up!
+                    if (questionTimerRef.current) clearInterval(questionTimerRef.current);
+                    handleOptionClick(-1); // Trigger wrong answer (-1 is invalid index)
+                    return 0;
+                }
+                return prev - 1;
+            });
+        }, 1000);
     }
   }, [currentQuestionIndex, questions, isAnswered]);
 
   useEffect(() => {
     return () => { 
         if (timerRef.current) clearTimeout(timerRef.current);
+        if (questionTimerRef.current) clearInterval(questionTimerRef.current);
     };
   }, []);
 
   const handleOptionClick = (index: number) => {
     if (isAnswered) return;
 
-    setSelectedOption(index);
+    if (questionTimerRef.current) clearInterval(questionTimerRef.current);
+    
     setIsAnswered(true);
+    setSelectedOption(index);
 
-    const isCorrect = questions[currentQuestionIndex].options[index].isCorrect;
+    // -1 means Time's Up (treated as wrong)
+    const isTimeUp = index === -1;
+    const isCorrect = !isTimeUp && questions[currentQuestionIndex].options[index].isCorrect;
     const wordId = getUniqueId(questions[currentQuestionIndex].wordObj);
     
     const newScore = isCorrect ? score + 1 : score;
     if (isCorrect) setScore(newScore);
 
-    if (navigator.vibrate) navigator.vibrate(isCorrect ? 50 : 200);
+    if (!isTimeUp && navigator.vibrate) navigator.vibrate(isCorrect ? 50 : 200);
 
     if (isCorrect) {
         playSound('correct');
         setMascotMood('happy');
         setMascotMessage('Harika! Doğru bildin.');
         
-        const newBadges = updateStats('quiz_correct', grade);
-        if (newBadges.length > 0 && onBadgeUnlock) {
-            newBadges.forEach(b => onBadgeUnlock(b));
-        }
-        
-        const memorizedSet = getMemorizedSet();
-        if (!memorizedSet.has(wordId)) {
-             try {
-                 const savedBookmarks = localStorage.getItem('lgs_bookmarks');
-                 if (savedBookmarks) {
-                     const bookmarkSet = new Set(JSON.parse(savedBookmarks));
-                     if (bookmarkSet.has(wordId)) {
-                         bookmarkSet.delete(wordId);
-                         localStorage.setItem('lgs_bookmarks', JSON.stringify([...bookmarkSet]));
-                     }
-                 }
-             } catch (e) {}
+        if (isReviewMode) {
+            handleReviewResult(wordId, true);
+            updateStats('review_remember', grade, wordId);
+        } else {
+            const newBadges = updateStats('quiz_correct', grade);
+            if (newBadges.length > 0 && onBadgeUnlock) {
+                newBadges.forEach(b => onBadgeUnlock(b));
+            }
+            handleQuizResult(wordId, true);
 
-             addToMemorized(wordId);
-             setAddedToMemorized(true);
+            const memorizedSet = getMemorizedSet();
+            if (!memorizedSet.has(wordId)) {
+                 try {
+                     const savedBookmarks = localStorage.getItem('lgs_bookmarks');
+                     if (savedBookmarks) {
+                         const bookmarkSet = new Set(JSON.parse(savedBookmarks));
+                         if (bookmarkSet.has(wordId)) {
+                             bookmarkSet.delete(wordId);
+                             localStorage.setItem('lgs_bookmarks', JSON.stringify([...bookmarkSet]));
+                         }
+                     }
+                 } catch (e) {}
+    
+                 addToMemorized(wordId);
+                 setAddedToMemorized(true);
+            }
         }
 
     } else {
         playSound('wrong');
         setMascotMood('sad');
-        setMascotMessage(`Üzgünüm. Doğru cevap: ${questions[currentQuestionIndex].correctAnswer}`);
-        updateStats('quiz_wrong', grade);
+        if (isTimeUp) {
+            setMascotMessage(`Süre doldu! Doğru cevap: ${questions[currentQuestionIndex].correctAnswer}`);
+        } else {
+            setMascotMessage(`Üzgünüm. Doğru cevap: ${questions[currentQuestionIndex].correctAnswer}`);
+        }
         
-        try {
-            const savedBookmarks = localStorage.getItem('lgs_bookmarks');
-            const bookmarkSet = savedBookmarks ? new Set(JSON.parse(savedBookmarks)) : new Set();
-            if (!bookmarkSet.has(wordId)) {
-                const memorizedSet = getMemorizedSet();
-                if (memorizedSet.has(wordId)) {
-                     removeFromMemorized(wordId);
+        if (isReviewMode) {
+             handleReviewResult(wordId, false); 
+             updateStats('review_forgot', grade, wordId);
+        } else {
+             updateStats('quiz_wrong', grade);
+             handleQuizResult(wordId, false);
+
+            try {
+                const savedBookmarks = localStorage.getItem('lgs_bookmarks');
+                const bookmarkSet = savedBookmarks ? new Set(JSON.parse(savedBookmarks)) : new Set();
+                if (!bookmarkSet.has(wordId)) {
+                    const memorizedSet = getMemorizedSet();
+                    if (memorizedSet.has(wordId)) {
+                        removeFromMemorized(wordId);
+                    }
+                    
+                    bookmarkSet.add(wordId);
+                    localStorage.setItem('lgs_bookmarks', JSON.stringify([...bookmarkSet]));
+                    setAutoBookmarked(true);
                 }
-                
-                bookmarkSet.add(wordId);
-                localStorage.setItem('lgs_bookmarks', JSON.stringify([...bookmarkSet]));
-                setAutoBookmarked(true);
-            }
-        } catch (e) {}
+            } catch (e) {}
+        }
     }
 
-    handleQuizResult(wordId, isCorrect);
-
-    // Wait time is now same for both correct and wrong answers to allow reading feedback
     const delay = 2500; 
     timerRef.current = setTimeout(() => {
         handleNext(newScore);
@@ -201,24 +250,27 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
       setIsAnswered(false);
       setAutoBookmarked(false);
       setAddedToMemorized(false);
-      // Mascot state will be updated by the useEffect when currentQuestionIndex changes
     } else {
       playSound('success');
       setShowResults(true);
       
       const percentage = Math.round((actualScore / questions.length) * 100);
       
-      updateQuestProgress('finish_quiz', 1);
-      if (percentage === 100) {
-         updateQuestProgress('perfect_quiz', 1);
-         const newBadges = updateStats('perfect_quiz', grade, undefined, questions.length);
-         if (newBadges.length > 0 && onBadgeUnlock) {
-              newBadges.forEach(b => onBadgeUnlock(b));
-         }
-      }
-      
-      if (percentage >= 70 && onCelebrate) {
-          onCelebrate(percentage === 100 ? "Mükemmel!" : "Tebrikler!", 'quiz');
+      if (!isReviewMode) {
+          updateQuestProgress('finish_quiz', 1);
+          if (percentage === 100) {
+             updateQuestProgress('perfect_quiz', 1);
+             const newBadges = updateStats('perfect_quiz', grade, undefined, questions.length);
+             if (newBadges.length > 0 && onBadgeUnlock) {
+                  newBadges.forEach(b => onBadgeUnlock(b));
+             }
+          }
+          
+          if (percentage >= 70 && onCelebrate) {
+              onCelebrate(percentage === 100 ? "Mükemmel!" : "Tebrikler!", 'quiz');
+          }
+      } else {
+          if (onCelebrate) onCelebrate("Günlük tekrar tamamlandı!", 'goal');
       }
     }
   };
@@ -230,18 +282,21 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
     return (
       <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto p-6 text-center animate-in fade-in zoom-in duration-500">
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-2xl w-full border border-slate-100 dark:border-slate-800">
-          <h2 className="text-3xl font-black mb-2 dark:text-white">Quiz Bitti!</h2>
+          <h2 className="text-3xl font-black mb-2 dark:text-white">{isReviewMode ? 'Tekrar Tamamlandı!' : 'Quiz Bitti!'}</h2>
           <div className="text-7xl font-black text-indigo-600 dark:text-indigo-400 my-8">{score}<span className="text-3xl text-slate-300 font-bold">/{questions.length}</span></div>
           <p className="text-slate-500 dark:text-slate-400 mb-10 font-medium text-lg">Başarı Oranı: <span className="font-bold text-indigo-600 dark:text-indigo-400">% {percentage}</span></p>
           
-           {/* Result Mascot */}
            <div className="mb-6 flex justify-center">
               <Mascot mood={percentage >= 70 ? 'happy' : 'sad'} size={100} message={percentage >= 70 ? 'Harika iş! Böyle devam et.' : 'Biraz daha çalışmalısın. Pes etmek yok!'} />
            </div>
 
           <div className="flex flex-col gap-4">
-             <button onClick={onRestart} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none active:scale-95 transition-transform">Tekrar Çöz</button>
-             <button onClick={onBack} className="w-full py-4 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-2xl font-bold active:scale-95 transition-transform">Üniteye Dön</button>
+             {!isReviewMode && (
+                 <button onClick={onRestart} className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none active:scale-95 transition-transform">Tekrar Çöz</button>
+             )}
+             <button onClick={onBack} className={`w-full py-4 ${isReviewMode ? 'bg-indigo-600 text-white shadow-lg' : 'bg-slate-100 text-slate-700'} dark:bg-slate-800 dark:text-slate-300 rounded-2xl font-bold active:scale-95 transition-transform`}>
+                {isReviewMode ? 'Ana Sayfaya Dön' : 'Üniteye Dön'}
+             </button>
           </div>
         </div>
       </div>
@@ -253,7 +308,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
   return (
     <div className="w-full max-w-2xl mx-auto p-4 flex flex-col h-full justify-center">
        
-       <div className="flex justify-between items-center mb-4">
+       <div className="flex justify-between items-center mb-2">
          <div className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm">
             {currentQuestionIndex + 1}
          </div>
@@ -263,22 +318,39 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
          <div className="text-sm font-bold text-slate-400">{questions.length}</div>
       </div>
 
+      {/* Timer Bar */}
+      {!isAnswered && (
+          <div className="w-full flex items-center gap-2 mb-2 px-1">
+              <Clock size={14} className={`${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-slate-400'}`} />
+              <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                  <div 
+                    className={`h-full rounded-full transition-all duration-1000 ease-linear ${timeLeft <= 5 ? 'bg-red-500' : 'bg-indigo-400'}`} 
+                    style={{ width: `${(timeLeft / QUESTION_TIME_LIMIT) * 100}%` }}
+                  ></div>
+              </div>
+              <span className={`text-xs font-bold w-4 text-right ${timeLeft <= 5 ? 'text-red-500' : 'text-slate-400'}`}>{timeLeft}</span>
+          </div>
+      )}
+
       <div className="flex justify-center mb-2 relative" style={{minHeight: '120px'}}>
           <Mascot mood={mascotMood} size={120} message={mascotMessage} />
       </div>
 
-      <div className="flex-grow flex flex-col justify-center mb-8 mt-4">
+      <div className="flex-grow flex flex-col justify-center mb-8 mt-2">
          <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6 relative">
              <h2 className="text-3xl sm:text-5xl font-black text-center text-slate-800 dark:text-white leading-tight break-words px-4">
                 {currentQuestion.word}
              </h2>
-             {autoBookmarked && (
+             {isReviewMode && (
+                 <div className="mt-2 text-xs font-bold text-center text-orange-500 uppercase tracking-widest opacity-80">Günlük Tekrar</div>
+             )}
+             {autoBookmarked && !isReviewMode && (
                  <div className="mt-3 flex items-center justify-center gap-1.5 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 py-1 px-3 rounded-full w-fit mx-auto">
                      <Bookmark size={14} className="fill-current"/> 
                      <span className="text-xs font-bold">Favorilere eklendi</span>
                  </div>
              )}
-             {addedToMemorized && (
+             {addedToMemorized && !isReviewMode && (
                  <div className="mt-3 flex items-center justify-center gap-1.5 text-green-600 bg-green-50 dark:bg-green-900/20 py-1 px-3 rounded-full w-fit mx-auto">
                      <CheckCircle size={14} /> 
                      <span className="text-xs font-bold">Ezberlenenlere eklendi</span>
@@ -309,7 +381,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
             })}
          </div>
 
-         {/* Updated Explanation Box - ONLY CONTEXT - Example sentence removed */}
+         {/* Explanation Box */}
          {isAnswered && currentQuestion.explanation && (
              <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-sm text-blue-800 dark:text-blue-200 flex gap-3 items-start animate-in slide-in-from-bottom-2">
                  <Info size={20} className="shrink-0 mt-0.5" />

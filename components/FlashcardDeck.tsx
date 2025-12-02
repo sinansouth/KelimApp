@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
-import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp, Play, Pause } from 'lucide-react';
 import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized, addToBookmarks, removeFromBookmarks, handleReviewResult, registerSRSInteraction, updateQuestProgress } from '../services/userService';
 import { playSound } from '../services/soundService';
 
@@ -34,6 +34,10 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   const [isFlipped, setIsFlipped] = useState(false);
   const [isShuffled, setIsShuffled] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  
+  // Auto Play State
+  const [isAutoPlay, setIsAutoPlay] = useState(false);
+  const autoPlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const [feedback, setFeedback] = useState<{
     visible: boolean;
@@ -42,8 +46,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   } | null>(null);
   
   const feedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const autoAdvanceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
+  
   // Touch handling states
   const [touchStartX, setTouchStartX] = useState<number | null>(null);
   const [touchStartY, setTouchStartY] = useState<number | null>(null);
@@ -63,7 +66,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       if (feedbackTimerRef.current) {
           clearTimeout(feedbackTimerRef.current);
       }
-      // Haptic feedback
       if (navigator.vibrate) navigator.vibrate(50);
 
       setFeedback({ visible: true, type, message });
@@ -81,14 +83,44 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     setFilterMode('all');
     setFeedback(null);
     setIsProcessing(false);
+    setIsAutoPlay(false);
   }, [initialWords]);
 
+  // Auto Play Logic
   useEffect(() => {
-      return () => {
-          if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
-          if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
-      }
-  }, []);
+    if (!isAutoPlay) {
+        if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current);
+        return;
+    }
+
+    // Clear existing timer
+    if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current);
+
+    const READ_TIME = 4000; // 4 seconds to read front
+    const ANSWER_TIME = 3000; // 3 seconds to read back
+
+    autoPlayTimerRef.current = setTimeout(() => {
+        if (!isFlipped) {
+            // Flip card
+            playSound('flip');
+            setIsFlipped(true);
+        } else {
+            // Next card
+            if (currentIndex < activeDeck.length - 1) {
+                handleNext();
+            } else {
+                // Finish
+                setIsAutoPlay(false);
+                onFinish();
+            }
+        }
+    }, isFlipped ? ANSWER_TIME : READ_TIME);
+
+    return () => {
+        if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current);
+    };
+  }, [isAutoPlay, isFlipped, currentIndex]);
+
 
   const activeDeck = useMemo(() => {
     let deck = shuffledDeck;
@@ -108,20 +140,9 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
 
   const currentWord = activeDeck.length > 0 ? activeDeck[currentIndex] : null;
 
-  const autoAdvance = () => {
-      if (autoAdvanceTimerRef.current) clearTimeout(autoAdvanceTimerRef.current);
-      autoAdvanceTimerRef.current = setTimeout(() => {
-          if (currentIndex < activeDeck.length - 1) {
-              handleNext();
-          } else {
-               setFeedback(null);
-               setIsProcessing(false);
-          }
-      }, 600); 
-  };
-
   const setFilter = (mode: FilterMode) => {
     if (isProcessing) return;
+    setIsAutoPlay(false); // Stop auto play on filter change
     setIsFlipped(false);
     setTimeout(() => {
       setFilterMode(prev => prev === mode ? 'all' : mode);
@@ -132,8 +153,10 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   const toggleBookmark = (e: React.MouseEvent | null, word: WordCard) => {
     if (e) e.stopPropagation();
     if (isProcessing) return;
-    setIsProcessing(true);
     
+    // Don't stop auto play for bookmarks, just mark it
+    // setIsAutoPlay(false); 
+
     const uniqueId = getUniqueId(word);
     const newBookmarks = new Set(bookmarks);
     
@@ -153,13 +176,14 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       triggerFeedback('bookmark', 'Favorilere Eklendi');
     }
     setBookmarks(newBookmarks);
-    
-    autoAdvance();
   };
 
   const toggleMemorize = (e: React.MouseEvent | null, word: WordCard) => {
     if (e) e.stopPropagation();
     if (isProcessing) return;
+    
+    // Stop auto play if user interacts manually to memorize
+    setIsAutoPlay(false);
     setIsProcessing(true);
     
     const uniqueId = getUniqueId(word);
@@ -181,9 +205,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         newMemorized.add(uniqueId);
         addToMemorized(uniqueId);
         
-        // Check unit completion after adding
         const newBadges = updateStats('memorized', grade, uniqueId);
-        
         if (newBadges.length > 0 && onBadgeUnlock) {
              newBadges.forEach(b => onBadgeUnlock(b));
         }
@@ -193,19 +215,27 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     }
     setMemorized(newMemorized);
     
-    autoAdvance();
+    // Auto advance after memorize
+    setTimeout(() => {
+        if (currentIndex < activeDeck.length - 1) {
+            handleNext();
+        } else {
+            setIsProcessing(false);
+        }
+    }, 800);
   };
 
   const handleNext = () => {
     if (currentIndex < activeDeck.length - 1) {
       playSound('flip');
       setIsFlipped(false);
+      // Small delay to allow flip animation to start resetting
       setTimeout(() => {
          setCurrentIndex(prev => prev + 1);
          setFeedback(null);
          if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
          setIsProcessing(false);
-      }, 300); 
+      }, 200); 
     } else {
       playSound('success');
       if (onCelebrate && !isReviewMode) {
@@ -213,12 +243,15 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       }
       onFinish();
       setIsProcessing(false);
+      setIsAutoPlay(false);
     }
   };
 
   const handleRate = (e: React.MouseEvent, success: boolean) => {
       e.stopPropagation();
       if (!currentWord || isProcessing) return;
+      
+      setIsAutoPlay(false); // Stop auto play on manual rating
       setIsProcessing(true);
       
       if (navigator.vibrate) navigator.vibrate(success ? 50 : 100);
@@ -265,6 +298,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
 
   const handlePrev = () => {
     if (currentIndex > 0 && !isProcessing) {
+      setIsAutoPlay(false);
       setIsProcessing(true);
       playSound('flip');
       setIsFlipped(false);
@@ -278,6 +312,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
 
   const handleRestart = () => {
     if (isProcessing) return;
+    setIsAutoPlay(false);
     setIsFlipped(false);
     setFeedback(null);
     setTimeout(() => {
@@ -287,6 +322,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
 
   const handleShuffle = () => {
     if (isProcessing) return;
+    setIsAutoPlay(false);
     setIsFlipped(false);
     setFeedback(null);
     setTimeout(() => {
@@ -303,17 +339,17 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   };
 
   const handleCardClick = () => {
+    // If autoplay is on, clicking pauses it or just flips immediately
+    // Let's say manual interaction pauses auto play to let user read
+    if (isAutoPlay) setIsAutoPlay(false);
+
     playSound('flip');
     if (!isFlipped) {
       if (currentWord) {
           const wordId = getUniqueId(currentWord);
-          // Update stats and quest progress
           const newBadges = updateStats('card_view', grade, wordId);
-          // Explicitly update 'view_cards' quest
           updateQuestProgress('view_cards', 1);
-          
           registerSRSInteraction(wordId);
-          
           if (newBadges.length > 0 && onBadgeUnlock) {
               newBadges.forEach(b => onBadgeUnlock(b));
           }
@@ -322,6 +358,11 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     setIsFlipped(!isFlipped);
   };
   
+  const toggleAutoPlay = () => {
+      setIsAutoPlay(!isAutoPlay);
+  };
+
+  // Touch Handlers (Swipe)
   const onTouchStart = (e: React.TouchEvent) => {
     setTouchEndX(null); 
     setTouchEndY(null);
@@ -348,6 +389,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         
         if (isLeftSwipe) {
             if (!isProcessing) {
+                 setIsAutoPlay(false);
                  setIsProcessing(true);
                  handleNext();
             }
@@ -355,17 +397,15 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
             handlePrev();
         }
     } else {
-        // Vertical Swipe Logic
+        // Vertical Swipe
         const isUpSwipe = distanceY > minSwipeDistance;
         const isDownSwipe = distanceY < -minSwipeDistance;
         
         if (isUpSwipe) {
-             // Swipe Up -> Ezberlendi (Memorize)
              if (!isReviewMode && currentWord) {
                  toggleMemorize(null, currentWord);
              }
         } else if (isDownSwipe) {
-             // Swipe Down -> Favori (Bookmark)
              if (!isReviewMode && currentWord) {
                  toggleBookmark(null, currentWord);
              }
@@ -413,6 +453,15 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
              {currentIndex + 1} / {activeDeck.length}
         </div>
         <div className="flex items-center gap-2">
+           {/* Auto Play Button */}
+           <button 
+             onClick={toggleAutoPlay}
+             className={`p-2.5 rounded-xl transition-all active:scale-95 flex items-center gap-1 ${isAutoPlay ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300' : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+             title="Otomatik Oynat"
+           >
+              {isAutoPlay ? <Pause size={20} className="fill-current" /> : <Play size={20} className="fill-current" />}
+           </button>
+
           {initialWords.length > 1 && !isReviewMode && (
             <>
               <button
@@ -473,7 +522,9 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
                  </p>
                  
              </div>
-             <div className="text-xs text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest mt-auto">Çevirmek için Dokun</div>
+             <div className="text-xs text-slate-300 dark:text-slate-600 font-bold uppercase tracking-widest mt-auto">
+                 {isAutoPlay ? 'Otomatik Oynatılıyor...' : 'Çevirmek için Dokun'}
+             </div>
           </div>
 
           <div className="absolute w-full h-full backface-hidden rotate-y-180 bg-gradient-to-br from-indigo-600 to-indigo-700 dark:from-indigo-900 dark:to-slate-900 text-white rounded-3xl flex flex-col items-center justify-center p-8 text-center border border-indigo-500 dark:border-slate-700">
@@ -518,7 +569,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
                     <ChevronLeft size={28} />
                 </button>
                 <button 
-                  onClick={(e) => { e.stopPropagation(); setIsProcessing(true); handleNext(); }} 
+                  onClick={(e) => { e.stopPropagation(); setIsProcessing(true); setIsAutoPlay(false); handleNext(); }} 
                   disabled={isProcessing}
                   className="flex-grow h-14 rounded-2xl bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white font-bold shadow-lg shadow-indigo-200 dark:shadow-none active:scale-95 flex items-center justify-center gap-2 transition-all text-lg"
                 >

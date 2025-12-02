@@ -4,10 +4,9 @@ import {
   BookOpen, Bookmark, Target, RefreshCw, ChevronRight, Clock as ClockIcon,
   PartyPopper, Lightbulb, MessageCircle, Sparkles,
   Cpu, Crown, Download, ShoppingBag as ShoppingBagIcon, GraduationCap, Play, Star, CheckCircle, BookType, ListChecks,
-  Calendar, Signal
+  Calendar, Signal, Grid3X3, Type, WholeWord, X
 } from 'lucide-react';
-import { getUserStats, getLastActivity, getTotalDueCount, getDueCountForGrade, checkIfBrowser, getMemorizedSet, getUserProfile, getWordOfTheDay } from '../services/userService';
-import { APP_CONFIG } from '../config/appConfig';
+import { getUserStats, getTotalDueCount, getDueCountForGrade, getMemorizedSet, getUserProfile, getWordOfTheDay } from '../services/userService';
 import { UnitDef, GradeDef, GradeLevel, StudyMode, CategoryType } from '../types';
 import { VOCABULARY } from '../data/vocabulary';
 import { UNIT_ASSETS, GRADE_DATA } from '../data/assets';
@@ -23,7 +22,7 @@ interface TopicSelectorProps {
   onSelectGrade: (grade: GradeLevel | null) => void;
   onSelectMode: (mode: StudyMode | null) => void;
   onSelectUnit: (unit: UnitDef | null) => void;
-  onStartModule: (action: 'study' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review' | 'review-flashcards', unit: UnitDef, count?: number) => void;
+  onStartModule: (action: 'study' | 'matching' | 'typing' | 'chain' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review' | 'review-flashcards', unit: UnitDef, count?: number) => void;
   onGoHome: () => void;
   onOpenMarket: () => void;
 }
@@ -49,16 +48,17 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const [isNewUser, setIsNewUser] = React.useState(false);
   const [wordOfTheDay, setWordOfTheDay] = React.useState<any>(null);
   const [tip, setTip] = useState('');
+  
+  // Study Mode Selection Modal State
+  const [showStudyModes, setShowStudyModes] = useState(false);
 
   React.useEffect(() => {
     setDailyDueCount(getTotalDueCount());
     setMemorizedSet(getMemorizedSet());
     setWordOfTheDay(getWordOfTheDay());
     
-    // Initial tip
     setTip(APP_TIPS[Math.floor(Math.random() * APP_TIPS.length)]);
     
-    // Rotate tip every 10 seconds
     const interval = setInterval(() => {
         setTip(APP_TIPS[Math.floor(Math.random() * APP_TIPS.length)]);
     }, 10000);
@@ -70,7 +70,10 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
         setDailyDueCountForGrade(getDueCountForGrade(selectedGrade));
     }
 
-    const activity = getLastActivity();
+    const stats = getUserStats();
+    // Use persistent lastActivity from stats
+    const activity = stats.lastActivity;
+    
     if (activity && activity.grade && activity.unitId) {
         if (UNIT_ASSETS[activity.grade]) {
              const gradeUnits = UNIT_ASSETS[activity.grade];
@@ -102,13 +105,10 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
       return Math.round((memorizedCount / totalWords) * 100);
   };
 
-  // Special Handler for General English Levels to skip unit selection
   const handleGradeSelect = (grade: GradeLevel) => {
-      // Check if it is a General English Level (A1-C1)
       if (['A1', 'A2', 'B1', 'B2', 'C1'].includes(grade)) {
           const units = UNIT_ASSETS[grade];
           if (units && units.length > 0) {
-              // Auto-select the first unit (since there is only one usually)
               onSelectGrade(grade);
               onSelectUnit(units[0]);
           } else {
@@ -116,6 +116,17 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
           }
       } else {
           onSelectGrade(grade);
+      }
+  };
+
+  const handleStudyModeClick = () => {
+      setShowStudyModes(true);
+  };
+
+  const handleModeSelect = (mode: 'study' | 'matching' | 'typing' | 'chain') => {
+      if (selectedUnit) {
+          setShowStudyModes(false);
+          onStartModule(mode, selectedUnit);
       }
   };
 
@@ -131,7 +142,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
      }
 
      return (
-      <div className="w-full max-w-lg mx-auto p-4 flex flex-col min-h-full justify-start pt-safe pb-safe animate-in fade-in zoom-in duration-300">
+      <div className="w-full max-w-lg mx-auto p-4 flex flex-col min-h-full justify-start pt-safe pb-safe animate-in fade-in zoom-in duration-300 relative">
          <div className="text-center mb-6 pt-2 shrink-0">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-3 shadow-sm ring-4 ring-opacity-20 overflow-hidden" style={{backgroundColor: 'var(--color-bg-card)', color: 'var(--color-primary)', '--tw-ring-color': 'var(--color-primary)'} as React.CSSProperties}>
                {selectedUnit.image ? (
@@ -155,13 +166,13 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
          </div>
 
          <div className="space-y-2 w-full pb-24 overflow-y-auto px-1">
-            <button onClick={() => onStartModule('study', selectedUnit)} className="w-full p-3 border rounded-2xl flex items-center gap-4 transition-all group text-left shadow-sm hover:shadow-md active:scale-[0.98]" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'rgba(255,255,255,0.1)'}}>
+            <button onClick={handleStudyModeClick} className="w-full p-3 border rounded-2xl flex items-center gap-4 transition-all group text-left shadow-sm hover:shadow-md active:scale-[0.98]" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'rgba(255,255,255,0.1)'}}>
                <div className="w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0" style={{backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)'}}>
                   <BookOpen size={20} />
                </div>
                <div>
-                  <h3 className="font-bold text-sm" style={{color: 'var(--color-text-main)'}}>Kelime Çalış</h3>
-                  <p className="text-[10px] font-medium opacity-70" style={{color: 'var(--color-text-muted)'}}>Kartlarla öğren</p>
+                  <h3 className="font-bold text-sm" style={{color: 'var(--color-text-main)'}}>Kelime Çalış & Oyna</h3>
+                  <p className="text-[10px] font-medium opacity-70" style={{color: 'var(--color-text-muted)'}}>Kartlar, Eşleştirme, Yazma...</p>
                </div>
                <ChevronRight className="ml-auto group-hover:translate-x-1 transition-transform opacity-50" size={16} style={{color: 'var(--color-text-muted)'}} />
             </button>
@@ -209,15 +220,59 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                Kelimeleri Seçerek Çalış
             </button>
          </div>
+
+         {/* Study Mode Selection Modal */}
+         {showStudyModes && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+                <div className="w-full max-w-sm rounded-3xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                    <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
+                        <h3 className="font-black text-lg text-slate-800 dark:text-white">Çalışma Modu Seç</h3>
+                        <button onClick={() => setShowStudyModes(false)} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
+                            <X size={20} />
+                        </button>
+                    </div>
+                    <div className="p-4 grid grid-cols-2 gap-3">
+                        <button onClick={() => handleModeSelect('study')} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center text-indigo-500 group-hover:scale-110 transition-transform">
+                                <BookOpen size={24} />
+                            </div>
+                            <span className="font-bold text-sm text-slate-700 dark:text-white">Flashcard</span>
+                        </button>
+                        
+                        <button onClick={() => handleModeSelect('matching')} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 transition-all group flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center text-green-500 group-hover:scale-110 transition-transform">
+                                <Grid3X3 size={24} />
+                            </div>
+                            <span className="font-bold text-sm text-slate-700 dark:text-white">Eşleştirme</span>
+                        </button>
+
+                        <button onClick={() => handleModeSelect('chain')} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-purple-500 hover:bg-purple-50 dark:hover:bg-purple-900/20 transition-all group flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center text-purple-500 group-hover:scale-110 transition-transform">
+                                <WholeWord size={24} />
+                            </div>
+                            <span className="font-bold text-sm text-slate-700 dark:text-white">Kelime Türet</span>
+                        </button>
+
+                        <button onClick={() => handleModeSelect('typing')} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-orange-500 hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-all group flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center text-orange-500 group-hover:scale-110 transition-transform">
+                                <Type size={24} />
+                            </div>
+                            <span className="font-bold text-sm text-slate-700 dark:text-white">Yazma</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+         )}
+
       </div>
      );
   }
   
+  // ... (Rest of the component logic remains same)
   if (!selectedCategory) {
     return (
       <div className="flex flex-col items-center min-h-full p-4 pt-2 animate-in fade-in duration-500 relative">
-        
-        {/* Compact Header */}
+        {/* ... (Home UI Code) ... */}
         <div className="text-center mb-6 mt-2 w-full max-w-md">
              <h1 className="text-3xl font-black tracking-tighter" style={{color: 'var(--color-text-main)'}}>
                Kelim<span className="text-indigo-500">App</span>
@@ -227,7 +282,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
              </p>
         </div>
 
-        {/* Mascot with rotating tip */}
         <div className="w-full max-w-md mb-4 flex justify-start pl-2">
              <Mascot mood="neutral" size={80} message={tip} />
         </div>
@@ -281,7 +335,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             </button>
         </div>
 
-        {/* Compact Grid for Categories */}
         <div id="category-section" className="grid grid-cols-1 gap-3 w-full max-w-md pb-10">
           {[
               GRADE_DATA['PRIMARY_SCHOOL'], 
@@ -313,7 +366,8 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   }
 
   if (!selectedGrade) {
-    let gradesToShow: GradeLevel[] = [];
+     // ... (Existing Grade Selection Code)
+     let gradesToShow: GradeLevel[] = [];
     switch (selectedCategory) {
       case 'PRIMARY_SCHOOL': gradesToShow = ['2', '3', '4']; break;
       case 'MIDDLE_SCHOOL': gradesToShow = ['5', '6', '7', '8']; break;
@@ -372,7 +426,8 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   
   return (
     <div className="w-full max-w-6xl mx-auto p-4 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-full">
-      <div className="flex items-center justify-between mb-4 px-1 shrink-0">
+       {/* ... (Unit List UI remains same) ... */}
+       <div className="flex items-center justify-between mb-4 px-1 shrink-0">
          <div>
             <h2 className="text-2xl font-black tracking-tight" style={{color: 'var(--color-primary)'}}>{selectedCategory === 'GENERAL_ENGLISH' ? selectedGrade : `${selectedGrade}. Sınıf`}</h2>
             <p className="text-xs font-medium mt-0.5 opacity-70" style={{color: 'var(--color-text-muted)'}}>Ünite seçip çalışmaya başla.</p>
