@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType } from './types';
+import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty } from './types';
 import { VOCABULARY } from './data/vocabulary';
 import TopicSelector from './components/TopicSelector';
 import { UNIT_ASSETS, UI_ICONS, AVATARS, FRAMES, BACKGROUNDS, BADGES } from './data/assets';
@@ -20,13 +20,14 @@ import GradeSelectionModal from './components/GradeSelectionModal';
 import MarketModal from './components/MarketModal';
 import AvatarModal from './components/AvatarModal';
 import AuthModal from './components/AuthModal';
+import OnboardingModal from './components/OnboardingModal';
 import FeedbackModal from './components/FeedbackModal';
 import AdminModal from './components/AdminModal'; 
 import InstallPromptModal from './components/InstallPromptModal';
 import OnboardingTutorial from './components/OnboardingTutorial';
 import { ChevronLeft, Zap, Trophy, User } from 'lucide-react';
 import { getUserProfile, getTheme, saveTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, clearLocalUserData, UserStats } from './services/userService';
-import { getAuthInstance, isFirebaseReady, syncLocalToCloud, subscribeToUserChanges, syncData } from './services/firebase'; 
+import { getAuthInstance, syncLocalToCloud, subscribeToUserChanges, syncData } from './services/firebase'; 
 import { ANNOUNCEMENTS } from './data/announcements';
 import { playSound } from './services/soundService';
 import { APP_CONFIG } from './config/appConfig';
@@ -35,9 +36,11 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { onAuthStateChanged } from 'firebase/auth';
-import MatchingGame from './components/MatchingGame'; // New
-import TypingGame from './components/TypingGame'; // New
-import WordChainGame from './components/WordChainGame'; // New
+import MatchingGame from './components/MatchingGame'; 
+import TypingGame from './components/TypingGame'; 
+import WordChainGame from './components/WordChainGame'; 
+import MazeGame from './components/MazeGame'; 
+import WordSearchGame from './components/WordSearchGame'; 
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.HOME);
@@ -49,10 +52,12 @@ const App: React.FC = () => {
   const [showSRSInfo, setShowSRSInfo] = useState(false);
   const [showMarket, setShowMarket] = useState(false);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showOnboardingModal, setShowOnboardingModal] = useState(false);
   const [showGradeSelection, setShowGradeSelection] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false); 
   const [showAdminModal, setShowAdminModal] = useState(false); 
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showAvatarModal, setShowAvatarModal] = useState(false); 
 
   const [availableGradesForReview, setAvailableGradesForReview] = useState<string[]>([]);
   const [topicTitle, setTopicTitle] = useState<string>('');
@@ -65,6 +70,8 @@ const App: React.FC = () => {
   const [selectedUnit, setSelectedUnit] = useState<UnitDef | null>(null);
 
   const [activeQuizType, setActiveQuizType] = useState<'standard' | 'bookmarks' | 'memorized' | 'custom' | 'review'>('standard');
+  const [activeQuizDifficulty, setActiveQuizDifficulty] = useState<QuizDifficulty>('normal');
+  
   const [pendingQuizConfig, setPendingQuizConfig] = useState<{
     words: WordCard[]; 
     allDistractors: WordCard[]; 
@@ -72,7 +79,7 @@ const App: React.FC = () => {
     type: 'standard' | 'bookmarks' | 'memorized' | 'custom' | 'review';
   } | null>(null);
   
-  const lastQuizConfig = useRef<{count: number, originalWords: WordCard[], allDistractors: WordCard[]} | null>(null);
+  const lastQuizConfig = useRef<{count: number, difficulty: QuizDifficulty, originalWords: WordCard[], allDistractors: WordCard[]} | null>(null);
   
   const lastActiveTime = useRef<number>(Date.now());
 
@@ -159,9 +166,14 @@ const App: React.FC = () => {
       const auth = getAuthInstance();
       let unsubscribeSnapshot: (() => void) | undefined;
 
+      // Initialize theme
+      const currentSettings = getAppSettings();
+      applyTheme(currentSettings.theme);
+
       if (auth) {
           const unsubscribeAuth = onAuthStateChanged(auth, async (user) => {
               if (!user) {
+                  // If no user logged in, trigger Auth Modal
                   const localProfile = getUserProfile();
                   if (!localProfile.name) {
                        setShowAuthModal(true);
@@ -173,6 +185,7 @@ const App: React.FC = () => {
               } else {
                   const lastUid = localStorage.getItem('lgs_last_uid');
                   if (lastUid && lastUid !== user.uid) {
+                      // New user logged in, clear previous local data
                       clearLocalUserData();
                   }
                   localStorage.setItem('lgs_last_uid', user.uid);
@@ -183,14 +196,15 @@ const App: React.FC = () => {
 
                   refreshGlobalState();
                   
-                  const currentSettings = getAppSettings();
-                  applyTheme(currentSettings.theme);
+                  // Re-apply theme in case user data has different theme
+                  const updatedSettings = getAppSettings();
+                  applyTheme(updatedSettings.theme);
                   
                   if (navigator.onLine) {
                            unsubscribeSnapshot = subscribeToUserChanges(user.uid, () => {
                                refreshGlobalState();
-                               const updatedSettings = getAppSettings();
-                               applyTheme(updatedSettings.theme);
+                               const newestSettings = getAppSettings();
+                               applyTheme(newestSettings.theme);
                            });
                   }
               }
@@ -200,12 +214,8 @@ const App: React.FC = () => {
               unsubscribeAuth();
               if (unsubscribeSnapshot) unsubscribeSnapshot();
           };
-      } else {
-          const localProfile = getUserProfile();
-          if (!localProfile.name) {
-               setShowAuthModal(true);
-          }
       }
+      // Note: If auth is not available (e.g. initialization failed), we still allow app to run but AuthModal might pop up if local profile missing.
   }, []);
 
   useEffect(() => {
@@ -347,15 +357,14 @@ const App: React.FC = () => {
         window.location.reload();
         return;
     }
-    const savedTheme = getTheme();
-    applyTheme(savedTheme);
     
-    refreshGlobalState();
-    
-    if (!headerProfile.name) { 
-        setShowAuthModal(true); 
+    // Check for existing profile
+    const localProfile = getUserProfile();
+    if (!localProfile.name) {
+        // If no local profile, show auth modal (which handles registration)
+        setShowAuthModal(true);
     } else {
-        applyUserProfileGrade(); 
+        // If profile exists, check tutorial
         const tutorialSeen = localStorage.getItem('tutorial_seen');
         if (!tutorialSeen) {
             setShowTutorial(true);
@@ -367,15 +376,27 @@ const App: React.FC = () => {
         const latestId = ANNOUNCEMENTS[0].id;
         if (latestId !== lastReadId) { setHasUnreadAnnouncements(true); }
     }
+    
+    applyUserProfileGrade();
+    refreshGlobalState();
   }, [applyUserProfileGrade]);
 
   const closeModalOrGoBack = useCallback(() => {
       if (showAuthModal) { 
           const userProfile = getUserProfile();
           if (!userProfile.name) {
-               return true; 
+               // Mandatory login/reg
+               return false; 
           }
           setShowAuthModal(false); return true; 
+      }
+      if (showOnboardingModal) {
+          const userProfile = getUserProfile();
+          if (userProfile.name) {
+             setShowOnboardingModal(false);
+             return true;
+          }
+          return false; // Mandatory
       }
       if (showSettings) { setShowSettings(false); return true; }
       if (showAdminModal) { setShowAdminModal(false); return true; }
@@ -385,6 +406,7 @@ const App: React.FC = () => {
       if (showFeedbackModal) { setShowFeedbackModal(false); return true; }
       if (pendingQuizConfig) { setPendingQuizConfig(null); return true; }
       if (showTutorial) { setShowTutorial(false); localStorage.setItem('tutorial_seen', 'true'); return true; }
+      if (showAvatarModal) { setShowAvatarModal(false); return true; }
       
       if (mode !== AppMode.HOME) {
           setMode(AppMode.HOME);
@@ -398,7 +420,7 @@ const App: React.FC = () => {
       if (selectedCategory) { setSelectedCategory(null); return true; }
       
       return false; 
-  }, [mode, selectedUnit, selectedGrade, selectedCategory, showSettings, showSRSInfo, showMarket, showGradeSelection, showFeedbackModal, showAdminModal, pendingQuizConfig, showAuthModal, showTutorial]);
+  }, [mode, selectedUnit, selectedGrade, selectedCategory, showSettings, showSRSInfo, showMarket, showGradeSelection, showFeedbackModal, showAdminModal, pendingQuizConfig, showAuthModal, showOnboardingModal, showTutorial, showAvatarModal]);
 
   useEffect(() => {
     const setupBackButton = async () => {
@@ -452,7 +474,6 @@ const App: React.FC = () => {
   const handleBadgeUnlock = (badge: Badge) => { 
       playSound('success'); 
       setNewBadge(badge); 
-      // Increase display time for badge to make it more noticeable
       setTimeout(() => setNewBadge(null), 5000); 
       refreshGlobalState();
   };
@@ -474,14 +495,15 @@ const App: React.FC = () => {
 
   const shuffleArray = <T,>(array: T[]): T[] => { const newArray = [...array]; for (let i = newArray.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [newArray[i], newArray[j]] = [newArray[j], newArray[i]]; } return newArray; };
   
-  const startQuizWithCount = (count: number) => { 
+  const startQuizWithCount = (count: number, difficulty: QuizDifficulty) => { 
       if (!pendingQuizConfig) return; 
       let quizWords = shuffleArray(pendingQuizConfig.words); 
       if (count !== -1 && quizWords.length > count) { quizWords = quizWords.slice(0, count); } 
-      lastQuizConfig.current = { count: count, originalWords: pendingQuizConfig.words, allDistractors: pendingQuizConfig.allDistractors };
+      lastQuizConfig.current = { count: count, difficulty: difficulty, originalWords: pendingQuizConfig.words, allDistractors: pendingQuizConfig.allDistractors };
       setWords(quizWords); 
       setAllUnitWords(pendingQuizConfig.allDistractors); 
       setActiveQuizType(pendingQuizConfig.type); 
+      setActiveQuizDifficulty(difficulty);
       setTopicTitle(pendingQuizConfig.title); 
       setMode(AppMode.QUIZ); 
       setPendingQuizConfig(null); 
@@ -489,11 +511,12 @@ const App: React.FC = () => {
 
   const handleQuizRestart = () => {
       if (lastQuizConfig.current) {
-          const { count, originalWords, allDistractors } = lastQuizConfig.current;
+          const { count, difficulty, originalWords, allDistractors } = lastQuizConfig.current;
           let quizWords = shuffleArray(originalWords);
           if (count !== -1 && quizWords.length > count) { quizWords = quizWords.slice(0, count); }
           setWords(quizWords);
           setAllUnitWords(allDistractors);
+          setActiveQuizDifficulty(difficulty);
           setMode(AppMode.LOADING); 
           setTimeout(() => { setMode(AppMode.QUIZ); }, 50);
       } else {
@@ -580,6 +603,16 @@ const App: React.FC = () => {
           setWords(shuffleArray(unitWords)); 
           setTopicTitle(newTitle + ' (Kelime Türet)');
           setMode(AppMode.WORD_CHAIN);
+      } else if (action === 'maze') {
+          setAllUnitWords(allDistractors);
+          setWords(shuffleArray(unitWords));
+          setTopicTitle(newTitle + ' (Labirent)');
+          setMode(AppMode.MAZE);
+      } else if (action === 'wordSearch') {
+          setAllUnitWords(allDistractors);
+          setWords(shuffleArray(unitWords));
+          setTopicTitle(newTitle + ' (Bulmaca)');
+          setMode(AppMode.WORD_SEARCH);
       } else if (action === 'grammar') { 
           setTopicTitle(newTitle + ' (Gramer)'); 
           setMode(AppMode.GRAMMAR); 
@@ -594,6 +627,8 @@ const App: React.FC = () => {
           setTopicTitle(newTitle + ' (Test)'); 
           setIsSRSReview(true); 
           setActiveQuizType('review');
+          // Default difficulty for review
+          setActiveQuizDifficulty('normal');
           setMode(AppMode.QUIZ);
       } else if (action === 'review-flashcards') { 
           // Optional fallback if users really want flashcards (can be triggered differently)
@@ -654,6 +689,7 @@ const App: React.FC = () => {
       setTopicTitle(`Günlük Tekrar (${grade}. Sınıf)`); 
       setIsSRSReview(true); 
       setActiveQuizType('review');
+      setActiveQuizDifficulty('normal'); // Review default
       setMode(AppMode.QUIZ); 
   };
 
@@ -685,6 +721,7 @@ const App: React.FC = () => {
             onHome={handleGoHome} 
             isBookmarkQuiz={activeQuizType === 'bookmarks'} 
             isReviewMode={isSRSReview}
+            difficulty={activeQuizDifficulty}
             onCelebrate={handleTriggerCelebration} 
             onBadgeUnlock={handleBadgeUnlock} 
             grade={selectedGrade} 
@@ -736,6 +773,26 @@ const App: React.FC = () => {
             grade={selectedGrade} 
          />
     ); break;
+    case AppMode.MAZE: content = (
+        <MazeGame
+            words={words}
+            onFinish={handleManualBack} 
+            onBack={handleManualBack} 
+            onHome={handleGoHome} 
+            onCelebrate={handleTriggerCelebration} 
+            grade={selectedGrade} 
+         />
+    ); break;
+    case AppMode.WORD_SEARCH: content = (
+        <WordSearchGame
+            words={words}
+            onFinish={() => handleStartModule('wordSearch', selectedUnit!)} // Re-start logic
+            onBack={handleManualBack} 
+            onHome={handleGoHome} 
+            onCelebrate={handleTriggerCelebration} 
+            grade={selectedGrade} 
+         />
+    ); break;
     case AppMode.ERROR: content = <div className="text-center p-10 text-red-500">Bir hata oluştu.</div>; break;
   }
 
@@ -765,6 +822,8 @@ const App: React.FC = () => {
       {showTutorial && <OnboardingTutorial onComplete={() => { setShowTutorial(false); localStorage.setItem('tutorial_seen', 'true'); }} />}
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onSuccess={() => { handleProfileUpdate(); setShowAuthModal(false); }} />}
+      {showOnboardingModal && <OnboardingModal onComplete={() => { handleProfileUpdate(); setShowOnboardingModal(false); }} />}
+      
       {showSettings && (
         <SettingsModal 
             onClose={handleManualBack} 
@@ -787,6 +846,28 @@ const App: React.FC = () => {
       {showGradeSelection && <GradeSelectionModal onClose={handleManualBack} onSelect={handleGradeSelectForReview} grades={availableGradesForReview} />}
       {pendingQuizConfig && <QuizSetupModal onClose={handleManualBack} onStart={startQuizWithCount} totalWords={pendingQuizConfig.words.length} title={pendingQuizConfig.title} />}
       {celebration?.show && <Celebration message={celebration.message} type={celebration.type} onClose={() => setCelebration(null)} />}
+      
+      {showAvatarModal && <AvatarModal onClose={() => setShowAvatarModal(false)} userStats={userStats || {
+        flashcardsViewed: 0, 
+        quizCorrect: 0, 
+        quizWrong: 0, 
+        date: '', 
+        dailyGoal: 5, 
+        xp: 0, 
+        level: 1, 
+        streak: 0, 
+        lastStudyDate: null, 
+        badges: [], 
+        xpBoostEndTime: 0, 
+        lastGoalMetDate: null, 
+        viewedWordsToday: [], 
+        perfectQuizzes: 0, 
+        questsCompleted: 0, 
+        totalTimeSpent: 0, 
+        completedUnits: [], 
+        completedGrades: [],
+        weekly: { weekId: '', quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, typingHighScore: 0, chainHighScore: 0, mazeHighScore: 0, wordSearchHighScore: 0 }
+    }} onUpdate={() => { setHeaderProfile(getUserProfile()); if(handleProfileUpdate) handleProfileUpdate(); }} />}
       
       <header className="backdrop-blur-xl border-b z-50 shrink-0 transition-colors h-16 header-theme"
               style={{backgroundColor: 'rgba(var(--color-bg-card-rgb), 0.8)', borderColor: 'rgba(255,255,255,0.1)'}}>

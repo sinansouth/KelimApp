@@ -9,7 +9,8 @@ import {
   PartyPopper, Lightbulb, MessageCircle, Sparkles,
   History, Palette, Microscope, Stethoscope, 
   Laptop, Gavel, Leaf, Plane, ShoppingBag as ShoppingBagIcon, Cpu, Crown,
-  Bell, Settings, CircleHelp, Home as HomeIcon, UserCircle, Signal
+  Bell, Settings, CircleHelp, Home as HomeIcon, UserCircle, Signal,
+  Gamepad2, Search, Grid3X3, WholeWord
 } from 'lucide-react';
 import React from 'react';
 
@@ -226,6 +227,9 @@ export const FRAMES: FrameDef[] = [
     { id: 'frame_lightning', name: 'Yıldırım', description: 'Elektrikli', cost: 9000, style: 'frame-lightning', unlockLevel: 20 },
     { id: 'frame_rainbow', name: 'Gökkuşağı', description: 'Renkli', cost: 10000, style: 'frame-rainbow', unlockLevel: 25 },
     { id: 'frame_rgb', name: 'RGB Gamer', description: 'Renk değiştiren', cost: 12000, style: 'frame-rgb', unlockLevel: 30 },
+    { id: 'frame_magma', name: 'Magma', description: 'Hareketli lav', cost: 15000, style: 'border-4 border-orange-600 ring-2 ring-red-500 shadow-[0_0_20px_#f97316] animate-pulse', unlockLevel: 40 },
+    { id: 'frame_leaf', name: 'Yaprak', description: 'Doğa dostu', cost: 3500, style: 'border-8 border-green-600 border-dashed ring-2 ring-green-300', unlockLevel: 15 },
+    { id: 'frame_tech', name: 'Tekno', description: 'Devre kartı', cost: 7500, style: 'border-4 border-blue-800 ring-2 ring-cyan-500 border-double', unlockLevel: 22 },
 ];
 
 // BACKGROUNDS
@@ -250,6 +254,9 @@ export const BACKGROUNDS: BackgroundDef[] = [
   { id: 'bg_aurora', name: 'Aurora', description: 'Kuzey ışıkları', cost: 6000, style: 'bg-gradient-to-tr from-green-400 via-blue-500 to-purple-600', unlockLevel: 20 },
   { id: 'bg_matrix', name: 'Matrix', description: 'Dijital kod', cost: 7000, style: 'bg-black border-2 border-green-500 shadow-[inset_0_0_20px_#00ff00]', unlockLevel: 25 },
   { id: 'bg_royal', name: 'Kraliyet', description: 'Asil mor', cost: 8000, style: 'bg-gradient-to-br from-indigo-900 via-purple-800 to-fuchsia-900 border-2 border-yellow-500', unlockLevel: 30 },
+  { id: 'bg_library', name: 'Kütüphane', description: 'Sakin ortam', cost: 2500, style: 'bg-[#f5f5dc] dark:bg-[#2c1b0e]', unlockLevel: 10 },
+  { id: 'bg_space_dark', name: 'Derin Uzay', description: 'Sonsuz karanlık', cost: 6500, style: 'bg-black border border-white/10', unlockLevel: 22 },
+  { id: 'bg_geometry', name: 'Geometri', description: 'Modern desenler', cost: 4000, style: 'bg-gradient-to-tr from-gray-200 to-gray-400 dark:from-gray-800 dark:to-gray-900', unlockLevel: 14 },
 ];
 
 export const AVATARS: Avatar[] = [
@@ -284,44 +291,44 @@ export const AVATARS: Avatar[] = [
   { id: 'judge', icon: '👨‍⚖️', image: 'https://8upload.com/image/c7d7ff25ff9a3df1/judge.png', name: 'Hakim', unlockLevel: 26, bgGradient: 'from-slate-700 to-black', border: 'border-slate-500' },
   { id: 'mechanic', icon: '👨‍🔧', image: 'https://8upload.com/image/ccc0c3f9f78a3937/mechanic.png', name: 'Tamirci', unlockLevel: 27, bgGradient: 'from-blue-700 to-blue-900', border: 'border-blue-500' },
   { id: 'cowboy', icon: '🤠', image: 'https://8upload.com/image/9e069b8bdd2254b3/cowboy.png', name: 'Kovboy', unlockLevel: 28, bgGradient: 'from-orange-300 to-amber-600', border: 'border-amber-700' },
-  { id: 'clown', icon: '🤡', name: 'Palyaço', unlockLevel: 29, bgGradient: 'from-red-400 to-yellow-400', border: 'border-blue-400' },
-  { id: 'party_face', icon: '🥳', name: 'Partici', unlockLevel: 30, bgGradient: 'from-purple-400 to-pink-400', border: 'border-purple-300' },
+  { id: 'clown', icon: '🤡', image: 'https://8upload.com/image/deb4c4b6fff72a48/clown.png', name: 'Palyaço', unlockLevel: 29, bgGradient: 'from-red-400 to-yellow-400', border: 'border-blue-400' },
+  { id: 'party_face', icon: '🥳', image: 'https://8upload.com/image/e5c37ec1fafcbfb5/party_face.png', name: 'Partici', unlockLevel: 30, bgGradient: 'from-purple-400 to-pink-400', border: 'border-purple-300' },
 
   // Level 31-60
-  { id: 'superhero', icon: '🦸', name: 'Kahraman', unlockLevel: 35, bgGradient: 'from-blue-500 to-red-500', border: 'border-yellow-400' },
-  { id: 'villain', icon: '🦹', name: 'Kötü Adam', unlockLevel: 38, bgGradient: 'from-green-700 to-purple-800', border: 'border-green-500' },
+  { id: 'superhero', icon: '🦸', image: 'https://8upload.com/image/2731df0991928821/superhero.png', name: 'Kahraman', unlockLevel: 35, bgGradient: 'from-blue-500 to-red-500', border: 'border-yellow-400' },
+  { id: 'villain', icon: '🦹', image: 'https://8upload.com/image/d3f7dea0d38b8fd2/villain.png', name: 'Kötü Adam', unlockLevel: 38, bgGradient: 'from-green-700 to-purple-800', border: 'border-green-500' },
   { id: 'wizard', icon: '🧙‍♂️', image: 'https://8upload.com/image/1b805006c4134236/wizard.png', name: 'Büyücü', unlockLevel: 40, bgGradient: 'from-purple-600 to-indigo-800', border: 'border-purple-400' },
-  { id: 'fairy', icon: '🧚', name: 'Peri', unlockLevel: 41, bgGradient: 'from-pink-300 to-green-300', border: 'border-white' },
+  { id: 'fairy', icon: '🧚', image: 'https://8upload.com/image/ffd854bdfa3eca5d/fairy.png', name: 'Peri', unlockLevel: 41, bgGradient: 'from-pink-300 to-green-300', border: 'border-white' },
   { id: 'pirate', icon: '🏴‍☠️', name: 'Korsan', unlockLevel: 42, bgGradient: 'from-red-800 to-black', border: 'border-gray-400' },
-  { id: 'robot', icon: '🤖', name: 'Robot', unlockLevel: 45, bgGradient: 'from-gray-300 to-slate-500', border: 'border-gray-200' },
-  { id: 'alien', icon: '👽', name: 'Uzaylı', unlockLevel: 50, bgGradient: 'from-green-400 to-emerald-600', border: 'border-green-200' },
-  { id: 'ninja_master', icon: '🥷', name: 'Ninja Ustası', unlockLevel: 55, bgGradient: 'from-gray-800 to-black', border: 'border-red-600' },
-  { id: 'queen', icon: '👸', name: 'Kraliçe', unlockLevel: 60, bgGradient: 'from-pink-400 to-rose-500', border: 'border-pink-300' },
+  { id: 'robot', icon: '🤖', image: 'https://8upload.com/image/51d1d90badb33139/robot.png', name: 'Robot', unlockLevel: 45, bgGradient: 'from-gray-300 to-slate-500', border: 'border-gray-200' },
+  { id: 'alien', icon: '👽', image: 'https://8upload.com/image/feedb4b26526d602/alien.png', name: 'Uzaylı', unlockLevel: 50, bgGradient: 'from-green-400 to-emerald-600', border: 'border-green-200' },
+  { id: 'ninja_master', icon: '🥷', image: 'https://8upload.com/image/cfffe57295f528de/ninja_master.png', name: 'Ninja Ustası', unlockLevel: 55, bgGradient: 'from-gray-800 to-black', border: 'border-red-600' },
+  { id: 'queen', icon: '👸', image: 'https://8upload.com/image/df42c5aba17096b9/queen.png', name: 'Kraliçe', unlockLevel: 60, bgGradient: 'from-pink-400 to-rose-500', border: 'border-pink-300' },
   
   // Level 61-100+ (Rare)
-  { id: 'king', icon: '🤴', name: 'Kral', unlockLevel: 65, bgGradient: 'from-yellow-500 to-red-600', border: 'border-yellow-500' },
-  { id: 'dragon', icon: '🐉', name: 'Ejderha', unlockLevel: 70, bgGradient: 'from-red-600 to-orange-600', border: 'border-yellow-500' },
-  { id: 'dino', icon: '🦖', name: 'T-Rex', unlockLevel: 75, bgGradient: 'from-green-700 to-stone-700', border: 'border-green-600' },
-  { id: 'unicorn', icon: '🦄', name: 'Tekboynuz', unlockLevel: 80, bgGradient: 'from-pink-200 to-indigo-200', border: 'border-white' },
-  { id: 'octopus', icon: '🐙', name: 'Ahtapot', unlockLevel: 85, bgGradient: 'from-purple-500 to-pink-500', border: 'border-purple-400' },
-  { id: 'phoenix', icon: '🦅', name: 'Anka Kuşu', unlockLevel: 90, bgGradient: 'from-orange-500 to-red-600', border: 'border-orange-400' },
-  { id: 'ghost', icon: '👻', name: 'Hayalet', unlockLevel: 95, bgGradient: 'from-gray-200 to-white', border: 'border-gray-300' },
-  { id: 'diamond', icon: '💎', name: 'Efsane', unlockLevel: 100, bgGradient: 'from-cyan-200 to-blue-400', border: 'border-white' },
+  { id: 'king', icon: '🤴', image: 'https://8upload.com/image/55f0446ef5fb49f3/king.png', name: 'Kral', unlockLevel: 65, bgGradient: 'from-yellow-500 to-red-600', border: 'border-yellow-500' },
+  { id: 'dragon', icon: '🐉', image: 'https://8upload.com/image/bf262451f02a6436/dragon.png', name: 'Ejderha', unlockLevel: 70, bgGradient: 'from-red-600 to-orange-600', border: 'border-yellow-500' },
+  { id: 'dino', icon: '🦖', image: 'https://8upload.com/image/f7a69d84e192a8d9/dino.png', name: 'T-Rex', unlockLevel: 75, bgGradient: 'from-green-700 to-stone-700', border: 'border-green-600' },
+  { id: 'unicorn', icon: '🦄', image: 'https://8upload.com/image/a021b5e564ea2308/unicorn.png', name: 'Tekboynuz', unlockLevel: 80, bgGradient: 'from-pink-200 to-indigo-200', border: 'border-white' },
+  { id: 'octopus', icon: '🐙', image: 'https://8upload.com/image/21a55ef4bec1b8e8/octopus.png', name: 'Ahtapot', unlockLevel: 85, bgGradient: 'from-purple-500 to-pink-500', border: 'border-purple-400' },
+  { id: 'phoenix', icon: '🦅', image: 'https://8upload.com/image/9fe1d5055f68fdfd/phoenix.png', name: 'Anka Kuşu', unlockLevel: 90, bgGradient: 'from-orange-500 to-red-600', border: 'border-orange-400' },
+  { id: 'ghost', icon: '👻', image: 'https://8upload.com/image/162dd0ef98b74ba0/ghost.png', name: 'Hayalet', unlockLevel: 95, bgGradient: 'from-gray-200 to-white', border: 'border-gray-300' },
+  { id: 'diamond', icon: '💎', image: 'https://8upload.com/image/faa9aee65b00e036/diamond.png', name: 'Efsane', unlockLevel: 100, bgGradient: 'from-cyan-200 to-blue-400', border: 'border-white' },
   
   // Level 100+ (Ultra Rare)
-  { id: 'vampire', icon: '🧛', name: 'Vampir', unlockLevel: 110, bgGradient: 'from-red-900 to-slate-900', border: 'border-red-600' },
-  { id: 'cyborg', icon: '🦾', name: 'Sayborg', unlockLevel: 120, bgGradient: 'from-slate-700 to-cyan-500', border: 'border-cyan-400' },
-  { id: 'zombie', icon: '🧟', name: 'Zombi', unlockLevel: 130, bgGradient: 'from-green-800 to-stone-700', border: 'border-green-700' },
-  { id: 'genie', icon: '🧞', name: 'Cin', unlockLevel: 140, bgGradient: 'from-cyan-500 to-blue-600', border: 'border-cyan-300' },
-  { id: 'angel', icon: '👼', name: 'Melek', unlockLevel: 150, bgGradient: 'from-sky-200 to-white', border: 'border-sky-200' },
-  { id: 'elf', icon: '🧝', name: 'Elf', unlockLevel: 160, bgGradient: 'from-green-300 to-emerald-500', border: 'border-emerald-300' },
-  { id: 'mermaid', icon: '🧜‍♀️', name: 'Deniz Kızı', unlockLevel: 180, bgGradient: 'from-blue-400 to-green-400', border: 'border-cyan-300' },
-  { id: 'demon', icon: '👿', name: 'İblis', unlockLevel: 200, bgGradient: 'from-red-900 to-black', border: 'border-red-800' },
-  { id: 'zeus', icon: '⚡', name: 'Zeus', unlockLevel: 250, bgGradient: 'from-yellow-300 to-blue-500', border: 'border-yellow-400' },
-  { id: 'master', icon: '🧘', name: 'Usta', unlockLevel: 300, bgGradient: 'from-indigo-500 to-purple-600', border: 'border-white' },
-  { id: 'rockstar', icon: '🎸', name: 'Rock Yıldızı', unlockLevel: 350, bgGradient: 'from-pink-600 to-purple-800', border: 'border-pink-500' },
-  { id: 'gamer', icon: '🎮', name: 'Oyuncu', unlockLevel: 400, bgGradient: 'from-green-400 to-black', border: 'border-green-500' },
-  { id: 'brain', icon: '🧠', name: 'Dahi', unlockLevel: 500, bgGradient: 'from-pink-300 to-rose-400', border: 'border-white' },
+  { id: 'vampire', icon: '🧛', image: 'https://8upload.com/image/52f47bfe3dfdf12c/vampire.png', name: 'Vampir', unlockLevel: 110, bgGradient: 'from-red-900 to-slate-900', border: 'border-red-600' },
+  { id: 'cyborg', icon: '🦾', image: 'https://8upload.com/image/edc67cd7538a74ad/cyborg.png', name: 'Sayborg', unlockLevel: 120, bgGradient: 'from-slate-700 to-cyan-500', border: 'border-cyan-400' },
+  { id: 'zombie', icon: '🧟', image: 'https://8upload.com/image/88e918704733f92f/zombie.png', name: 'Zombi', unlockLevel: 130, bgGradient: 'from-green-800 to-stone-700', border: 'border-green-700' },
+  { id: 'genie', icon: '🧞', image: 'https://8upload.com/image/36b838266e6d59da/genie.png', name: 'Cin', unlockLevel: 140, bgGradient: 'from-cyan-500 to-blue-600', border: 'border-cyan-300' },
+  { id: 'angel', icon: '👼', image: 'https://8upload.com/image/84b0a8d210900976/angel.png', name: 'Melek', unlockLevel: 150, bgGradient: 'from-sky-200 to-white', border: 'border-sky-200' },
+  { id: 'elf', icon: '🧝', image: 'https://8upload.com/image/8915ca85d909ab03/elf.png', name: 'Elf', unlockLevel: 160, bgGradient: 'from-green-300 to-emerald-500', border: 'border-emerald-300' },
+  { id: 'mermaid', icon: '🧜‍♀️', image: 'https://8upload.com/image/c6d612b4bb6366c4/mermaid.png', name: 'Deniz Kızı', unlockLevel: 180, bgGradient: 'from-blue-400 to-green-400', border: 'border-cyan-300' },
+  { id: 'demon', icon: '👿', image: 'https://8upload.com/image/d42b6e92e8fdb0f0/demon.png', name: 'İblis', unlockLevel: 200, bgGradient: 'from-red-900 to-black', border: 'border-red-800' },
+  { id: 'zeus', icon: '⚡', image: 'https://8upload.com/image/e50706c10d5cc63f/zeus.png', name: 'Zeus', unlockLevel: 250, bgGradient: 'from-yellow-300 to-blue-500', border: 'border-yellow-400' },
+  { id: 'master', icon: '🧘', image: 'https://8upload.com/image/7bc305af25244d12/master.png', name: 'Usta', unlockLevel: 300, bgGradient: 'from-indigo-500 to-purple-600', border: 'border-white' },
+  { id: 'rockstar', icon: '🎸', image: 'https://8upload.com/image/457c29669394a28b/rockstar.png', name: 'Rock Yıldızı', unlockLevel: 350, bgGradient: 'from-pink-600 to-purple-800', border: 'border-pink-500' },
+  { id: 'gamer', icon: '🎮', image: 'https://8upload.com/image/88c44d8a3be86004/gamer.png', name: 'Oyuncu', unlockLevel: 400, bgGradient: 'from-green-400 to-black', border: 'border-green-500' },
+  { id: 'brain', icon: '🧠', image: 'https://8upload.com/image/aafd6be6446927d3/brain.png', name: 'Dahi', unlockLevel: 500, bgGradient: 'from-pink-300 to-rose-400', border: 'border-white' },
 ];
 
 // Generate Unit Mastery Badges
@@ -427,17 +434,41 @@ export const BADGES: Badge[] = [
   { id: 'millionaire', name: 'XP Milyoneri', description: '1.000.000 XP puana ulaştın.', icon: '💰', condition: (s: any) => s.xp >= 1000000, unlocked: false },
   { id: 'fast_learner', name: 'Hız Tutkunu', description: 'Bir günde 100 kelimeye baktın.', icon: '⚡', condition: (s: any) => s.viewedWordsToday.length >= 100, unlocked: false },
   { id: 'dedicated', name: 'Adanmış', description: 'Toplam 5000 XP kazandın.', icon: '🎗️', condition: (s: any) => s.xp >= 5000, unlocked: false },
-  { id: 'shopper_1', name: 'Müşteri', description: 'Marketten ilk eşyanı aldın.', icon: '🛍️', condition: (s: any) => {
+
+  // --- Word Chain (Kelime Türetmece) Tiers ---
+  { id: 'chain_rookie', name: 'Kelime Çırağı', description: 'Kelime Türetmece oyununda 50 puan yap.', icon: '🥉', condition: (s: any) => s.weekly.chainHighScore >= 50, unlocked: false },
+  { id: 'chain_master', name: 'Kelime Ustası', description: 'Kelime Türetmece oyununda 200 puan yap.', icon: '🥈', condition: (s: any) => s.weekly.chainHighScore >= 200, unlocked: false },
+  { id: 'chain_legend', name: 'Kelime Efsanesi', description: 'Kelime Türetmece oyununda 500 puan yap.', icon: '👑', condition: (s: any) => s.weekly.chainHighScore >= 500, unlocked: false },
+
+  // --- Maze (Labirent) Tiers ---
+  { id: 'maze_runner', name: 'Labirent Gezgini', description: 'Labirent oyununda 100 puan topla.', icon: '🏃', condition: (s: any) => s.weekly.mazeHighScore >= 100, unlocked: false },
+  { id: 'maze_solver', name: 'Kaşif', description: 'Labirent oyununda 500 puan topla.', icon: '🧭', condition: (s: any) => s.weekly.mazeHighScore >= 500, unlocked: false },
+  { id: 'maze_master', name: 'Yol Bulucu', description: 'Labirent oyununda 1000 puan topla.', icon: '🏰', condition: (s: any) => s.weekly.mazeHighScore >= 1000, unlocked: false },
+
+  // --- Word Search (Bulmaca) Tiers ---
+  { id: 'search_novice', name: 'Meraklı', description: 'Kelime Bulmaca oyununda 100 puan yap.', icon: '🔎', condition: (s: any) => s.weekly.wordSearchHighScore >= 100, unlocked: false },
+  { id: 'search_pro', name: 'Dedektif', description: 'Kelime Bulmaca oyununda 300 puan yap.', icon: '🕵️', condition: (s: any) => s.weekly.wordSearchHighScore >= 300, unlocked: false },
+  { id: 'search_expert', name: 'Şahin Göz', description: 'Kelime Bulmaca oyununda 600 puan yap.', icon: '🦅', condition: (s: any) => s.weekly.wordSearchHighScore >= 600, unlocked: false },
+
+  // --- Typing Game Badges ---
+  { id: 'typing_knight', name: 'Klavye Şövalyesi', description: 'Yazma oyununda 100 puan al.', icon: '⌨️', condition: (s: any) => s.weekly.typingHighScore >= 100, unlocked: false },
+  { id: 'typing_ninja', name: 'Hızlı Parmaklar', description: 'Yazma oyununda 300 puan al.', icon: '🥷', condition: (s: any) => s.weekly.typingHighScore >= 300, unlocked: false },
+  
+  // --- Matching Game Badges ---
+  { id: 'matching_pro', name: 'Hafıza Ustası', description: 'Eşleştirme oyununda 200+ puan al.', icon: '🧠', condition: (s: any) => s.weekly.matchingBestTime >= 200, unlocked: false },
+  { id: 'matching_eagle', name: 'Keskin Göz', description: 'Eşleştirme oyununda 500+ puan al.', icon: '🦅', condition: (s: any) => s.weekly.matchingBestTime >= 500, unlocked: false },
+
+  // --- Market Tiers ---
+  { id: 'shopper_bronze', name: 'Müşteri', description: 'Marketten 1 eşya satın al.', icon: '🛍️', condition: (s: any) => {
       const stored = localStorage.getItem('lgs_user_profile');
       if (stored) {
           const p = JSON.parse(stored);
           const purchasedCount = (p.purchasedFrames?.length || 1) + (p.purchasedThemes?.length || 2) + (p.purchasedBackgrounds?.length || 1);
-          // Default items count as "purchased" in initialization, so we check if count > default count
-          return purchasedCount > 4; 
+          return purchasedCount >= 5; // 4 default + 1 new
       }
       return false;
   }, unlocked: false },
-  { id: 'shopper_5', name: 'Alışverişkolik', description: 'Marketten 5 eşya aldın.', icon: '💳', condition: (s: any) => {
+  { id: 'shopper_silver', name: 'Koleksiyoner', description: 'Marketten 5 eşya satın al.', icon: '🎩', condition: (s: any) => {
        const stored = localStorage.getItem('lgs_user_profile');
        if (stored) {
            const p = JSON.parse(stored);
@@ -446,6 +477,21 @@ export const BADGES: Badge[] = [
        }
        return false;
   }, unlocked: false },
+   { id: 'shopper_gold', name: 'Market Kralı', description: 'Marketten 10 eşya satın al.', icon: '💎', condition: (s: any) => {
+       const stored = localStorage.getItem('lgs_user_profile');
+       if (stored) {
+           const p = JSON.parse(stored);
+           const purchasedCount = (p.purchasedFrames?.length || 1) + (p.purchasedThemes?.length || 2) + (p.purchasedBackgrounds?.length || 1);
+           return purchasedCount >= 14; // 4 default + 10 new
+       }
+       return false;
+  }, unlocked: false },
+
+  // --- New General Badges ---
+  { id: 'vocab_treasure', name: 'Kelime Hazinesi', description: 'Toplam 1000 kelime kartı görüntüle.', icon: '📚', condition: (s: any) => s.flashcardsViewed >= 1000, unlocked: false },
+  { id: 'wealthy', name: 'Servet', description: 'Hesabında 20.000 XP biriktir.', icon: '💰', condition: (s: any) => s.xp >= 20000, unlocked: false },
+  { id: 'marathon', name: 'Maraton', description: 'Uygulamada toplam 50 saat geçir.', icon: '⏳', condition: (s: any) => s.totalTimeSpent >= 3000, unlocked: false }, // 3000 mins = 50 hours
+
   // Add Dynamic Badges
   ...dynamicBadges
 ];

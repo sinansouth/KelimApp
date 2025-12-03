@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
 import { Shuffle, RotateCcw, CheckCircle, HelpCircle, Grid3X3 } from 'lucide-react';
@@ -53,7 +54,14 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ words, onFinish, onBack, on
   }, [isTimerRunning]);
 
   const startGame = (count: number) => {
-    const gameWords = [...words].sort(() => 0.5 - Math.random()).slice(0, count);
+    // Deduplicate words based on English text to avoid confusion
+    const uniqueWords = words.filter((word, index, self) => 
+        index === self.findIndex((t) => (
+            t.english.toLowerCase() === word.english.toLowerCase()
+        ))
+    );
+
+    const gameWords = [...uniqueWords].sort(() => 0.5 - Math.random()).slice(0, count);
     
     const newCards: CardItem[] = [];
     gameWords.forEach(w => {
@@ -120,11 +128,6 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ words, onFinish, onBack, on
       setIsTimerRunning(false);
       
       // Score Calculation:
-      // Rewards higher pair counts significantly.
-      // Rewards speed.
-      // Formula: (PairCount^2 * 100) / Time
-      // Example: 6 pairs in 20s -> 3600/20 = 180 points
-      // Example: 12 pairs in 60s -> 14400/60 = 240 points
       const calculatedScore = Math.floor((Math.pow(pairCount, 2) * 100) / Math.max(timer, 1));
       
       setFinalScore(calculatedScore);
@@ -132,7 +135,10 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ words, onFinish, onBack, on
       playSound('success');
       
       updateStats('quiz_correct', grade, undefined, Math.floor(pairCount / 2)); 
-      updateQuestProgress('earn_xp', pairCount * 5);
+      
+      // XP Balancing: 5 XP per pair + Bonus for speed
+      const xpEarned = (pairCount * 5) + (calculatedScore > 200 ? 20 : 0);
+      updateQuestProgress('earn_xp', xpEarned);
       
       // Send SCORE to leaderboard, not time
       updateGameStats('matching', calculatedScore);
@@ -148,7 +154,9 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ words, onFinish, onBack, on
 
   // --- SETUP SCREEN ---
   if (gameMode === 'setup') {
-      const maxPairs = Math.min(words.length, 30);
+      // Ensure we filter duplicates first for count calculation
+      const uniqueWordCount = new Set(words.map(w => w.english.toLowerCase())).size;
+      const maxPairs = Math.min(uniqueWordCount, 30);
       const options = [6, 8, 10, 12, 15, 20, 24].filter(n => n <= maxPairs);
       if (options.length === 0 && maxPairs > 0) options.push(maxPairs);
 

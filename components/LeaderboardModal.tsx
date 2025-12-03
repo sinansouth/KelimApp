@@ -1,6 +1,8 @@
 
+
+
 import React, { useState, useEffect } from 'react';
-import { X, Trophy, Medal, Crown, WifiOff, RefreshCw, CheckCircle, Zap, BookOpen, Target, Grid3X3, Keyboard, Star, WholeWord, Flame } from 'lucide-react';
+import { X, Trophy, Medal, Crown, WifiOff, RefreshCw, CheckCircle, Zap, BookOpen, Target, Grid3X3, Keyboard, Star, WholeWord, Flame, Gamepad2, Search } from 'lucide-react';
 import { getLeaderboard, LeaderboardEntry, syncLocalToCloud } from '../services/firebase';
 import { AVATARS, FRAMES, BACKGROUNDS } from '../data/assets';
 
@@ -10,7 +12,7 @@ interface LeaderboardModalProps {
   currentUserGrade: string;
 }
 
-type LeaderboardMode = 'xp' | 'quiz' | 'flashcard' | 'matching' | 'typing' | 'chain';
+type LeaderboardMode = 'xp' | 'quiz' | 'flashcard' | 'matching' | 'typing' | 'chain' | 'maze' | 'wordSearch';
 
 const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUserXP, currentUserGrade }) => {
   const [users, setUsers] = useState<LeaderboardEntry[]>([]);
@@ -92,6 +94,8 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
           case 'matching': return 'Eşleştirme Oyunu';
           case 'typing': return 'Yazma Oyunu';
           case 'chain': return 'Kelime Türetmece';
+          case 'maze': return 'Labirent';
+          case 'wordSearch': return 'Kelime Bulmaca';
       }
   }
 
@@ -115,6 +119,8 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
                  <button onClick={() => setMode('matching')} className={`p-2 rounded-lg transition-all ${mode === 'matching' ? 'bg-white text-indigo-600' : 'bg-indigo-700 text-white opacity-70 hover:opacity-100'}`}><Grid3X3 size={16} /></button>
                  <button onClick={() => setMode('typing')} className={`p-2 rounded-lg transition-all ${mode === 'typing' ? 'bg-white text-indigo-600' : 'bg-indigo-700 text-white opacity-70 hover:opacity-100'}`}><Keyboard size={16} /></button>
                  <button onClick={() => setMode('chain')} className={`p-2 rounded-lg transition-all ${mode === 'chain' ? 'bg-white text-indigo-600' : 'bg-indigo-700 text-white opacity-70 hover:opacity-100'}`}><WholeWord size={16} /></button>
+                 <button onClick={() => setMode('maze')} className={`p-2 rounded-lg transition-all ${mode === 'maze' ? 'bg-white text-indigo-600' : 'bg-indigo-700 text-white opacity-70 hover:opacity-100'}`}><Gamepad2 size={16} /></button>
+                 <button onClick={() => setMode('wordSearch')} className={`p-2 rounded-lg transition-all ${mode === 'wordSearch' ? 'bg-white text-indigo-600' : 'bg-indigo-700 text-white opacity-70 hover:opacity-100'}`}><Search size={16} /></button>
             </div>
 
              <div className="text-[12px] text-white mt-2 font-bold bg-black/20 inline-block px-3 py-1 rounded-full border border-white/10">{getModeLabel()}</div>

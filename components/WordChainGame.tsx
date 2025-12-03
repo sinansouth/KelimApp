@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
-import { MessageCircle, Send, RotateCcw, WholeWord, AlertTriangle } from 'lucide-react';
+import { MessageCircle, Send, RotateCcw, WholeWord, AlertTriangle, Info } from 'lucide-react';
 import { playSound } from '../services/soundService';
 import { updateStats, updateQuestProgress, updateGameStats } from '../services/userService';
 import Mascot from './Mascot';
@@ -49,7 +49,7 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
 
   const startNewGame = () => {
       // Pick a random starting word from the UNIT
-      const startWord = unitWords[Math.floor(Math.random() * unitWords.length)].english.toLowerCase();
+      const startWord = unitWords[Math.floor(Math.random() * unitWords.length)].english.toLocaleLowerCase('en');
       
       setMessages([{
           id: Date.now(),
@@ -71,7 +71,7 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
       e.preventDefault();
       if (isGameOver || !input.trim()) return;
       
-      const userWord = input.trim().toLowerCase();
+      const userWord = input.trim().toLocaleLowerCase('en');
       
       // 1. Check if word starts with correct letter
       if (userWord.charAt(0) !== currentLetter) {
@@ -86,15 +86,9 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
       }
 
       // 3. Check if word exists in our dictionary (any unit)
-      // Note: In a real app, you'd want a bigger dictionary API. Here we use the full app vocabulary.
-      const wordExists = allWords.some(w => w.english.toLowerCase() === userWord);
+      const wordExists = allWords.some(w => w.english.toLocaleLowerCase('en') === userWord);
       
       if (!wordExists) {
-           // Optional: Allow it if it's long enough, assuming it's a valid English word not in our DB? 
-           // For now, strict mode: must be in app's vocab to ensure quality.
-           // Or maybe fetch to check? Let's stick to local check for speed/offline.
-           // Let's be lenient: if length > 2, accept it to make game playable?
-           // Better: Check if it exists in allWords. If not, warning.
            handleError(`Bu kelime sözlüğümüzde yok!`);
            return;
       }
@@ -104,6 +98,10 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
       setMessages(prev => [...prev, { id: Date.now(), text: userWord, sender: 'user' }]);
       setUsedWords(prev => new Set(prev).add(userWord));
       setScore(prev => prev + 10);
+      
+      // XP: 10 per word
+      updateQuestProgress('earn_xp', 10);
+      
       setInput('');
       
       // Bot's Turn
@@ -129,16 +127,17 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
   const botTurn = (startChar: string) => {
       // Bot tries to find a word starting with startChar
       // Prefer words from current unit, then fallback to all words
-      const availableWords = allWords.filter(w => 
-          w.english.toLowerCase().startsWith(startChar) && 
-          !usedWords.has(w.english.toLowerCase())
-      );
+      // CRITICAL: Check against usedWords (which includes bot's previous words and user's words)
+      const availableWords = allWords.filter(w => {
+          const wLower = w.english.toLocaleLowerCase('en');
+          return wLower.startsWith(startChar) && !usedWords.has(wLower);
+      });
 
       if (availableWords.length > 0) {
           // Pick one (prefer unit words if possible for relevance)
-          const unitMatches = availableWords.filter(w => unitWords.some(uw => uw.english === w.english));
+          const unitMatches = availableWords.filter(w => unitWords.some(uw => uw.english.toLocaleLowerCase('en') === w.english.toLocaleLowerCase('en')));
           const pickPool = unitMatches.length > 0 ? unitMatches : availableWords;
-          const pick = pickPool[Math.floor(Math.random() * pickPool.length)].english.toLowerCase();
+          const pick = pickPool[Math.floor(Math.random() * pickPool.length)].english.toLocaleLowerCase('en');
 
           setMessages(prev => [...prev, { id: Date.now(), text: pick, sender: 'bot' }]);
           setUsedWords(prev => new Set(prev).add(pick));
@@ -152,17 +151,18 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
           setIsGameOver(true);
           
           // Award stats
-          updateStats('quiz_correct', grade, undefined, 5); // Equivalent to 5 quiz questions
-          updateQuestProgress('earn_xp', score + 50);
+          updateStats('quiz_correct', grade, undefined, 5); 
+          updateQuestProgress('earn_xp', 50); // Bonus
           updateGameStats('chain', score + 50); // Update Leaderboard
+          
+          if (onCelebrate) onCelebrate('Tebrikler! Oyunu kazandın!', 'goal');
       }
   };
   
   const handleRestart = () => {
       if (score > 0) {
-          updateStats('quiz_correct', grade, undefined, Math.floor(score/20)); 
-          updateQuestProgress('earn_xp', score);
-          updateGameStats('chain', score); // Ensure updated on restart if not already
+          // Ensure final stats are pushed if game over by lives
+          if (isGameOver) updateGameStats('chain', score);
       }
       startNewGame();
   };
@@ -189,6 +189,12 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
                     ))}
                 </div>
             </div>
+        </div>
+        
+        {/* Tip Banner */}
+        <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 text-[10px] text-blue-600 dark:text-blue-300 flex items-center justify-center gap-2 text-center border-b border-blue-100 dark:border-blue-800">
+             <Info size={12} className="shrink-0" />
+             <span>İpucu: Uygulamadaki tüm İngilizce kelimeleri kullanabilirsin.</span>
         </div>
 
         {/* Chat Area */}

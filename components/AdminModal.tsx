@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { X, Zap, Trophy, Unlock, Trash2, ShieldAlert, Plus } from 'lucide-react';
-import { adminAddXP, adminSetLevel, adminUnlockAllItems, adminResetDailyQuests, getUserStats } from '../services/userService';
+import { X, Zap, Trophy, Unlock, Trash2, ShieldAlert, Plus, UserCheck, Award } from 'lucide-react';
+import { adminAddXP, adminSetLevel, adminUnlockAllItems, adminResetDailyQuests, adminUnlockAllBadges, adminUnlockAllAvatars, getUserStats } from '../services/userService';
 import { playSound } from '../services/soundService';
 
 interface AdminModalProps {
@@ -26,7 +27,21 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
   const handleUnlockAll = () => {
     adminUnlockAllItems();
     playSound('success');
-    alert("Tüm Market Öğeleri (Tema, Çerçeve, Arkaplan) Kilidi Açıldı!");
+    alert("XP eklendi. Marketten her şeyi alabilirsin.");
+    refresh();
+  };
+
+  const handleUnlockBadges = () => {
+    adminUnlockAllBadges();
+    playSound('success');
+    alert("Tüm Rozetler Açıldı!");
+    refresh();
+  };
+
+  const handleUnlockAvatars = () => {
+    adminUnlockAllAvatars();
+    playSound('success');
+    alert("Seviye 500 yapıldı. Tüm Avatarlar Açıldı!");
     refresh();
   };
 
@@ -89,18 +104,32 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
                 </div>
             </div>
 
-            {/* Unlock Everything */}
-            <button 
-                onClick={handleUnlockAll}
-                className="w-full py-4 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
-            >
-                <Unlock size={20} /> Tüm Market Ürünlerini Aç
-            </button>
+            {/* Unlocks */}
+            <div className="space-y-3">
+                <button 
+                    onClick={handleUnlockBadges}
+                    className="w-full py-3 bg-indigo-700 hover:bg-indigo-600 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                    <Award size={20} /> Tüm Rozetleri Aç
+                </button>
+                <button 
+                    onClick={handleUnlockAvatars}
+                    className="w-full py-3 bg-purple-700 hover:bg-purple-600 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                    <UserCheck size={20} /> Tüm Avatarları Aç (Max Lvl)
+                </button>
+                <button 
+                    onClick={handleUnlockAll}
+                    className="w-full py-3 bg-gradient-to-r from-yellow-600 to-orange-600 hover:from-yellow-500 hover:to-orange-500 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                >
+                    <Unlock size={20} /> Sınırsız XP (Market İçin)
+                </button>
+            </div>
 
             {/* Reset Quests */}
             <button 
                 onClick={handleResetQuests}
-                className="w-full py-4 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95"
+                className="w-full py-4 bg-slate-800 hover:bg-slate-700 border border-slate-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all active:scale-95 mt-4"
             >
                 <Trash2 size={20} /> Günlük Görevleri Sıfırla
             </button>

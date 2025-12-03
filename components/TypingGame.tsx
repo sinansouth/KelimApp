@@ -66,7 +66,8 @@ const TypingGame: React.FC<TypingGameProps> = ({ words, onFinish, onBack, onCele
     
     if (!input.trim()) return;
 
-    const isCorrect = input.trim().toLowerCase() === currentWord.english.toLowerCase();
+    // Case-insensitive check (Locale safe)
+    const isCorrect = input.trim().toLocaleLowerCase('en') === currentWord.english.toLocaleLowerCase('en');
 
     if (isCorrect) {
         setFeedback('correct');
@@ -99,13 +100,13 @@ const TypingGame: React.FC<TypingGameProps> = ({ words, onFinish, onBack, onCele
               // Continue but show feedback
               setTimeout(() => {
                   // Only clear input if it was a wrong attempt, keep it if it was a skip (give up) so user sees correct answer
-                  if (input.toLowerCase() !== currentWord.english.toLowerCase()) {
+                  if (input.toLocaleLowerCase('en') !== currentWord.english.toLocaleLowerCase('en')) {
                        setInput(''); 
                   }
                   setFeedback(null);
                   
                   // If it was a skip (give up), we move to next word automatically
-                  if (input.toLowerCase() === currentWord.english.toLowerCase()) {
+                  if (input.toLocaleLowerCase('en') === currentWord.english.toLocaleLowerCase('en')) {
                       nextWord();
                   } else {
                       // If just a wrong guess, let user try again or skip manually
@@ -137,8 +138,11 @@ const TypingGame: React.FC<TypingGameProps> = ({ words, onFinish, onBack, onCele
       if (score > 0) {
           // Add to typing leaderboard
           updateGameStats('typing', score);
-          // Add generic XP
-          updateQuestProgress('earn_xp', Math.floor(score / 2));
+          
+          // XP Balancing: 15 XP per word (score is 10/word, so *1.5)
+          const xpEarned = Math.floor(score * 1.5);
+          updateQuestProgress('earn_xp', xpEarned);
+          
           // Quest progress
           updateQuestProgress('play_typing', score); 
       }

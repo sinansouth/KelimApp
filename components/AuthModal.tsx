@@ -169,6 +169,13 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess }) => {
                                     <option value="11">11. Sınıf</option>
                                     <option value="12">12. Sınıf</option>
                                 </optgroup>
+                                <optgroup label="Genel İngilizce">
+                                    <option value="A1">A1 (Başlangıç)</option>
+                                    <option value="A2">A2 (Temel)</option>
+                                    <option value="B1">B1 (Orta)</option>
+                                    <option value="B2">B2 (Orta Üstü)</option>
+                                    <option value="C1">C1 (İleri)</option>
+                                </optgroup>
                             </select>
                         </div>
                     </div>

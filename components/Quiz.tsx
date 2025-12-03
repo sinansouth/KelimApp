@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { WordCard, Badge, GradeLevel } from '../types';
+import { WordCard, Badge, GradeLevel, QuizDifficulty } from '../types';
 import { CheckCircle, XCircle, Bookmark, Info, Clock } from 'lucide-react';
 import { updateStats, handleQuizResult, handleReviewResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress } from '../services/userService';
 import { playSound } from '../services/soundService';
@@ -17,11 +17,10 @@ interface QuizProps {
   onCelebrate?: (message: string, type: 'unit' | 'quiz' | 'goal') => void;
   onBadgeUnlock?: (badge: Badge) => void;
   grade?: GradeLevel | null;
+  difficulty?: QuizDifficulty;
 }
 
-const QUESTION_TIME_LIMIT = 15; // 15 seconds per question
-
-const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome, isBookmarkQuiz, isReviewMode, onCelebrate, onBadgeUnlock, grade }) => {
+const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome, isBookmarkQuiz, isReviewMode, onCelebrate, onBadgeUnlock, grade, difficulty = 'normal' }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -30,6 +29,20 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
   const [autoBookmarked, setAutoBookmarked] = useState(false);
   const [addedToMemorized, setAddedToMemorized] = useState(false);
   
+  // Determine Time Limit based on Difficulty
+  const getTimeLimit = (diff: QuizDifficulty) => {
+      switch(diff) {
+          case 'relaxed': return 30;
+          case 'easy': return 20;
+          case 'normal': return 15;
+          case 'hard': return 10;
+          case 'impossible': return 5;
+          default: return 15;
+      }
+  };
+  
+  const QUESTION_TIME_LIMIT = getTimeLimit(difficulty as QuizDifficulty);
+
   // Timer State
   const [timeLeft, setTimeLeft] = useState(QUESTION_TIME_LIMIT);
   
@@ -158,7 +171,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
             });
         }, 1000);
     }
-  }, [currentQuestionIndex, questions, isAnswered]);
+  }, [currentQuestionIndex, questions, isAnswered, QUESTION_TIME_LIMIT]);
 
   useEffect(() => {
     return () => { 

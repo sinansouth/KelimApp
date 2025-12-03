@@ -17,6 +17,8 @@ export enum AppMode {
   MATCHING = 'MATCHING',
   TYPING = 'TYPING',
   WORD_CHAIN = 'WORD_CHAIN',
+  MAZE = 'MAZE',
+  WORD_SEARCH = 'WORD_SEARCH',
   QUIZ = 'QUIZ',
   GRAMMAR = 'GRAMMAR',
   ERROR = 'ERROR',
@@ -121,6 +123,8 @@ export type GradeLevel =
 export type StudyMode = 'vocabulary' | 'grammar';
 export type CategoryType = 'HIGH_SCHOOL' | 'MIDDLE_SCHOOL' | 'PRIMARY_SCHOOL' | 'GENERAL_ENGLISH';
 
+export type QuizDifficulty = 'relaxed' | 'easy' | 'normal' | 'hard' | 'impossible';
+
 // Daily Quests
 export interface Quest {
   id: string;
@@ -129,7 +133,7 @@ export interface Quest {
   current: number;
   rewardXP: number;
   isCompleted: boolean;
-  type: 'view_cards' | 'finish_quiz' | 'perfect_quiz' | 'earn_xp' | 'play_matching' | 'play_typing' | 'play_chain';
+  type: 'view_cards' | 'finish_quiz' | 'perfect_quiz' | 'earn_xp' | 'play_matching' | 'play_typing' | 'play_chain' | 'play_maze' | 'play_word_search';
 }
 
 export interface DailyState {

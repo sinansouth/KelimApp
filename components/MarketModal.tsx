@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { X, ShoppingBag, Star, Palette, Sun, Moon, Droplets, Sunset, TreePine, Crown, Candy, Image, Gamepad2, Coffee, Rocket, Heart, Leaf, CloudSnow, MessageCircle, Flame, Lock, Zap } from 'lucide-react';
-import { getUserStats, getUserProfile, buyTheme, buyFrame, buyBackground, getTheme, saveTheme, equipFrame, equipBackground, UserStats } from '../services/userService';
+import { X, ShoppingBag, Star, Palette, Sun, Moon, Droplets, Sunset, TreePine, Crown, Candy, Image, Gamepad2, Coffee, Rocket, Heart, Leaf, CloudSnow, MessageCircle, Flame, Lock, Zap, Shield } from 'lucide-react';
+import { getUserStats, getUserProfile, buyTheme, buyFrame, buyBackground, buyItem, getTheme, saveTheme, equipFrame, equipBackground, UserStats } from '../services/userService';
 import { MarketItem, ThemeType } from '../types';
 import { playSound } from '../services/soundService';
 import { FRAMES, BACKGROUNDS } from '../data/assets';
@@ -14,7 +15,7 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
   const [stats, setStats] = useState<UserStats>(getUserStats());
   const [profile, setProfile] = useState(getUserProfile());
   const [currentTheme, setCurrentTheme] = useState(getTheme());
-  const [activeTab, setActiveTab] = useState<'themes' | 'frames' | 'backgrounds'>('themes');
+  const [activeTab, setActiveTab] = useState<'themes' | 'frames' | 'backgrounds' | 'powerups'>('themes');
 
   // Helper to sort items: Owned first, then by Cost (Ascending)
   const sortItems = (items: MarketItem[]) => {
@@ -88,6 +89,30 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
       unlockLevel: b.unlockLevel || 1
   }));
 
+  // Power-ups (Manually added)
+  const powerups: MarketItem[] = [
+      { 
+          id: 'streak_freeze', 
+          name: 'Seri Dondurucu', 
+          description: 'Bir gün girmeyi unutursan serin bozulmaz.', 
+          cost: 500, 
+          type: 'powerup' as any, 
+          value: 'streak_freeze', 
+          icon: <Shield size={24} className="text-blue-500" />, 
+          unlockLevel: 1 
+      },
+      { 
+          id: 'xp_boost', 
+          name: '2x XP (1 Saat)', 
+          description: '1 saat boyunca iki kat puan kazan.', 
+          cost: 250, 
+          type: 'powerup' as any, 
+          value: 'xp_boost', 
+          icon: <Zap size={24} className="text-yellow-500" />, 
+          unlockLevel: 1 
+      }
+  ];
+
   // APPLY SORTING
   const themes = sortItems(rawThemes);
   const frameMarketItems = sortItems(rawFrames);
@@ -145,6 +170,27 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
                  playSound('wrong');
                  alert("Yetersiz XP!");
              }
+        }
+    } else if ((item.type as any) === 'powerup') {
+        if (item.value === 'xp_boost' && stats.xpBoostEndTime > Date.now()) {
+             playSound('wrong');
+             alert("Zaten aktif bir XP Takviyen var!");
+             return;
+        }
+
+        if (buyItem(item.value as any, item.cost)) {
+            playSound('success');
+            setStats(getUserStats());
+            setProfile(getUserProfile());
+            if (item.value === 'xp_boost') {
+                alert("XP Boost aktif! 1 saat boyunca 2 kat puan kazanacaksın.");
+                onThemeChange(); // Trigger UI update
+            } else {
+                alert("Satın alındı!");
+            }
+        } else {
+            playSound('wrong');
+            alert("Yetersiz XP!");
         }
     }
   };
@@ -264,11 +310,19 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
                 Arka Plan
                 {activeTab === 'backgrounds' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-orange-500 rounded-t-full"></div>}
             </button>
+             <button 
+                onClick={() => setActiveTab('powerups')}
+                className={`py-3 px-3 font-bold text-xs whitespace-nowrap relative transition-colors ${activeTab === 'powerups' ? 'text-blue-500' : 'opacity-60'}`}
+                style={{color: activeTab === 'powerups' ? '#3b82f6' : 'var(--color-text-muted)'}}
+            >
+                Güçlendirme
+                {activeTab === 'powerups' && <div className="absolute bottom-0 left-0 w-full h-0.5 bg-blue-500 rounded-t-full"></div>}
+            </button>
         </div>
 
         <div className="p-4 overflow-y-auto custom-scrollbar flex-1" style={{backgroundColor: 'var(--color-bg-main)'}}>
             <div className="grid grid-cols-2 gap-3">
-                {(activeTab === 'themes' ? themes : activeTab === 'frames' ? frameMarketItems : backgroundMarketItems).map((item) => {
+                {(activeTab === 'powerups' ? powerups : activeTab === 'themes' ? themes : activeTab === 'frames' ? frameMarketItems : backgroundMarketItems).map((item) => {
                     const isOwned = 
                         (item.type === 'theme' && profile.purchasedThemes.includes(item.value)) ||
                         (item.type === 'frame' && profile.purchasedFrames.includes(item.id)) ||
@@ -281,30 +335,35 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
                         
                     const canAfford = stats.xp >= item.cost;
                     const isLevelLocked = item.unlockLevel && stats.level < item.unlockLevel;
+                    const isPowerup = (item.type as any) === 'powerup';
+                    
+                    // Check for active boost
+                    const isBoostActive = item.value === 'xp_boost' && stats.xpBoostEndTime > Date.now();
 
                     return (
                         <button 
                             key={item.id}
-                            disabled={(!canAfford && !isOwned) || isLevelLocked}
+                            disabled={(!canAfford && !isOwned && !isPowerup) || isLevelLocked || isBoostActive}
                             onClick={() => handlePurchase(item)}
                             className={`relative p-3 rounded-xl border-2 flex flex-col gap-1 text-left transition-all active:scale-[0.98]
                                 ${isActive 
                                     ? 'border-yellow-500 ring-1 ring-yellow-500' 
-                                    : 'hover:border-yellow-500/50'
+                                    : isBoostActive ? 'border-green-500 bg-green-50/10 cursor-default' : 'hover:border-yellow-500/50'
                                 }
-                                ${((!canAfford && !isOwned) || isLevelLocked) ? 'opacity-60 cursor-not-allowed' : ''}
+                                ${((!canAfford && !isOwned && !isPowerup) || isLevelLocked) ? 'opacity-60 cursor-not-allowed' : ''}
                             `}
                             style={{
                                 backgroundColor: 'var(--color-bg-card)',
-                                borderColor: isActive ? '#eab308' : 'var(--color-border)'
+                                borderColor: isActive ? '#eab308' : isBoostActive ? '#22c55e' : 'var(--color-border)'
                             }}
                         >
                             <PreviewBox item={item} />
                             
                             <div>
                                 <h3 className="font-bold text-xs truncate" style={{color: 'var(--color-text-main)'}}>{item.name}</h3>
-                                <p className="text-[10px] leading-tight line-clamp-1" style={{color: 'var(--color-text-muted)'}}>
+                                <p className="text-[10px] leading-tight line-clamp-2" style={{color: 'var(--color-text-muted)'}}>
                                     {isLevelLocked ? `Lvl ${item.unlockLevel} Gerekli` : item.description}
+                                    {isPowerup && item.value === 'streak_freeze' && ` (Sahip: ${profile.inventory?.streakFreezes || 0})`}
                                 </p>
                             </div>
 
@@ -313,7 +372,11 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
                                     <div className="w-full py-1.5 bg-green-500 text-white rounded-lg text-center text-[10px] font-bold">
                                         Seçili
                                     </div>
-                                ) : isOwned ? (
+                                ) : isBoostActive ? (
+                                     <div className="w-full py-1.5 bg-green-500/20 text-green-600 dark:text-green-400 border border-green-500 rounded-lg text-center text-[10px] font-bold flex items-center justify-center gap-1">
+                                         <Zap size={12} className="fill-current" /> Aktif
+                                     </div>
+                                ) : isOwned && !isPowerup ? (
                                     <div className="w-full py-1.5 rounded-lg text-center text-[10px] font-bold" style={{backgroundColor: 'var(--color-bg-main)', color: 'var(--color-text-muted)'}}>
                                         Kullan
                                     </div>

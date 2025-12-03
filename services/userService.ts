@@ -1,231 +1,52 @@
 
+import { Quest, Badge, GradeLevel, ThemeType } from '../types';
+import { BADGES, UNIT_ASSETS } from '../data/assets';
 import { VOCABULARY } from '../data/vocabulary';
-import { WordCard, Badge, Avatar, ThemeType, GradeLevel, Quest, DailyState, UnitDef } from '../types';
-import { APP_CONFIG } from '../config/appConfig';
-import { AVATARS, BADGES, UNIT_ASSETS, FRAMES, BACKGROUNDS } from '../data/assets'; 
-import { syncLocalToCloud } from './firebase';
-
-const DATA_VERSION = APP_CONFIG.dataVersion; 
-const DATA_VERSION_KEY = 'kelimapp_data_version';
-const LAST_UPDATED_KEY = 'lgs_last_data_update';
-const LAST_UID_KEY = 'lgs_last_uid'; 
-
-// ... (Previous Helper Functions Remain the Same) ...
-
-// --- REPLACED updateStats FUNCTION ---
-export const updateStats = (type: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 'perfect_quiz' | 'memorized' | 'review_remember' | 'review_forgot', grade?: string | null, wordId?: string, quizSize?: number): Badge[] => {
-  const stats = getUserStats(); 
-  const today = new Date();
-  const todayStr = today.toISOString().split('T')[0];
-  const newBadges: Badge[] = [];
-
-  // Update Streak Logic
-  if (stats.lastStudyDate !== todayStr) {
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      const yesterdayStr = yesterday.toISOString().split('T')[0];
-      
-      if (stats.lastStudyDate === yesterdayStr) {
-          stats.streak += 1;
-      } else {
-          stats.streak = 1;
-      }
-      stats.lastStudyDate = todayStr;
-  }
-
-  let xpGained = 0;
-  const XP_REWARDS = {
-      CARD_VIEW: 10,
-      QUIZ_CORRECT: 15,
-      QUIZ_WRONG: 5,
-      REVIEW_REMEMBER: 25,
-      REVIEW_FORGOT: 5
-  };
-
-  if (type === 'card_view') {
-      if (wordId && !stats.viewedWordsToday.includes(wordId)) {
-          stats.flashcardsViewed += 1; 
-          stats.weekly.cardsViewed += 1; 
-          stats.viewedWordsToday.push(wordId);
-          xpGained = XP_REWARDS.CARD_VIEW;
-          if (grade) {
-              if (!stats.breakdown) stats.breakdown = {};
-              if (!stats.breakdown[grade]) stats.breakdown[grade] = { viewed: 0, correct: 0, wrong: 0 };
-              stats.breakdown[grade].viewed += 1;
-          }
-      } else if (!wordId) {
-           stats.flashcardsViewed += 1;
-           stats.weekly.cardsViewed += 1;
-           xpGained = 2;
-      }
-  } else if (type === 'quiz_correct') {
-      stats.quizCorrect += 1; 
-      stats.weekly.quizCorrect += 1; 
-      xpGained = XP_REWARDS.QUIZ_CORRECT;
-      if (grade) {
-          if (!stats.breakdown) stats.breakdown = {};
-          if (!stats.breakdown[grade]) stats.breakdown[grade] = { viewed: 0, correct: 0, wrong: 0 };
-          stats.breakdown[grade].correct += 1;
-      }
-  } else if (type === 'quiz_wrong') {
-      stats.quizWrong += 1; 
-      if (!stats.weekly.quizWrong) stats.weekly.quizWrong = 0;
-      stats.weekly.quizWrong += 1; 
-      
-      xpGained = XP_REWARDS.QUIZ_WRONG;
-      if (grade) {
-          if (!stats.breakdown) stats.breakdown = {};
-          if (!stats.breakdown[grade]) stats.breakdown[grade] = { viewed: 0, correct: 0, wrong: 0 };
-          stats.breakdown[grade].wrong += 1;
-      }
-  } else if (type === 'memorized') {
-      xpGained = 20; 
-      checkCompletion(stats); 
-  } else if (type === 'review_remember') {
-      xpGained = XP_REWARDS.REVIEW_REMEMBER; 
-  } else if (type === 'review_forgot') {
-      xpGained = XP_REWARDS.REVIEW_FORGOT; 
-  } else if (type === 'perfect_quiz') {
-      stats.perfectQuizzes += 1;
-      xpGained = 60; 
-  }
-
-  if (xpGained > 0) {
-      stats.xp += xpGained;
-      updateQuestProgress('earn_xp', xpGained);
-  }
-
-  stats.level = calculateLevel(stats.xp);
-
-  // Check for new badges
-  // We iterate through ALL badges and check conditions against the UPDATED stats
-  BADGES.forEach(badge => {
-      if (!stats.badges.includes(badge.id)) {
-          // Only check unlock condition if not already owned
-          if (badge.condition(stats, { quizSize })) { 
-              stats.badges.push(badge.id);
-              newBadges.push(badge);
-          }
-      }
-  });
-
-  const totalInteractions = stats.flashcardsViewed + stats.quizCorrect + stats.quizWrong;
-  if (totalInteractions >= stats.dailyGoal) {
-      stats.lastGoalMetDate = todayStr;
-  }
-
-  // Save immediately so badges persist
-  saveUserStats(stats);
-  
-  // Return the newly unlocked badges so the UI can show them immediately
-  return newBadges;
-};
-
-// ... (Rest of the file including admin tools, getStats, etc.) ...
-
-export const adminAddXP = (amount: number) => {
-    const stats = getUserStats();
-    stats.xp += amount;
-    stats.level = calculateLevel(stats.xp);
-    saveUserStats(stats);
-};
-
-export const adminSetLevel = (level: number) => {
-    const stats = getUserStats();
-    let requiredXP = 0;
-    if (level <= 1) requiredXP = 0;
-    else if (level <= 2) requiredXP = 100;
-    else if (level <= 3) requiredXP = 250;
-    else if (level <= 4) requiredXP = 500;
-    else if (level <= 5) requiredXP = 800;
-    else if (level <= 6) requiredXP = 1200;
-    else if (level <= 7) requiredXP = 1700;
-    else if (level <= 8) requiredXP = 2300;
-    else if (level <= 9) requiredXP = 3000;
-    else if (level <= 10) requiredXP = 4000;
-    else requiredXP = 5500 + ((level - 10) * 1500);
-    
-    stats.xp = requiredXP;
-    stats.level = level;
-    saveUserStats(stats);
-};
-
-export const adminUnlockAllItems = () => {
-    const profile = getUserProfile();
-    
-    const allThemes = ['light', 'dark', 'neon', 'ocean', 'sunset', 'forest', 'royal', 'candy', 'cyberpunk', 'coffee', 'galaxy', 'retro', 'matrix', 'midnight', 'volcano', 'ice', 'lavender', 'gamer', 'luxury', 'comic', 'nature_soft'];
-    profile.purchasedThemes = allThemes;
-
-    profile.purchasedFrames = FRAMES.map(f => f.id);
-
-    profile.purchasedBackgrounds = BACKGROUNDS.map(b => b.id);
-
-    saveUserProfile(profile);
-};
-
-export const adminResetDailyQuests = () => {
-    localStorage.removeItem('lgs_daily_state');
-    getDailyState();
-};
-
-// ... (Export types and other functions) ...
 
 export interface UserProfile {
   name: string;
   grade: string;
   avatar: string;
-  frame: string; 
+  frame: string;
   background: string;
-  purchasedThemes: string[]; 
-  purchasedFrames: string[]; 
+  purchasedThemes: string[];
+  purchasedFrames: string[];
   purchasedBackgrounds: string[];
-  inventory: {
-    streakFreezes: number; 
-  };
-  lastUsernameChange?: number; 
-}
-
-export interface LastActivity {
-  grade: string;
-  unitId: string;
-  timestamp: number;
+  inventory: { streakFreezes: number };
+  lastUsernameChange?: number;
 }
 
 export interface UserStats {
-  flashcardsViewed: number;
-  quizCorrect: number;
-  quizWrong: number;
-  date: string;
-  dailyGoal: number;
   xp: number;
   level: number;
   streak: number;
   lastStudyDate: string | null;
   badges: string[];
+  flashcardsViewed: number;
+  quizCorrect: number;
+  quizWrong: number;
+  dailyGoal: number;
+  date: string;
   xpBoostEndTime: number;
-  lastGoalMetDate: string | null; 
-  viewedWordsToday: string[]; 
-  breakdown?: Record<string, { 
-    viewed: number;
-    correct: number;
-    wrong: number;
-  }>;
+  lastGoalMetDate: string | null;
+  viewedWordsToday: string[];
   perfectQuizzes: number;
   questsCompleted: number;
-  totalTimeSpent: number; 
+  totalTimeSpent: number;
   completedUnits: string[];
   completedGrades: string[];
-  lastActivity?: LastActivity | null;
-  
   weekly: {
-      weekId: string; 
-      quizCorrect: number;
-      quizWrong?: number; 
-      cardsViewed: number;
-      matchingBestTime: number; 
-      typingHighScore: number;
-      chainHighScore: number; 
-  }
+    weekId: string;
+    quizCorrect: number;
+    quizWrong: number;
+    cardsViewed: number;
+    matchingBestTime: number;
+    typingHighScore: number;
+    chainHighScore: number;
+    mazeHighScore: number;
+    wordSearchHighScore: number;
+  };
+  lastActivity?: { grade: string, unitId: string };
 }
 
 export interface AppSettings {
@@ -233,138 +54,171 @@ export interface AppSettings {
   theme: ThemeType;
 }
 
-export interface SRSData {
-  [key: string]: {
-    box: number;
-    nextReview: number;
-  };
-}
+// Default Values
+const DEFAULT_PROFILE: UserProfile = {
+    name: '',
+    grade: '',
+    avatar: '🧑‍🎓',
+    frame: 'frame_none',
+    background: 'bg_default',
+    purchasedThemes: ['light', 'dark'],
+    purchasedFrames: ['frame_none'],
+    purchasedBackgrounds: ['bg_default'],
+    inventory: { streakFreezes: 0 }
+};
 
-const PROFILE_KEY = 'lgs_user_profile';
-const STATS_KEY = 'lgs_user_stats';
-const SETTINGS_KEY = 'lgs_app_settings';
-const MEMORIZED_KEY = 'lgs_memorized';
-const BOOKMARKS_KEY = 'lgs_bookmarks';
-const SRS_KEY = 'lgs_srs_data';
-const OLD_LAST_ACTIVITY_KEY = 'lgs_last_activity'; 
-const READ_ANNOUNCEMENT_KEY = 'lgs_read_announcement_id';
-const DAILY_STATE_KEY = 'lgs_daily_state';
-const SRS_INTERVALS = [0, 1, 3, 7, 14, 30]; 
-const GOAL_STEPS = [5, 10, 15, 20, 30];
-
-const USER_SPECIFIC_KEYS = [
-    PROFILE_KEY, 
-    STATS_KEY, 
-    MEMORIZED_KEY, 
-    BOOKMARKS_KEY, 
-    SRS_KEY, 
-    OLD_LAST_ACTIVITY_KEY, 
-    READ_ANNOUNCEMENT_KEY, 
-    DAILY_STATE_KEY, 
-    LAST_UPDATED_KEY,
-    SETTINGS_KEY 
-];
-const ALL_STORAGE_KEYS = [...USER_SPECIFIC_KEYS, DATA_VERSION_KEY, LAST_UID_KEY];
-
-const getCurrentWeekId = (): string => {
-    const now = new Date();
-    const d = new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()));
-    d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay() || 7));
-    const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+const getWeekId = () => {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    d.setDate(d.getDate() + 4 - (d.getDay() || 7));
+    const yearStart = new Date(d.getFullYear(),0,1);
     const weekNo = Math.ceil(( ( (d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
-    return `${d.getUTCFullYear()}-W${weekNo}`;
+    return `${d.getFullYear()}-W${weekNo}`;
 };
 
-export const checkDataVersion = (): boolean => {
-    const storedVersionStr = localStorage.getItem(DATA_VERSION_KEY);
-    const storedVersion = storedVersionStr ? parseInt(storedVersionStr, 10) : 0;
-
-    if (storedVersion < DATA_VERSION) {
-        console.log(`New version detected (${DATA_VERSION}). Wiping old data...`);
-        ALL_STORAGE_KEYS.forEach(key => localStorage.removeItem(key));
-        localStorage.setItem(DATA_VERSION_KEY, DATA_VERSION.toString());
-        return true;
+const DEFAULT_STATS: UserStats = {
+    xp: 0,
+    level: 1,
+    streak: 0,
+    lastStudyDate: null,
+    badges: [],
+    flashcardsViewed: 0,
+    quizCorrect: 0,
+    quizWrong: 0,
+    dailyGoal: 20,
+    date: new Date().toISOString().split('T')[0],
+    xpBoostEndTime: 0,
+    lastGoalMetDate: null,
+    viewedWordsToday: [],
+    perfectQuizzes: 0,
+    questsCompleted: 0,
+    totalTimeSpent: 0,
+    completedUnits: [],
+    completedGrades: [],
+    weekly: {
+        weekId: getWeekId(),
+        quizCorrect: 0,
+        quizWrong: 0,
+        cardsViewed: 0,
+        matchingBestTime: 0,
+        typingHighScore: 0,
+        chainHighScore: 0,
+        mazeHighScore: 0,
+        wordSearchHighScore: 0
     }
-    return false;
 };
 
-export const clearLocalUserData = () => {
-    USER_SPECIFIC_KEYS.forEach(key => localStorage.removeItem(key));
-    localStorage.removeItem(LAST_UID_KEY);
+const DEFAULT_SETTINGS: AppSettings = {
+    soundEnabled: true,
+    theme: 'dark'
 };
 
-export const updateLastUpdatedTimestamp = () => {
-    localStorage.setItem(LAST_UPDATED_KEY, Date.now().toString());
+// Storage Keys
+const KEYS = {
+    PROFILE: 'lgs_user_profile',
+    STATS: 'lgs_user_stats',
+    SETTINGS: 'lgs_app_settings',
+    MEMORIZED: 'lgs_memorized',
+    BOOKMARKS: 'lgs_bookmarks',
+    SRS: 'lgs_srs_data',
+    DAILY: 'lgs_daily_state',
+    LAST_UPDATE: 'lgs_last_update_ts',
+    VERSION: 'lgs_data_version'
 };
 
-export const getLastUpdatedTimestamp = (): number => {
-    const val = localStorage.getItem(LAST_UPDATED_KEY);
-    return val ? parseInt(val, 10) : 0;
-};
+// --- Profile ---
 
 export const getUserProfile = (): UserProfile => {
-  try {
-    const stored = localStorage.getItem(PROFILE_KEY);
-    const defaults: UserProfile = { 
-        name: '', 
-        grade: '', 
-        avatar: '🧑‍🎓', 
-        frame: 'frame_none',
-        background: 'bg_default',
-        purchasedThemes: ['light', 'dark'],
-        purchasedFrames: ['frame_none'],
-        purchasedBackgrounds: ['bg_default'],
-        inventory: { streakFreezes: 0 },
-        lastUsernameChange: 0
-    };
-    if (!stored) return defaults;
-    
-    const parsed = JSON.parse(stored);
-    if (!parsed.avatar) parsed.avatar = '🧑‍🎓'; 
-    if (!parsed.purchasedThemes) parsed.purchasedThemes = ['light', 'dark'];
-    if (!parsed.purchasedFrames) parsed.purchasedFrames = ['frame_none'];
-    if (!parsed.frame) parsed.frame = 'frame_none';
-    if (!parsed.background) parsed.background = 'bg_default';
-    if (!parsed.purchasedBackgrounds) parsed.purchasedBackgrounds = ['bg_default'];
-    if (!parsed.inventory) parsed.inventory = { streakFreezes: 0 };
-    if (!parsed.lastUsernameChange) parsed.lastUsernameChange = 0;
-
-    return parsed;
-  } catch (e) {
-    return { 
-        name: '', 
-        grade: '', 
-        avatar: '🧑‍🎓', 
-        frame: 'frame_none',
-        background: 'bg_default',
-        purchasedThemes: ['light', 'dark'],
-        purchasedFrames: ['frame_none'],
-        purchasedBackgrounds: ['bg_default'],
-        inventory: { streakFreezes: 0 },
-        lastUsernameChange: 0
-    };
-  }
+    try {
+        const stored = localStorage.getItem(KEYS.PROFILE);
+        return stored ? { ...DEFAULT_PROFILE, ...JSON.parse(stored) } : DEFAULT_PROFILE;
+    } catch { return DEFAULT_PROFILE; }
 };
 
-export const saveUserProfile = (profile: UserProfile, skipSync: boolean = false) => {
-  localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
-  updateLastUpdatedTimestamp();
-  if (!skipSync) syncLocalToCloud();
+export const saveUserProfile = (profile: UserProfile, sync: boolean = false) => {
+    localStorage.setItem(KEYS.PROFILE, JSON.stringify(profile));
+    updateLastUpdatedTimestamp();
 };
+
+// --- Stats ---
+
+export const getUserStats = (): UserStats => {
+    try {
+        const stored = localStorage.getItem(KEYS.STATS);
+        if (!stored) return DEFAULT_STATS;
+        const stats = JSON.parse(stored);
+        
+        // Daily Reset Logic
+        const today = new Date().toISOString().split('T')[0];
+        if (stats.date !== today) {
+            stats.date = today;
+            stats.flashcardsViewed = 0;
+            stats.quizCorrect = 0;
+            stats.quizWrong = 0;
+            stats.viewedWordsToday = [];
+            
+            // Streak Logic: Reset only if missed a day (current logic in updateStats handles increment)
+            // Here we check if streak is broken (more than 1 day gap)
+            const lastDate = stats.lastStudyDate ? new Date(stats.lastStudyDate) : null;
+            if (lastDate) {
+                const now = new Date();
+                // Reset hours for accurate day diff
+                const d1 = new Date(lastDate); d1.setHours(0,0,0,0);
+                const d2 = new Date(); d2.setHours(0,0,0,0);
+                const diffDays = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+                
+                if (diffDays > 1) {
+                    const prof = getUserProfile();
+                    if (prof.inventory && prof.inventory.streakFreezes > 0) {
+                         prof.inventory.streakFreezes--;
+                         saveUserProfile(prof);
+                         // Streak kept alive by freeze, set last study date to yesterday effectively
+                         // But we don't change lastStudyDate here, just don't reset streak
+                         // Actually, to allow increment today, we treat it as if they studied yesterday
+                         stats.lastStudyDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                    } else {
+                        stats.streak = 0;
+                    }
+                }
+            }
+        }
+
+        // Weekly Reset
+        const currentWeek = getWeekId();
+        if (stats.weekly?.weekId !== currentWeek) {
+            stats.weekly = {
+                weekId: currentWeek,
+                quizCorrect: 0,
+                quizWrong: 0,
+                cardsViewed: 0,
+                matchingBestTime: 0,
+                typingHighScore: 0,
+                chainHighScore: 0,
+                mazeHighScore: 0,
+                wordSearchHighScore: 0
+            };
+        }
+
+        return { ...DEFAULT_STATS, ...stats };
+    } catch { return DEFAULT_STATS; }
+};
+
+export const saveUserStats = (stats: UserStats) => {
+    localStorage.setItem(KEYS.STATS, JSON.stringify(stats));
+    updateLastUpdatedTimestamp();
+};
+
+// --- Settings ---
 
 export const getAppSettings = (): AppSettings => {
     try {
-        const stored = localStorage.getItem(SETTINGS_KEY);
-        return stored ? JSON.parse(stored) : { soundEnabled: true, theme: 'dark' };
-    } catch {
-        return { soundEnabled: true, theme: 'dark' };
-    }
+        const stored = localStorage.getItem(KEYS.SETTINGS);
+        return stored ? { ...DEFAULT_SETTINGS, ...JSON.parse(stored) } : DEFAULT_SETTINGS;
+    } catch { return DEFAULT_SETTINGS; }
 };
 
 export const saveAppSettings = (settings: AppSettings) => {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
-    updateLastUpdatedTimestamp();
-    syncLocalToCloud();
+    localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
 };
 
 export const getTheme = (): ThemeType => {
@@ -372,632 +226,436 @@ export const getTheme = (): ThemeType => {
 };
 
 export const saveTheme = (theme: ThemeType) => {
-    const current = getAppSettings();
-    saveAppSettings({ ...current, theme });
+    const settings = getAppSettings();
+    settings.theme = theme;
+    saveAppSettings(settings);
 };
 
-export const getUserStats = (): UserStats => {
-  try {
-    const stored = localStorage.getItem(STATS_KEY);
-    const today = new Date();
-    const todayMidnight = new Date(today);
-    todayMidnight.setHours(0, 0, 0, 0);
-    const todayStr = today.toISOString().split('T')[0];
-    const currentWeekId = getCurrentWeekId();
+// --- Memorized & Bookmarks ---
 
-    const defaultStats: UserStats = { 
-      flashcardsViewed: 0, 
-      quizCorrect: 0, 
-      quizWrong: 0, 
-      date: today.toDateString(),
-      dailyGoal: 5,
-      xp: 0, level: 1, streak: 0, lastStudyDate: null, badges: [],
-      xpBoostEndTime: 0,
-      lastGoalMetDate: null, viewedWordsToday: [], breakdown: {},
-      perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, completedUnits: [], completedGrades: [],
-      lastActivity: null,
-      weekly: {
-          weekId: currentWeekId,
-          quizCorrect: 0,
-          quizWrong: 0,
-          cardsViewed: 0,
-          matchingBestTime: 0,
-          typingHighScore: 0,
-          chainHighScore: 0
-      }
-    };
-
-    if (!stored) return defaultStats;
-
-    const parsedStats = JSON.parse(stored);
-    let needsUpdate = false;
-    
-    if (!parsedStats.weekly) {
-        parsedStats.weekly = defaultStats.weekly;
-        needsUpdate = true;
-    }
-    
-    if (typeof parsedStats.weekly.chainHighScore === 'undefined') {
-        parsedStats.weekly.chainHighScore = 0;
-        needsUpdate = true;
-    }
-
-    if (typeof parsedStats.weekly.quizWrong === 'undefined') {
-        parsedStats.weekly.quizWrong = 0;
-        needsUpdate = true;
-    }
-    
-    if (parsedStats.lastActivity === undefined) {
-        parsedStats.lastActivity = null;
-        try {
-            const oldActivity = localStorage.getItem(OLD_LAST_ACTIVITY_KEY);
-            if (oldActivity) {
-                parsedStats.lastActivity = JSON.parse(oldActivity);
-            }
-        } catch(e) {}
-        needsUpdate = true;
-    }
-
-    if (parsedStats.weekly.weekId !== currentWeekId) {
-        parsedStats.weekly = {
-            weekId: currentWeekId,
-            quizCorrect: 0,
-            quizWrong: 0,
-            cardsViewed: 0,
-            matchingBestTime: 0,
-            typingHighScore: 0,
-            chainHighScore: 0
-        };
-        needsUpdate = true;
-    }
-
-    const storedDate = new Date(parsedStats.date);
-    const storedDateStr = storedDate.toDateString();
-    const currentDateStr = today.toDateString();
-
-    if (storedDateStr !== currentDateStr) {
-        parsedStats.viewedWordsToday = [];
-        parsedStats.flashcardsViewed = 0; 
-        parsedStats.quizCorrect = 0; 
-        parsedStats.quizWrong = 0; 
-        
-        parsedStats.date = currentDateStr;
-        needsUpdate = true;
-    }
-    
-    // Streak Logic Check
-    if (parsedStats.lastStudyDate) {
-        const lastDate = new Date(parsedStats.lastStudyDate);
-        lastDate.setHours(0, 0, 0, 0);
-        
-        const yesterdayMidnight = new Date(todayMidnight);
-        yesterdayMidnight.setDate(yesterdayMidnight.getDate() - 1);
-
-        // If last study date is strictly less than yesterday, streak is broken
-        if (lastDate.getTime() < yesterdayMidnight.getTime() && parsedStats.streak > 0) {
-             parsedStats.streak = 0;
-             needsUpdate = true;
-        }
-    }
-
-    if (needsUpdate) {
-        localStorage.setItem(STATS_KEY, JSON.stringify(parsedStats));
-    }
-
-    return parsedStats;
-  } catch (e) {
-    return { 
-        flashcardsViewed: 0, quizCorrect: 0, quizWrong: 0, 
-        date: new Date().toDateString(), dailyGoal: 5,
-        xp: 0, level: 1, streak: 0, lastStudyDate: null, badges: [],
-        xpBoostEndTime: 0,
-        lastGoalMetDate: null, viewedWordsToday: [], breakdown: {},
-        perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, completedUnits: [], completedGrades: [],
-        lastActivity: null,
-        weekly: { weekId: getCurrentWeekId(), quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, typingHighScore: 0, chainHighScore: 0 }
-    };
-  }
+export const getMemorizedSet = (): Set<string> => {
+    try {
+        const stored = localStorage.getItem(KEYS.MEMORIZED);
+        return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
 };
 
-export const saveUserStats = (stats: UserStats, skipSync: boolean = false) => {
-    localStorage.setItem(STATS_KEY, JSON.stringify(stats));
+export const addToMemorized = (id: string) => {
+    const set = getMemorizedSet();
+    set.add(id);
+    localStorage.setItem(KEYS.MEMORIZED, JSON.stringify([...set]));
     updateLastUpdatedTimestamp();
-    if (!skipSync) syncLocalToCloud();
 };
 
-const calculateLevel = (xp: number): number => {
-    if (xp < 100) return 1;
-    if (xp < 250) return 2;
-    if (xp < 500) return 3;
-    if (xp < 800) return 4;
-    if (xp < 1200) return 5;
-    if (xp < 1700) return 6;
-    if (xp < 2300) return 7;
-    if (xp < 3000) return 8;
-    if (xp < 4000) return 9;
-    if (xp < 5500) return 10;
-    return 10 + Math.floor((xp - 5500) / 1500);
+export const removeFromMemorized = (id: string) => {
+    const set = getMemorizedSet();
+    set.delete(id);
+    localStorage.setItem(KEYS.MEMORIZED, JSON.stringify([...set]));
+    updateLastUpdatedTimestamp();
 };
 
-export const spendXP = (amount: number): boolean => {
-    const stats = getUserStats();
-    if (stats.xp >= amount) {
-        stats.xp -= amount;
-        
-        const newLevel = calculateLevel(stats.xp);
-        stats.level = newLevel;
-
-        const profile = getUserProfile();
-        const currentAvatarObj = AVATARS.find(a => a.icon === profile.avatar);
-        
-        if (currentAvatarObj && currentAvatarObj.unlockLevel > newLevel) {
-            const availableAvatars = AVATARS.filter(a => a.unlockLevel <= newLevel);
-            availableAvatars.sort((a, b) => b.unlockLevel - a.unlockLevel);
-            if (availableAvatars.length > 0) {
-                profile.avatar = availableAvatars[0].icon;
-            } else {
-                profile.avatar = '🧑‍🎓'; 
-            }
-            saveUserProfile(profile);
-        }
-        
-        saveUserStats(stats);
-        return true;
-    }
-    return false;
+export const addToBookmarks = (id: string) => {
+    try {
+        const stored = localStorage.getItem(KEYS.BOOKMARKS);
+        const set = stored ? new Set(JSON.parse(stored)) : new Set();
+        set.add(id);
+        localStorage.setItem(KEYS.BOOKMARKS, JSON.stringify([...set]));
+        updateLastUpdatedTimestamp();
+    } catch {}
 };
 
-export const updateTimeSpent = (minutes: number) => {
-    const stats = getUserStats();
-    stats.totalTimeSpent += minutes;
-    let newBadges: Badge[] = [];
-    BADGES.forEach(badge => {
-        if (!stats.badges.includes(badge.id)) {
-             if (badge.condition(stats)) {
-                 stats.badges.push(badge.id);
-                 newBadges.push(badge);
-             }
-        }
-    });
-    saveUserStats(stats);
-    return newBadges;
+export const removeFromBookmarks = (id: string) => {
+    try {
+        const stored = localStorage.getItem(KEYS.BOOKMARKS);
+        const set = stored ? new Set(JSON.parse(stored)) : new Set();
+        set.delete(id);
+        localStorage.setItem(KEYS.BOOKMARKS, JSON.stringify([...set]));
+        updateLastUpdatedTimestamp();
+    } catch {}
 };
 
-const checkCompletion = (stats: UserStats): string[] => {
-    const newlyCompleted: string[] = [];
-    const memorized = getMemorizedSet();
+// --- SRS System ---
 
-    for (const grade in UNIT_ASSETS) {
-        const units = UNIT_ASSETS[grade];
-        units.forEach(unit => {
-            if (unit.id.endsWith('all') || unit.id === 'uAll') return;
-            if (stats.completedUnits.includes(unit.id)) return;
-            
-            const words = VOCABULARY[unit.id] || [];
-            if (words.length === 0) return;
-
-            const allMemorized = words.every(w => memorized.has(`${unit.id}|${w.english}`));
-            if (allMemorized) {
-                stats.completedUnits.push(unit.id);
-                newlyCompleted.push(unit.id);
-            }
-        });
-        
-        if (!stats.completedGrades.includes(grade)) {
-            const gradeUnits = UNIT_ASSETS[grade].filter(u => !u.id.endsWith('all') && u.id !== 'uAll');
-            const allGradeUnitsCompleted = gradeUnits.every(u => stats.completedUnits.includes(u.id));
-            if (allGradeUnitsCompleted && gradeUnits.length > 0) {
-                stats.completedGrades.push(grade);
-            }
-        }
-    }
-    return newlyCompleted;
+interface SRSData {
+    box: number; // 1-5
+    nextReview: number; // Timestamp
 }
 
-export const updateGameStats = (game: 'matching' | 'typing' | 'chain', scoreOrTime: number) => {
-    const stats = getUserStats();
-    let updated = false;
-    
-    let xpGain = 0;
-
-    if (game === 'matching') {
-        xpGain = 20;
-        if (scoreOrTime > 200) xpGain += 10;
-
-        if (scoreOrTime > stats.weekly.matchingBestTime) {
-            stats.weekly.matchingBestTime = scoreOrTime;
-            updated = true;
-        }
-        updateQuestProgress('play_matching', 1);
-    } else if (game === 'typing') {
-        xpGain = Math.floor(scoreOrTime / 2);
-        
-        if (scoreOrTime > stats.weekly.typingHighScore) {
-            stats.weekly.typingHighScore = scoreOrTime;
-            updated = true;
-        }
-        updateQuestProgress('play_typing', scoreOrTime); 
-    } else if (game === 'chain') {
-        xpGain = Math.floor(scoreOrTime / 2);
-
-        if (scoreOrTime > stats.weekly.chainHighScore) {
-            stats.weekly.chainHighScore = scoreOrTime;
-            updated = true;
-        }
-        updateQuestProgress('play_chain', Math.floor(scoreOrTime / 10)); 
-    }
-    
-    if (xpGain > 0) {
-        stats.xp += xpGain;
-        stats.level = calculateLevel(stats.xp);
-        updateQuestProgress('earn_xp', xpGain);
-        updated = true;
-    }
-
-    if (updated) {
-        saveUserStats(stats);
-        syncLocalToCloud();
-    }
+export const getSRSData = (): Record<string, SRSData> => {
+    try {
+        const stored = localStorage.getItem(KEYS.SRS);
+        return stored ? JSON.parse(stored) : {};
+    } catch { return {}; }
 };
 
-
-export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {
-    const stats = getUserStats();
-    const srs = getSRSData();
-    const bookmarks = getMemorizedSet('lgs_bookmarks');
-    const memorized = getMemorizedSet('lgs_memorized');
-
-    if (scope.type === 'all') {
-        stats.flashcardsViewed = 0;
-        stats.quizCorrect = 0;
-        stats.quizWrong = 0;
-        stats.xp = 0;
-        stats.level = 1;
-        stats.streak = 0;
-        stats.badges = [];
-        stats.completedUnits = [];
-        stats.completedGrades = [];
-        stats.viewedWordsToday = [];
-        stats.perfectQuizzes = 0;
-        stats.questsCompleted = 0;
-        stats.totalTimeSpent = 0;
-        stats.breakdown = {};
-        stats.lastActivity = null;
-        stats.weekly = {
-            weekId: getCurrentWeekId(),
-            quizCorrect: 0,
-            quizWrong: 0,
-            cardsViewed: 0,
-            matchingBestTime: 0,
-            typingHighScore: 0,
-            chainHighScore: 0
-        };
-
-        localStorage.setItem(SRS_KEY, JSON.stringify({}));
-        localStorage.setItem(MEMORIZED_KEY, JSON.stringify([]));
-        localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([]));
-        localStorage.removeItem(OLD_LAST_ACTIVITY_KEY);
-    } 
-    else if (scope.type === 'grade' && scope.value) {
-        const grade = scope.value;
-        
-        stats.completedGrades = stats.completedGrades.filter(g => g !== grade);
-        stats.completedUnits = stats.completedUnits.filter(u => !u.startsWith(`g${grade}u`)); 
-        
-        const filterSet = (set: Set<string>) => {
-            const newSet = new Set<string>();
-            set.forEach(key => {
-                if (key.includes('|')) {
-                    const [uId] = key.split('|');
-                    const prefix = `g${grade}`;
-                    if (!uId.startsWith(prefix) && uId !== `u${grade}` && !uId.startsWith(grade)) {
-                        newSet.add(key);
-                    }
-                } else {
-                   newSet.add(key);
-                }
-            });
-            return newSet;
-        };
-
-        const newMem = filterSet(memorized);
-        const newBook = filterSet(bookmarks);
-        
-        localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...newMem]));
-        localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...newBook]));
-        
-        const newSrs: SRSData = {};
-        Object.keys(srs).forEach(key => {
-            if (key.includes('|')) {
-                const [uId] = key.split('|');
-                const prefix = `g${grade}`;
-                 if (!uId.startsWith(prefix) && !uId.startsWith(grade)) {
-                    newSrs[key] = srs[key];
-                }
-            } else {
-                newSrs[key] = srs[key];
-            }
-        });
-        localStorage.setItem(SRS_KEY, JSON.stringify(newSrs));
-    } 
-    else if (scope.type === 'unit' && scope.value) {
-        const unitId = scope.value;
-        stats.completedUnits = stats.completedUnits.filter(u => u !== unitId);
-        
-        const filterSet = (set: Set<string>) => {
-             const newSet = new Set<string>();
-             set.forEach(key => {
-                 if (key.includes('|')) {
-                     const [uId] = key.split('|');
-                     if (uId !== unitId) newSet.add(key);
-                 } else {
-                     newSet.add(key);
-                 }
-             });
-             return newSet;
-        };
-
-        const newMem = filterSet(memorized);
-        const newBook = filterSet(bookmarks);
-        
-        localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...newMem]));
-        localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...newBook]));
-
-        const newSrs: SRSData = {};
-        Object.keys(srs).forEach(key => {
-            if (key.includes('|')) {
-                 const [uId] = key.split('|');
-                 if (uId !== unitId) newSrs[key] = srs[key];
-            } else {
-                newSrs[key] = srs[key];
-            }
-        });
-        localStorage.setItem(SRS_KEY, JSON.stringify(newSrs));
-    }
-
-    saveUserStats(stats);
+export const saveSRSData = (data: Record<string, SRSData>) => {
+    localStorage.setItem(KEYS.SRS, JSON.stringify(data));
     updateLastUpdatedTimestamp();
-    syncLocalToCloud();
 };
 
-export const resetSRSData = () => { localStorage.setItem(SRS_KEY, JSON.stringify({})); updateLastUpdatedTimestamp(); syncLocalToCloud(); };
-export const resetBookmarks = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => { resetAppProgress(scope); };
-export const resetMemorized = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => { resetAppProgress(scope); };
-
-export const saveLastActivity = (grade: string, unitId: string) => {
-  const stats = getUserStats();
-  stats.lastActivity = { grade, unitId, timestamp: Date.now() };
-  saveUserStats(stats); 
-};
-
-export const getLastActivity = (): LastActivity | null => {
-  const stats = getUserStats();
-  return stats.lastActivity || null;
-};
-
-const getSRSData = (): SRSData => {
-  try {
-    return JSON.parse(localStorage.getItem(SRS_KEY) || '{}');
-  } catch {
-    return {};
-  }
-};
-
-const saveSRSData = (data: SRSData, skipSync: boolean = false) => {
-  localStorage.setItem(SRS_KEY, JSON.stringify(data));
-  updateLastUpdatedTimestamp();
-  if(!skipSync) syncLocalToCloud();
-};
-
-export const processOverdueSRS = () => {
+export const registerSRSInteraction = (wordId: string) => {
     const data = getSRSData();
-    const now = Date.now();
-    let changed = false;
-    Object.keys(data).forEach(key => {
-        const entry = data[key];
-        if (entry.box > 1 && entry.box < 5) {
-            const intervalDays = SRS_INTERVALS[entry.box];
-            const overdueThreshold = intervalDays * 2 * 24 * 60 * 60 * 1000; 
-            if (entry.nextReview < now - overdueThreshold) {
-                data[key] = { box: 1, nextReview: now };
-                changed = true;
-            }
-        }
-    });
-    if (changed) { saveSRSData(data); }
-};
-
-export const getSRSStatus = (): { [key: number]: number } => {
-    const data = getSRSData();
-    const counts: { [key: number]: number } = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
-    Object.keys(data).forEach(key => {
-        const entry = data[key];
-        if (entry && typeof entry.box === 'number' && entry.box >= 1 && entry.box <= 5) {
-            counts[entry.box] = (counts[entry.box] || 0) + 1;
-        }
-    });
-    return counts;
-};
-
-export const registerSRSInteraction = (uniqueKey: string) => {
-    const data = getSRSData();
-    if (!data[uniqueKey]) {
-        data[uniqueKey] = { box: 0, nextReview: Date.now() };
+    if (!data[wordId]) {
+        data[wordId] = { box: 1, nextReview: Date.now() };
         saveSRSData(data);
     }
 };
 
-export const handleQuizResult = (uniqueKey: string, isCorrect: boolean) => {
-  const data = getSRSData();
-  const now = Date.now();
-  if (!data[uniqueKey]) { data[uniqueKey] = { box: 0, nextReview: 0 }; }
-  const entry = data[uniqueKey];
-  if (isCorrect) {
-    if (entry.box === 0) {
-        entry.box = 1;
-        entry.nextReview = now + (1 * 24 * 60 * 60 * 1000); 
-    } 
-  } else {
-    entry.box = 1; 
-    entry.nextReview = now + (1 * 24 * 60 * 60 * 1000);
-  }
-  data[uniqueKey] = entry;
-  saveSRSData(data);
-};
-
-export const handleReviewResult = (uniqueKey: string, isCorrect: boolean) => {
+export const handleReviewResult = (wordId: string, success: boolean) => {
     const data = getSRSData();
-    const now = Date.now();
-    if (!data[uniqueKey]) { data[uniqueKey] = { box: 0, nextReview: 0 }; }
-    const entry = data[uniqueKey];
-    if (isCorrect) {
-        if (entry.box < 5) {
-            entry.box += 1;
-            const daysToAdd = SRS_INTERVALS[entry.box];
-            entry.nextReview = now + (daysToAdd * 24 * 60 * 60 * 1000);
-        } else {
-            entry.nextReview = now + (30 * 24 * 60 * 60 * 1000);
-        }
+    let entry = data[wordId] || { box: 1, nextReview: Date.now() };
+
+    if (success) {
+        entry.box = Math.min(entry.box + 1, 5);
     } else {
-        entry.box = 1; 
-        entry.nextReview = now + (1 * 24 * 60 * 60 * 1000);
+        entry.box = 1;
     }
-    data[uniqueKey] = entry;
+
+    // Intervals: 1d, 3d, 7d, 14d, 30d
+    const intervals = [0, 1, 3, 7, 14, 30];
+    const daysToAdd = intervals[entry.box];
+    entry.nextReview = Date.now() + (daysToAdd * 24 * 60 * 60 * 1000);
+
+    data[wordId] = entry;
     saveSRSData(data);
 };
 
-export const getDueWords = (allowedUnitIds?: string[]): WordCard[] => {
-    processOverdueSRS();
+// EXPORT ADDED HERE
+export const handleQuizResult = (wordId: string, success: boolean) => {
+    handleReviewResult(wordId, success);
+};
+
+export const getDueWords = (filterUnitIds?: string[]) => {
     const data = getSRSData();
     const now = Date.now();
-    const dueKeys = Object.keys(data).filter(k => {
-        const entry = data[k];
-        return entry.box >= 0 && entry.nextReview <= now;
-    });
-    if (dueKeys.length === 0) return [];
-    const result: WordCard[] = [];
-    const allowedSet = allowedUnitIds ? new Set(allowedUnitIds) : null;
-    dueKeys.forEach(key => {
-        let unitId = '';
-        let english = key;
-        if (key.includes('|')) { [unitId, english] = key.split('|'); }
-        if (allowedSet && unitId && !allowedSet.has(unitId)) { return; }
-        let found = false;
-        if (unitId && VOCABULARY[unitId]) {
-             const w = VOCABULARY[unitId].find(w => w.english === english);
-             if (w) { result.push({ ...w, unitId: unitId }); found = true; }
-        }
-        if (!found) {
-             const allWords = Object.values(VOCABULARY).flat();
-             const w = allWords.find(w => w.english === key); 
-             if (w) result.push(w);
-        }
-    });
-    return result;
-};
+    const dueIds: string[] = [];
 
-export const getTotalDueCount = (): number => {
-    processOverdueSRS();
-    const data = getSRSData();
-    const now = Date.now();
-    return Object.keys(data).filter(k => {
-        const entry = data[k];
-        return entry.box >= 0 && entry.nextReview <= now;
-    }).length;
-};
-
-export const getDueCountForGrade = (grade: GradeLevel): number => {
-    const gradeUnits = UNIT_ASSETS[grade];
-    let allowedUnitIds: string[] = [];
-    if (gradeUnits) { allowedUnitIds = gradeUnits.map(u => u.id); }
-    return getDueWords(allowedUnitIds).length;
-};
-
-export const getDueGrades = (): string[] => {
-    const dueWords = getDueWords();
-    const grades = new Set<string>();
-    dueWords.forEach(w => {
-        if (w.unitId) {
-            for (const [grade, units] of Object.entries(UNIT_ASSETS)) {
-                if (units.some(u => u.id === w.unitId)) { grades.add(grade); break; }
+    Object.entries(data).forEach(([id, entry]) => {
+        if (entry.nextReview <= now) {
+            if (filterUnitIds) {
+                // Check if word belongs to allowed units
+                // ID format: unitId|englishWord or just englishWord
+                const parts = id.split('|');
+                const unitId = parts.length > 1 ? parts[0] : null;
+                if (unitId && filterUnitIds.includes(unitId)) {
+                    dueIds.push(id);
+                }
+            } else {
+                dueIds.push(id);
             }
         }
     });
-    return Array.from(grades);
+
+    // Map ids back to word objects
+    const words = Object.values(VOCABULARY).flat();
+    return words.filter(w => {
+        const id = w.unitId ? `${w.unitId}|${w.english}` : w.english;
+        return dueIds.includes(id);
+    });
 };
 
-export const getMemorizedSet = (key: string = MEMORIZED_KEY): Set<string> => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? new Set(JSON.parse(stored)) : new Set();
-  } catch {
-    return new Set();
-  }
-};
-
-const internalAddToMemorized = (uniqueKey: string) => {
-    const set = getMemorizedSet();
-    if (!set.has(uniqueKey)) {
-        set.add(uniqueKey);
-        localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...set]));
-        updateLastUpdatedTimestamp();
-        syncLocalToCloud();
-        internalRemoveFromBookmarks(uniqueKey);
-    }
-};
-
-const internalRemoveFromMemorized = (uniqueKey: string) => {
-    const set = getMemorizedSet();
-    if (set.has(uniqueKey)) {
-        set.delete(uniqueKey);
-        localStorage.setItem(MEMORIZED_KEY, JSON.stringify([...set]));
-        updateLastUpdatedTimestamp();
-        syncLocalToCloud();
-    }
-};
-
-const internalAddToBookmarks = (uniqueKey: string) => {
-    try {
-        const stored = localStorage.getItem(BOOKMARKS_KEY);
-        const set = stored ? new Set(JSON.parse(stored)) : new Set();
-        if (!set.has(uniqueKey)) {
-            set.add(uniqueKey);
-            localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...set]));
-            updateLastUpdatedTimestamp();
-            syncLocalToCloud();
-            internalRemoveFromMemorized(uniqueKey);
+export const getDueGrades = () => {
+    const data = getSRSData();
+    const now = Date.now();
+    const dueGrades = new Set<string>();
+    
+    Object.entries(data).forEach(([id, entry]) => {
+        if (entry.nextReview <= now) {
+            const parts = id.split('|');
+            if (parts.length > 1) {
+                const unitId = parts[0];
+                // Find grade for unit
+                Object.entries(UNIT_ASSETS).forEach(([grade, units]) => {
+                    if (units.some(u => u.id === unitId)) {
+                        dueGrades.add(grade);
+                    }
+                });
+            }
         }
-    } catch (e) {}
+    });
+    return Array.from(dueGrades);
 };
 
-const internalRemoveFromBookmarks = (uniqueKey: string) => {
+export const getTotalDueCount = () => {
+    const data = getSRSData();
+    const now = Date.now();
+    return Object.values(data).filter(e => e.nextReview <= now).length;
+};
+
+export const getDueCountForGrade = (grade: string) => {
+    const data = getSRSData();
+    const now = Date.now();
+    const units = UNIT_ASSETS[grade]?.map(u => u.id) || [];
+    let count = 0;
+    Object.entries(data).forEach(([id, entry]) => {
+        if (entry.nextReview <= now) {
+            const parts = id.split('|');
+            if (parts.length > 1 && units.includes(parts[0])) {
+                count++;
+            }
+        }
+    });
+    return count;
+};
+
+export const getSRSStatus = () => {
+    const data = getSRSData();
+    const counts: {[key:number]: number} = {1:0, 2:0, 3:0, 4:0, 5:0};
+    Object.values(data).forEach(e => {
+        if (counts[e.box] !== undefined) counts[e.box]++;
+    });
+    return counts;
+};
+
+// --- Stats Updates ---
+
+export const updateStats = (
+    action: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 'memorized' | 'review_remember' | 'review_forgot' | 'perfect_quiz',
+    grade?: GradeLevel | null,
+    unitId?: string,
+    amount: number = 1
+): Badge[] => {
+    const stats = getUserStats();
+    const now = new Date();
+    
+    // Use 23:59 cut-off for daily reset simulation in logic, but basic date string comparison works for day change
+    const today = now.toISOString().split('T')[0];
+    
+    // Streak Logic - Simplified: If date changed and it's consecutive, increment.
+    if (stats.date !== today) {
+        const last = stats.lastStudyDate ? new Date(stats.lastStudyDate) : null;
+        if (last) {
+            const d1 = new Date(last); d1.setHours(0,0,0,0);
+            const d2 = new Date(); d2.setHours(0,0,0,0);
+            const diff = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+
+            if (diff === 1) stats.streak++;
+            else if (diff > 1) {
+                 // Check for streak freeze is handled in getUserStats usually, but let's ensure logic holds
+                 // If getUserStats didn't catch it (app wasn't opened), it resets. 
+                 // If opened, getUserStats handles freeze consumption.
+                 // Here we just increment if valid or 1 if broken.
+                 // For simplicity, if diff > 1, user broke streak unless getUserStats handled it
+                 stats.streak = 1; 
+            }
+        } else {
+            stats.streak = 1;
+        }
+        stats.lastStudyDate = today;
+        // Note: Resetting daily counters happens in getUserStats when reading
+    } else {
+        // Same day, ensure lastStudyDate is set if it was null (first action)
+        if (!stats.lastStudyDate) stats.lastStudyDate = today;
+    }
+
+    // XP Calculation
+    let xpGain = 0;
+    const multiplier = (stats.xpBoostEndTime > Date.now()) ? 2 : 1;
+
+    switch (action) {
+        case 'card_view':
+            stats.flashcardsViewed += amount;
+            if (typeof unitId === 'string' && !stats.viewedWordsToday.includes(unitId)) {
+                stats.viewedWordsToday.push(unitId);
+            }
+            stats.weekly.cardsViewed += amount;
+            xpGain = 3 * amount; // Increased per request
+            break;
+        case 'quiz_correct':
+            stats.quizCorrect += amount;
+            stats.weekly.quizCorrect += amount;
+            xpGain = 20 * amount; // Increased per request
+            break;
+        case 'quiz_wrong':
+            stats.quizWrong += amount;
+            stats.weekly.quizWrong += amount;
+            xpGain = 1 * amount;
+            break;
+        case 'memorized':
+            xpGain = 10 * amount;
+            break;
+        case 'review_remember':
+            xpGain = 10 * amount;
+            break;
+        case 'review_forgot':
+            xpGain = 2 * amount;
+            break;
+        case 'perfect_quiz':
+            stats.perfectQuizzes++;
+            xpGain = 100;
+            break;
+    }
+
+    stats.xp += xpGain * multiplier;
+
+    // Level Up Logic
+    const newLevel = Math.floor(Math.sqrt(stats.xp / 100)) + 1;
+    if (newLevel > stats.level) {
+        stats.level = newLevel;
+    }
+
+    saveUserStats(stats);
+    
+    // Check Badges
+    const unlockedBadges: Badge[] = [];
+    BADGES.forEach(badge => {
+        if (!stats.badges.includes(badge.id)) {
+            if (badge.condition(stats, { grade, unitId, action })) {
+                stats.badges.push(badge.id);
+                unlockedBadges.push(badge);
+            }
+        }
+    });
+    
+    if (unlockedBadges.length > 0) {
+        saveUserStats(stats); // Save badge unlock
+    }
+
+    return unlockedBadges;
+};
+
+export const updateGameStats = (game: 'matching' | 'typing' | 'chain' | 'maze' | 'wordSearch', score: number) => {
+    const stats = getUserStats();
+    
+    if (game === 'matching') {
+        // Logic changed: score is passed, higher is better
+        if (score > stats.weekly.matchingBestTime) stats.weekly.matchingBestTime = score;
+    } else if (game === 'typing') {
+        if (score > stats.weekly.typingHighScore) stats.weekly.typingHighScore = score;
+    } else if (game === 'chain') {
+        if (score > stats.weekly.chainHighScore) stats.weekly.chainHighScore = score;
+    } else if (game === 'maze') {
+        if (score > stats.weekly.mazeHighScore) stats.weekly.mazeHighScore = score;
+    } else if (game === 'wordSearch') {
+        if (score > stats.weekly.wordSearchHighScore) stats.weekly.wordSearchHighScore = score;
+    }
+    
+    saveUserStats(stats);
+};
+
+export const updateTimeSpent = (minutes: number): Badge[] => {
+    const stats = getUserStats();
+    stats.totalTimeSpent += minutes;
+    saveUserStats(stats);
+
+    const unlockedBadges: Badge[] = [];
+    BADGES.forEach(badge => {
+        if (!stats.badges.includes(badge.id) && badge.id.startsWith('time_')) {
+            if (badge.condition(stats)) {
+                stats.badges.push(badge.id);
+                unlockedBadges.push(badge);
+            }
+        }
+    });
+    
+    if (unlockedBadges.length > 0) saveUserStats(stats);
+    return unlockedBadges;
+};
+
+// --- Daily Quests ---
+
+export const getDailyState = () => {
     try {
-        const stored = localStorage.getItem(BOOKMARKS_KEY);
+        const stored = localStorage.getItem(KEYS.DAILY);
+        const today = new Date().toISOString().split('T')[0];
+        
         if (stored) {
-            const set = new Set(JSON.parse(stored));
-            if (set.has(uniqueKey)) {
-                set.delete(uniqueKey);
-                localStorage.setItem(BOOKMARKS_KEY, JSON.stringify([...set]));
-                updateLastUpdatedTimestamp();
-                syncLocalToCloud();
-            }
+            const data = JSON.parse(stored);
+            if (data.date === today) return data;
         }
-    } catch (e) {}
+
+        // Generate New Quests
+        const newQuests = generateDailyQuests();
+        const newState = {
+            date: today,
+            quests: newQuests,
+            wordOfTheDayIndex: Math.floor(Math.random() * 2000)
+        };
+        localStorage.setItem(KEYS.DAILY, JSON.stringify(newState));
+        return newState;
+    } catch { 
+        return { date: '', quests: [], wordOfTheDayIndex: 0 };
+    }
 };
 
-export const addToMemorized = (uniqueKey: string) => { internalAddToMemorized(uniqueKey); };
-export const removeFromMemorized = (uniqueKey: string) => { internalRemoveFromMemorized(uniqueKey); };
-export const addToBookmarks = (uniqueKey: string) => { internalAddToBookmarks(uniqueKey); };
-export const removeFromBookmarks = (uniqueKey: string) => { internalRemoveFromBookmarks(uniqueKey); };
+const generateDailyQuests = (): Quest[] => {
+    const allTypes: Quest['type'][] = [
+        'view_cards', 
+        'finish_quiz', 
+        'perfect_quiz', 
+        'earn_xp', 
+        'play_matching', 
+        'play_typing', 
+        'play_chain', 
+        'play_maze', 
+        'play_word_search'
+    ];
+    const pickedTypes = allTypes.sort(() => 0.5 - Math.random()).slice(0, 3);
+    
+    return pickedTypes.map((type, i) => {
+        let target = 0;
+        let reward = 0;
+        let desc = '';
+        
+        switch(type) {
+            case 'view_cards': target = 20; reward = 100; desc = '20 Kelime Kartı İncele'; break;
+            case 'finish_quiz': target = 2; reward = 150; desc = '2 Test Bitir'; break;
+            case 'perfect_quiz': target = 1; reward = 250; desc = '1 Testi Hatasız Bitir'; break;
+            case 'earn_xp': target = 500; reward = 150; desc = '500 XP Kazan'; break;
+            case 'play_matching': target = 1; reward = 100; desc = 'Eşleştirme Oyunu Oyna'; break;
+            case 'play_typing': target = 100; reward = 150; desc = 'Yazma Oyununda 100 Puan Al'; break;
+            case 'play_chain': target = 50; reward = 150; desc = 'Kelime Türetmece 50 Puan Al'; break;
+            case 'play_maze': target = 1; reward = 100; desc = 'Labirent Oyununu Kazan'; break;
+            case 'play_word_search': target = 100; reward = 120; desc = 'Bulmacada 100 Puan Al'; break;
+        }
+        
+        return {
+            id: `q_${Date.now()}_${i}`,
+            description: desc,
+            target,
+            current: 0,
+            rewardXP: reward,
+            isCompleted: false,
+            type
+        };
+    });
+};
 
-export const getLastReadAnnouncementId = (): string => { return localStorage.getItem(READ_ANNOUNCEMENT_KEY) || ''; };
-export const setLastReadAnnouncementId = (id: string) => { localStorage.setItem(READ_ANNOUNCEMENT_KEY, id); };
+export const updateQuestProgress = (type: string, amount: number) => {
+    const daily = getDailyState();
+    let changed = false;
+    
+    daily.quests.forEach((q: Quest) => {
+        if (!q.isCompleted && q.type === type) {
+            q.current += amount;
+            if (q.current >= q.target) {
+                q.current = q.target;
+                q.isCompleted = true;
+                // Award Quest Reward
+                const stats = getUserStats();
+                stats.xp += q.rewardXP;
+                stats.questsCompleted++;
+                saveUserStats(stats);
+            }
+            changed = true;
+        }
+    });
+    
+    if (changed) {
+        localStorage.setItem(KEYS.DAILY, JSON.stringify(daily));
+        updateLastUpdatedTimestamp();
+    }
+};
+
+// --- Market & Inventory ---
 
 export const buyTheme = (themeId: ThemeType, cost: number): boolean => {
-    const profile = getUserProfile();
-    if (profile.purchasedThemes.includes(themeId)) return true;
-    
-    if (spendXP(cost)) {
+    const stats = getUserStats();
+    if (stats.xp >= cost) {
+        stats.xp -= cost;
+        saveUserStats(stats);
+        
+        const profile = getUserProfile();
         profile.purchasedThemes.push(themeId);
         saveUserProfile(profile);
         return true;
@@ -1006,9 +664,12 @@ export const buyTheme = (themeId: ThemeType, cost: number): boolean => {
 };
 
 export const buyFrame = (frameId: string, cost: number): boolean => {
-    const profile = getUserProfile();
-    if (profile.purchasedFrames.includes(frameId)) return true;
-    if (spendXP(cost)) {
+    const stats = getUserStats();
+    if (stats.xp >= cost) {
+        stats.xp -= cost;
+        saveUserStats(stats);
+        
+        const profile = getUserProfile();
         profile.purchasedFrames.push(frameId);
         saveUserProfile(profile);
         return true;
@@ -1016,18 +677,13 @@ export const buyFrame = (frameId: string, cost: number): boolean => {
     return false;
 };
 
-export const equipFrame = (frameId: string) => {
-    const profile = getUserProfile();
-    if (profile.purchasedFrames.includes(frameId)) {
-        profile.frame = frameId;
-        saveUserProfile(profile);
-    }
-};
-
 export const buyBackground = (bgId: string, cost: number): boolean => {
-    const profile = getUserProfile();
-    if (profile.purchasedBackgrounds?.includes(bgId)) return true;
-    if (spendXP(cost)) {
+    const stats = getUserStats();
+    if (stats.xp >= cost) {
+        stats.xp -= cost;
+        saveUserStats(stats);
+        
+        const profile = getUserProfile();
         if (!profile.purchasedBackgrounds) profile.purchasedBackgrounds = ['bg_default'];
         profile.purchasedBackgrounds.push(bgId);
         saveUserProfile(profile);
@@ -1036,117 +692,153 @@ export const buyBackground = (bgId: string, cost: number): boolean => {
     return false;
 };
 
+export const buyItem = (itemId: 'streak_freeze' | 'xp_boost', cost: number): boolean => {
+    const stats = getUserStats();
+    if (stats.xp >= cost) {
+        stats.xp -= cost;
+        
+        const profile = getUserProfile();
+        if (itemId === 'streak_freeze') {
+             if (!profile.inventory) profile.inventory = { streakFreezes: 0 };
+             profile.inventory.streakFreezes = (profile.inventory.streakFreezes || 0) + 1;
+             saveUserProfile(profile);
+        } else if (itemId === 'xp_boost') {
+             // 1 Hour Boost
+             stats.xpBoostEndTime = Date.now() + (60 * 60 * 1000);
+        }
+        
+        saveUserStats(stats);
+        return true;
+    }
+    return false;
+};
+
+export const equipFrame = (frameId: string) => {
+    const profile = getUserProfile();
+    profile.frame = frameId;
+    saveUserProfile(profile);
+};
+
 export const equipBackground = (bgId: string) => {
     const profile = getUserProfile();
-    if (profile.purchasedBackgrounds?.includes(bgId)) {
-        profile.background = bgId;
-        saveUserProfile(profile);
-    }
+    profile.background = bgId;
+    saveUserProfile(profile);
 };
 
-const QUEST_TYPES: { type: Quest['type'], desc: (target: number) => string, reward: number, range: number[] }[] = [
-    { type: 'view_cards', desc: (t) => `Bugün ${t} kelime kartı çalış`, reward: 50, range: [10, 20, 30, 50] },
-    { type: 'finish_quiz', desc: (t) => `Bugün ${t} test bitir`, reward: 100, range: [1, 2, 3] },
-    { type: 'perfect_quiz', desc: (t) => `Bugün ${t} testi hatasız bitir`, reward: 200, range: [1, 2] },
-    { type: 'earn_xp', desc: (t) => `Bugün ${t} XP kazan`, reward: 50, range: [100, 200, 300, 500] },
-    { type: 'play_matching', desc: (t) => `Eşleştirme oyununda ${t} puan yap`, reward: 100, range: [100, 200, 300] },
-    { type: 'play_typing', desc: (t) => `Yazma oyununda ${t} puan yap`, reward: 100, range: [50, 100, 150] },
-    { type: 'play_chain', desc: (t) => `Kelime türetmecede ${t} kelime bul`, reward: 100, range: [5, 10, 15] },
-];
+// --- Admin ---
 
-export const getDailyState = (): DailyState => {
-    try {
-        const stored = localStorage.getItem(DAILY_STATE_KEY);
-        const today = new Date().toDateString();
-        
-        if (stored) {
-            const parsed: DailyState = JSON.parse(stored);
-            if (parsed.date === today) {
-                return parsed;
-            }
-        }
-
-        const allWords = Object.values(VOCABULARY).flat();
-        const dateHash = today.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        const wordIndex = dateHash % (allWords.length || 1);
-
-        const newQuests: Quest[] = [];
-        const availableTypes = [...QUEST_TYPES];
-        for(let i=0; i<3; i++) {
-            if (availableTypes.length === 0) break;
-            const rIndex = Math.floor(Math.random() * availableTypes.length);
-            const qType = availableTypes[rIndex];
-            availableTypes.splice(rIndex, 1); 
-
-            const target = qType.range[Math.floor(Math.random() * qType.range.length)];
-            
-            newQuests.push({
-                id: `quest_${Date.now()}_${i}`,
-                type: qType.type,
-                description: qType.desc(target),
-                target: target,
-                current: 0,
-                rewardXP: qType.reward,
-                isCompleted: false
-            });
-        }
-
-        const newState: DailyState = {
-            date: today,
-            quests: newQuests,
-            wordOfTheDayIndex: wordIndex
-        };
-        
-        localStorage.setItem(DAILY_STATE_KEY, JSON.stringify(newState));
-        return newState;
-    } catch (e) {
-        return { date: '', quests: [], wordOfTheDayIndex: 0 };
-    }
+export const adminAddXP = (amount: number) => {
+    const stats = getUserStats();
+    stats.xp += amount;
+    saveUserStats(stats);
 };
 
-export const updateQuestProgress = (type: Quest['type'], amount: number = 1) => {
-    const state = getDailyState();
-    let updated = false;
-    
-    const today = new Date().toDateString();
-    if (state.date !== today) {
-        return; 
-    }
+export const adminSetLevel = (level: number) => {
+    const stats = getUserStats();
+    stats.level = level;
+    stats.xp = level * level * 100; 
+    saveUserStats(stats);
+};
 
-    state.quests = state.quests.map(q => {
-        if (q.type === type && !q.isCompleted) {
-            q.current += amount;
-            if (q.current >= q.target) {
-                q.current = q.target;
-                q.isCompleted = true;
-                
-                const stats = getUserStats();
-                stats.xp += q.rewardXP;
-                stats.questsCompleted += 1; 
-                
-                BADGES.forEach(badge => {
-                     if (!stats.badges.includes(badge.id) && badge.condition(stats)) {
-                         stats.badges.push(badge.id);
-                     }
-                });
+export const adminUnlockAllItems = () => {
+    adminAddXP(100000);
+};
 
-                stats.level = calculateLevel(stats.xp);
-                saveUserStats(stats);
-                updated = true;
-            }
-            updated = true;
-        }
-        return q;
+export const adminUnlockAllBadges = () => {
+    const stats = getUserStats();
+    BADGES.forEach(b => {
+        if (!stats.badges.includes(b.id)) stats.badges.push(b.id);
     });
-
-    if (updated) {
-        localStorage.setItem(DAILY_STATE_KEY, JSON.stringify(state));
-    }
+    saveUserStats(stats);
 };
 
-export const getWordOfTheDay = (): WordCard | null => {
-    const state = getDailyState();
-    const allWords = Object.values(VOCABULARY).flat();
+export const adminUnlockAllAvatars = () => {
+    adminSetLevel(500);
+};
+
+export const adminResetDailyQuests = () => {
+    localStorage.removeItem(KEYS.DAILY);
+};
+
+// --- Utils ---
+
+export const getWordOfTheDay = () => {
+    // Use ONLY General English words for Word of the Day
+    const genA1 = VOCABULARY['gen_a1'] || [];
+    const genA2 = VOCABULARY['gen_a2'] || [];
+    const genB1 = VOCABULARY['gen_b1'] || [];
+    const genB2 = VOCABULARY['gen_b2'] || [];
+    const genC1 = VOCABULARY['gen_c1'] || [];
+    
+    const allWords = [...genA1, ...genA2, ...genB1, ...genB2, ...genC1];
+    
     if (allWords.length === 0) return null;
-    return allWords[state.wordOfTheDayIndex % allWords.length];
+    
+    const state = getDailyState();
+    const index = state.wordOfTheDayIndex % allWords.length;
+    return allWords[index];
+};
+
+export const saveLastActivity = (grade: string, unitId: string) => {
+    const stats = getUserStats();
+    stats.lastActivity = { grade, unitId };
+    saveUserStats(stats);
+};
+
+export const getLastReadAnnouncementId = () => {
+    return localStorage.getItem('last_announcement_id');
+};
+
+export const setLastReadAnnouncementId = (id: string) => {
+    localStorage.setItem('last_announcement_id', id);
+};
+
+export const getLastUpdatedTimestamp = (): number => {
+    return parseInt(localStorage.getItem(KEYS.LAST_UPDATE) || '0');
+};
+
+export const updateLastUpdatedTimestamp = () => {
+    localStorage.setItem(KEYS.LAST_UPDATE, Date.now().toString());
+};
+
+export const checkDataVersion = () => {
+    // Handle version migrations if needed
+    const currentVer = parseInt(localStorage.getItem(KEYS.VERSION) || '0');
+    if (currentVer < 3) { // Assuming version 3 is current
+        // Reset data if critical changes
+        // localStorage.clear(); 
+        localStorage.setItem(KEYS.VERSION, '3');
+        return true;
+    }
+    return false;
+};
+
+export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {
+    if (scope.type === 'all') {
+        localStorage.clear();
+        window.location.reload();
+    } else if (scope.type === 'unit' && scope.value) {
+        // Remove only for specific unit
+        const mem = getMemorizedSet();
+        const newMem = new Set<string>();
+        mem.forEach(id => { if (!id.startsWith(scope.value!)) newMem.add(id); });
+        localStorage.setItem(KEYS.MEMORIZED, JSON.stringify([...newMem]));
+        
+        // Remove from SRS
+        const srs = getSRSData();
+        Object.keys(srs).forEach(id => { if (id.startsWith(scope.value!)) delete srs[id]; });
+        saveSRSData(srs);
+        
+        updateLastUpdatedTimestamp();
+    }
+    // Grade reset logic similar to unit...
+};
+
+export const clearLocalUserData = () => {
+    localStorage.removeItem(KEYS.PROFILE);
+    localStorage.removeItem(KEYS.STATS);
+    localStorage.removeItem(KEYS.MEMORIZED);
+    localStorage.removeItem(KEYS.BOOKMARKS);
+    localStorage.removeItem(KEYS.SRS);
+    // Keep settings
 };

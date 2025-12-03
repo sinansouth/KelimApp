@@ -1,10 +1,12 @@
 
+
+
 import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, Bookmark, Target, RefreshCw, ChevronRight, Clock as ClockIcon,
   PartyPopper, Lightbulb, MessageCircle, Sparkles,
   Cpu, Crown, Download, ShoppingBag as ShoppingBagIcon, GraduationCap, Play, Star, CheckCircle, BookType, ListChecks,
-  Calendar, Signal, Grid3X3, Type, WholeWord, X
+  Calendar, Signal, Grid3X3, Type, WholeWord, X, Gamepad2, Search
 } from 'lucide-react';
 import { getUserStats, getTotalDueCount, getDueCountForGrade, getMemorizedSet, getUserProfile, getWordOfTheDay } from '../services/userService';
 import { UnitDef, GradeDef, GradeLevel, StudyMode, CategoryType } from '../types';
@@ -22,7 +24,7 @@ interface TopicSelectorProps {
   onSelectGrade: (grade: GradeLevel | null) => void;
   onSelectMode: (mode: StudyMode | null) => void;
   onSelectUnit: (unit: UnitDef | null) => void;
-  onStartModule: (action: 'study' | 'matching' | 'typing' | 'chain' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review' | 'review-flashcards', unit: UnitDef, count?: number) => void;
+  onStartModule: (action: 'study' | 'matching' | 'typing' | 'chain' | 'maze' | 'wordSearch' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review' | 'review-flashcards', unit: UnitDef, count?: number) => void;
   onGoHome: () => void;
   onOpenMarket: () => void;
 }
@@ -123,7 +125,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
       setShowStudyModes(true);
   };
 
-  const handleModeSelect = (mode: 'study' | 'matching' | 'typing' | 'chain') => {
+  const handleModeSelect = (mode: 'study' | 'matching' | 'typing' | 'chain' | 'maze' | 'wordSearch') => {
       if (selectedUnit) {
           setShowStudyModes(false);
           onStartModule(mode, selectedUnit);
@@ -172,7 +174,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                </div>
                <div>
                   <h3 className="font-bold text-sm" style={{color: 'var(--color-text-main)'}}>Kelime Çalış & Oyna</h3>
-                  <p className="text-[10px] font-medium opacity-70" style={{color: 'var(--color-text-muted)'}}>Kartlar, Eşleştirme, Yazma...</p>
+                  <p className="text-[10px] font-medium opacity-70" style={{color: 'var(--color-text-muted)'}}>Kartlar, Bulmaca, Labirent...</p>
                </div>
                <ChevronRight className="ml-auto group-hover:translate-x-1 transition-transform opacity-50" size={16} style={{color: 'var(--color-text-muted)'}} />
             </button>
@@ -258,6 +260,20 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                                 <Type size={24} />
                             </div>
                             <span className="font-bold text-sm text-slate-700 dark:text-white">Yazma</span>
+                        </button>
+
+                        <button onClick={() => handleModeSelect('wordSearch')} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all group flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform">
+                                <Search size={24} />
+                            </div>
+                            <span className="font-bold text-sm text-slate-700 dark:text-white">Bulmaca</span>
+                        </button>
+                        
+                        <button onClick={() => handleModeSelect('maze')} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all group flex flex-col items-center gap-2">
+                            <div className="w-12 h-12 rounded-full bg-white dark:bg-slate-700 shadow-sm flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform">
+                                <Gamepad2 size={24} />
+                            </div>
+                            <span className="font-bold text-sm text-slate-700 dark:text-white">Labirent</span>
                         </button>
                     </div>
                 </div>
