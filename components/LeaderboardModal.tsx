@@ -1,10 +1,9 @@
 
-
-
 import React, { useState, useEffect } from 'react';
 import { X, Trophy, Medal, Crown, WifiOff, RefreshCw, CheckCircle, Zap, BookOpen, Target, Grid3X3, Keyboard, Star, WholeWord, Flame, Gamepad2, Search } from 'lucide-react';
 import { getLeaderboard, LeaderboardEntry, syncLocalToCloud } from '../services/firebase';
 import { AVATARS, FRAMES, BACKGROUNDS } from '../data/assets';
+import UserProfileModal from './UserProfileModal';
 
 interface LeaderboardModalProps {
   onClose: () => void;
@@ -19,7 +18,8 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
   const [loading, setLoading] = useState(true);
   const [mode, setMode] = useState<LeaderboardMode>('xp');
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  
+  const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
 
   const fetchData = async () => {
     if (!navigator.onLine) {
@@ -38,7 +38,6 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
     const data = await getLeaderboard('ALL', mode);
     setUsers(data);
     setLoading(false);
-    setLastUpdated(new Date());
   };
 
   useEffect(() => {
@@ -100,6 +99,7 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
       <div className="w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 duration-200"
            style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
@@ -141,7 +141,12 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
                          const themeStyle = getThemeStyles(user.theme);
                          
                          return (
-                            <div key={user.uid} style={themeStyle} className={`p-2.5 rounded-xl border transition-transform shadow-sm relative flex items-center gap-3`}>
+                            <button 
+                                key={user.uid} 
+                                onClick={() => setSelectedUserId(user.uid)}
+                                style={themeStyle} 
+                                className={`w-full text-left p-2.5 rounded-xl border transition-all shadow-sm relative flex items-center gap-3 active:scale-95 hover:brightness-95`}
+                            >
                                 <div className="shrink-0 w-6 flex justify-center">{getRankIcon(index)}</div>
                                 <div className="relative w-10 h-10 flex items-center justify-center shrink-0">
                                     <div className={`absolute inset-0 w-full h-full rounded-full z-30 pointer-events-none ${frameDef.style}`}></div>
@@ -186,7 +191,7 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
                                         </div>
                                     )}
                                 </div>
-                            </div>
+                            </button>
                          );
                     })}
                 </div>
@@ -199,6 +204,14 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
         </div>
       </div>
     </div>
+
+    {selectedUserId && (
+        <UserProfileModal 
+            userId={selectedUserId} 
+            onClose={() => setSelectedUserId(null)} 
+        />
+    )}
+    </>
   );
 };
 

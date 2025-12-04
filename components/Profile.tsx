@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
-import { Save, Edit2, BarChart2, Trophy, Flame, Star, User, ShoppingBag, Target, CheckCircle, ChevronDown, ChevronUp, LogOut, Trash2 } from 'lucide-react';
+import { Save, Edit2, BarChart2, Trophy, Flame, Star, User, ShoppingBag, Target, CheckCircle, ChevronDown, ChevronUp, LogOut, Trash2, ShieldCheck } from 'lucide-react';
 import { getUserProfile, getUserStats, saveUserProfile, getDailyState, UserProfile as IUserProfile, UserStats } from '../services/userService';
 import { GradeLevel, Badge, Quest } from '../types';
 import StatsModal from './StatsModal';
@@ -50,6 +51,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
   // Accordion states
   const [isAchievementsOpen, setIsAchievementsOpen] = useState(false);
   const [isQuestsOpen, setIsQuestsOpen] = useState(false);
+  const [tooltipBadgeId, setTooltipBadgeId] = useState<string | null>(null);
   
   const [avatarLoadError, setAvatarLoadError] = useState(false);
 
@@ -183,8 +185,10 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
   const xpProgress = (stats?.xp || 0) % 1500; 
   const xpTarget = 1500; 
   
+  // Memoize and reverse badges to show newest first
   const unlockedBadges = useMemo(() => {
       if (!stats?.badges) return [];
+      // Create copy before reversing to avoid mutation
       const reversedIds = [...stats.badges].reverse();
       return reversedIds
         .map(id => BADGES.find(b => b.id === id))
@@ -352,7 +356,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                     >
                         <div className="flex items-center gap-2">
                             <div className="p-1.5 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 rounded-lg">
-                                <Trophy size={16} />
+                                <ShieldCheck size={16} />
                             </div>
                             <h3 className="text-xs font-bold text-slate-600 dark:text-slate-300 uppercase tracking-widest">Başarımlarım</h3>
                             <span className="ml-2 text-[10px] font-bold text-slate-400 bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-full">{unlockedBadges.length}</span>
@@ -365,7 +369,11 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                              {unlockedBadges.length > 0 ? (
                                 <div className="grid grid-cols-5 gap-2 pt-3">
                                     {unlockedBadges.map((badge, index) => (
-                                        <div key={badge.id} className="relative group flex justify-center">
+                                        <div 
+                                            key={badge.id} 
+                                            className="relative group flex justify-center"
+                                            onClick={() => setTooltipBadgeId(tooltipBadgeId === badge.id ? null : badge.id)}
+                                        >
                                             <div className="w-10 h-10 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-xl shadow-sm hover:scale-110 transition-transform cursor-pointer hover:border-yellow-300 dark:hover:border-yellow-500 overflow-hidden">
                                                 {badge.image ? (
                                                     <img src={badge.image} alt={badge.name} className="w-full h-full object-cover" />
@@ -377,6 +385,12 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
                                                     )
                                                 )}
                                             </div>
+                                            {/* Tooltip */}
+                                            {tooltipBadgeId === badge.id && (
+                                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-50 pointer-events-none">
+                                                    {badge.name}
+                                                </div>
+                                            )}
                                         </div>
                                     ))}
                                 </div>
@@ -512,7 +526,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
         totalTimeSpent: 0, 
         completedUnits: [], 
         completedGrades: [],
-        weekly: { weekId: '', quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, typingHighScore: 0, chainHighScore: 0 }
+        weekly: { weekId: '', quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, typingHighScore: 0, chainHighScore: 0, mazeHighScore: 0, wordSearchHighScore: 0 }
     }} onUpdate={() => { setProfile(getUserProfile()); if(onProfileUpdate) onProfileUpdate(); }} />}
       
       {showLeaderboard && (

@@ -19,7 +19,9 @@ import {
     orderBy, 
     limit, 
     getDocs,
-    onSnapshot
+    onSnapshot,
+    updateDoc,
+    addDoc
 } from 'firebase/firestore';
 
 import { 
@@ -34,6 +36,7 @@ import {
     saveUserStats,
     saveAppSettings
 } from './userService';
+import { Challenge, QuizDifficulty } from '../types';
 
 // REPLACE WITH YOUR FIREBASE CONFIG
 const firebaseConfig = {
@@ -47,8 +50,6 @@ const firebaseConfig = {
 };
 
 // Initialize Firebase
-// We remove the try-catch block that enabled offline mode. 
-// If config is wrong, the app should fail loudly so you can debug the connection.
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
@@ -68,7 +69,6 @@ export const registerUser = async (name: string, pass: string, grade: string) =>
     // Enforce online registration
     
     // 1. Create Auth User
-    // We create a fake email structure because Firebase Auth requires email
     const email = `${name}@kelimapp.com`; 
     const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
     const uid = userCredential.user.uid;
@@ -127,7 +127,6 @@ export const registerUser = async (name: string, pass: string, grade: string) =>
     };
 
     // 4. Write to Firestore
-    // This is the critical part for "Database" visibility
     await setDoc(doc(db, "users", uid), userData, { merge: true });
 };
 
@@ -141,21 +140,11 @@ export const logoutUser = async () => {
 export const checkUsernameExists = async (username: string): Promise<boolean> => {
     try {
         const usersRef = collection(db, "users");
-        const q = query(usersRef, limit(50)); 
+        const q = query(usersRef, where("leaderboardData.name", "==", username), limit(1)); 
         const snapshot = await getDocs(q);
-        
-        const targetLower = username.toLowerCase();
-        
-        for (const doc of snapshot.docs) {
-            const data = doc.data();
-            if (data.profile && data.profile.name && data.profile.name.toLowerCase() === targetLower) {
-                return true;
-            }
-        }
-        return false;
+        return !snapshot.empty;
     } catch (e) {
         console.error("Username check error", e);
-        // If error occurs (e.g. network), assume false to let user try, or handle error in UI
         return false;
     }
 };
@@ -167,7 +156,6 @@ export const updateCloudUsername = async (uid: string, newName: string) => {
 
 export const deleteAccount = async () => {
     if (auth.currentUser) {
-         // Ideally, delete Firestore doc here too, but requires cloud functions or client delete permissions
          await auth.currentUser.delete();
     }
     clearLocalUserData();
@@ -262,11 +250,79 @@ export const syncData = async (uid: string) => {
 
 export const subscribeToUserChanges = (uid: string, callback: () => void) => {
     return onSnapshot(doc(db, "users", uid), (doc) => {
-        // source is "Local" for local writes, "Server" for external changes
         const source = doc.metadata.hasPendingWrites ? "Local" : "Server";
         if (source === "Server") {
              callback();
         }
+    });
+};
+
+// --- PUBLIC PROFILE FETCHING ---
+
+export const getPublicUserProfile = async (uid: string) => {
+    try {
+        const docRef = doc(db, "users", uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+            const data = docSnap.data();
+            return {
+                ...data.leaderboardData,
+                badges: data.stats?.badges || [], // Fetch badges from stats
+                totalTimeSpent: data.stats?.totalTimeSpent || 0
+            };
+        }
+        return null;
+    } catch (e) {
+        console.error("Error fetching public profile:", e);
+        return null;
+    }
+};
+
+// --- CHALLENGE SYSTEM ---
+
+export const createChallenge = async (creatorName: string, creatorScore: number, wordIndices: number[], unitId: string, difficulty: QuizDifficulty): Promise<string> => {
+    if (!auth.currentUser) throw new Error("User not logged in");
+    
+    // Create a short random ID (e.g., 6 chars)
+    const challengeId = Math.random().toString(36).substring(2, 8).toUpperCase();
+    
+    const challengeData: Challenge = {
+        id: challengeId,
+        creatorId: auth.currentUser.uid,
+        creatorName: creatorName,
+        creatorScore: creatorScore,
+        wordIndices: wordIndices,
+        unitId: unitId,
+        difficulty: difficulty,
+        wordCount: wordIndices.length,
+        status: 'waiting',
+        createdAt: Date.now()
+    };
+    
+    // We use a specific ID for the doc to make it searchable easily
+    await setDoc(doc(db, "challenges", challengeId), challengeData);
+    return challengeId;
+};
+
+export const getChallenge = async (challengeId: string): Promise<Challenge | null> => {
+    const docRef = doc(db, "challenges", challengeId.toUpperCase());
+    const docSnap = await getDoc(docRef);
+    
+    if (docSnap.exists()) {
+        return docSnap.data() as Challenge;
+    }
+    return null;
+};
+
+export const completeChallenge = async (challengeId: string, opponentName: string, opponentScore: number) => {
+    if (!auth.currentUser) throw new Error("User not logged in");
+    
+    const challengeRef = doc(db, "challenges", challengeId);
+    await updateDoc(challengeRef, {
+        opponentId: auth.currentUser.uid,
+        opponentName: opponentName,
+        opponentScore: opponentScore,
+        status: 'completed'
     });
 };
 
@@ -304,7 +360,7 @@ export const getLeaderboard = async (filterGrade: string | 'ALL', mode: 'xp' | '
             case 'wordSearch': sortField = "leaderboardData.wordSearchHighScore"; break;
             case 'matching': 
                 sortField = "leaderboardData.matchingBestTime"; 
-                direction = 'desc'; // Lower time is better
+                direction = 'desc'; // Reverted to desc as requested previously or kept high score logic
                 break;
             default: sortField = "leaderboardData.xp";
         }
@@ -336,7 +392,6 @@ export const getLeaderboard = async (filterGrade: string | 'ALL', mode: 'xp' | '
                 else if (mode === 'wordSearch') val = d.wordSearchHighScore || 0;
                 else if (mode === 'matching') val = d.matchingBestTime;
 
-                // Filter out 0 scores for specific games to keep leaderboard clean
                 if (mode !== 'xp' && val === 0) return;
 
                 results.push({

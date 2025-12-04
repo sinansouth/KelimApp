@@ -6,7 +6,7 @@ import {
   Cpu, Crown, Download, ShoppingBag as ShoppingBagIcon, GraduationCap, Play, Star, CheckCircle, BookType, ListChecks,
   Calendar, Signal, Grid3X3, Type, WholeWord, X, Gamepad2, Search
 } from 'lucide-react';
-import { getUserStats, getTotalDueCount, getDueCountForGrade, getMemorizedSet, getUserProfile, getWordOfTheDay } from '../services/userService';
+import { getUserStats, getTotalDueCount, getDueCountForGrade, getMemorizedSet, getUserProfile, getRandomWordForGrade } from '../services/userService';
 import { UnitDef, GradeDef, GradeLevel, StudyMode, CategoryType } from '../types';
 import { VOCABULARY } from '../data/vocabulary';
 import { UNIT_ASSETS, GRADE_DATA } from '../data/assets';
@@ -46,7 +46,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const [lastActivity, setLastActivity] = React.useState<{grade: string, unit: UnitDef} | null>(null);
   const [memorizedSet, setMemorizedSet] = React.useState<Set<string>>(new Set());
   const [isNewUser, setIsNewUser] = React.useState(false);
-  const [wordOfTheDay, setWordOfTheDay] = React.useState<any>(null);
+  const [randomWord, setRandomWord] = React.useState<any>(null);
   const [tip, setTip] = useState('');
   
   // Study Mode Selection Modal State
@@ -55,7 +55,11 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   React.useEffect(() => {
     setDailyDueCount(getTotalDueCount());
     setMemorizedSet(getMemorizedSet());
-    setWordOfTheDay(getWordOfTheDay());
+    
+    // Get user profile grade if no grade selected yet
+    const profile = getUserProfile();
+    const effectiveGrade = selectedGrade || profile.grade || 'A1'; // Default to A1 if nothing
+    setRandomWord(getRandomWordForGrade(effectiveGrade));
     
     setTip(APP_TIPS[Math.floor(Math.random() * APP_TIPS.length)]);
     
@@ -63,7 +67,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
         setTip(APP_TIPS[Math.floor(Math.random() * APP_TIPS.length)]);
     }, 10000);
 
-    const profile = getUserProfile();
     setIsNewUser(profile.grade === '');
 
     if (selectedGrade) {
@@ -299,18 +302,18 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
              <Mascot mood="neutral" size={80} message={tip} />
         </div>
 
-        {wordOfTheDay && (
+        {randomWord && (
            <div className="w-full max-w-md mb-4 shrink-0 bg-gradient-to-r from-pink-500 to-rose-600 rounded-2xl p-4 shadow-md relative overflow-hidden text-white">
                <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
                <div className="flex justify-between items-start mb-1">
                    <div className="flex items-center gap-1.5 text-pink-100 text-[10px] font-bold uppercase tracking-wider">
-                       <Sparkles size={12} /> Günün Kelimesi
+                       <Sparkles size={12} /> Rastgele Kelime ({getUserProfile().grade || 'A1'})
                    </div>
                </div>
-               <div className="text-xl font-black">{wordOfTheDay.english}</div>
-               <div className="text-sm font-medium text-pink-100 mb-2">{wordOfTheDay.turkish}</div>
+               <div className="text-xl font-black">{randomWord.english}</div>
+               <div className="text-sm font-medium text-pink-100 mb-2">{randomWord.turkish}</div>
                <div className="text-[10px] text-pink-200 italic opacity-90 bg-black/10 p-1.5 rounded-lg">
-                  "{wordOfTheDay.exampleEng}"
+                  "{randomWord.exampleEng}"
                </div>
            </div>
         )}

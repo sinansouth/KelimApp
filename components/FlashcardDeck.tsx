@@ -1,7 +1,6 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
-import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp, Play, Pause, Volume2, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp, Play, Pause, Loader2 } from 'lucide-react';
 import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized, addToBookmarks, removeFromBookmarks, handleReviewResult, registerSRSInteraction, updateQuestProgress } from '../services/userService';
 import { playSound } from '../services/soundService';
 
@@ -39,10 +38,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   // Auto Play State
   const [isAutoPlay, setIsAutoPlay] = useState(false);
   const autoPlayTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // TTS State
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
 
   const [feedback, setFeedback] = useState<{
     visible: boolean;
@@ -145,85 +140,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
 
   const currentWord = activeDeck.length > 0 ? activeDeck[currentIndex] : null;
 
-  // --- TTS Logic ---
-  const playWordAudio = (e: React.MouseEvent) => {
-    e.stopPropagation(); 
-    if (!currentWord || isPlayingAudio) return;
-
-    const textToSpeak = currentWord.english; 
-    
-    setIsLoadingAudio(true);
-
-    // 1. Try Online Google Translate TTS first
-    const googleTTSUrl = `https://translate.google.com/translate_tts?ie=UTF-8&client=tw-ob&tl=en&q=${encodeURIComponent(textToSpeak)}`;
-    const audio = new Audio(googleTTSUrl);
-
-    const playFallback = () => {
-         // 2. Fallback to Web Speech API
-         if (!('speechSynthesis' in window)) {
-             setIsLoadingAudio(false);
-             return;
-         }
-
-         try {
-             window.speechSynthesis.cancel(); 
-             const utterance = new SpeechSynthesisUtterance(textToSpeak);
-             
-             // CRITICAL: Force English Language
-             utterance.lang = 'en-US'; 
-             
-             const voices = window.speechSynthesis.getVoices();
-             const preferredVoice = voices.find(v => v.lang === 'en-US' && !v.name.includes('Google')) || 
-                                    voices.find(v => v.lang.startsWith('en'));
-             
-             if (preferredVoice) utterance.voice = preferredVoice;
-
-             utterance.rate = 0.9;
-
-             utterance.onstart = () => {
-                 setIsLoadingAudio(false);
-                 setIsPlayingAudio(true);
-             };
-             utterance.onend = () => setIsPlayingAudio(false);
-             utterance.onerror = () => {
-                 setIsLoadingAudio(false);
-                 setIsPlayingAudio(false);
-             };
-             
-             window.speechSynthesis.speak(utterance);
-         } catch (err) {
-             console.error("TTS Fallback Failed", err);
-             setIsLoadingAudio(false);
-             setIsPlayingAudio(false);
-         }
-    };
-
-    audio.onloadeddata = () => {
-        setIsLoadingAudio(false);
-        setIsPlayingAudio(true);
-        audio.play().catch(e => {
-            console.warn("Online Audio Play Failed, switching to fallback", e);
-            playFallback();
-        });
-    };
-
-    audio.onended = () => {
-        setIsPlayingAudio(false);
-    };
-
-    audio.onerror = () => {
-        console.warn("Online Audio Load Failed, switching to fallback");
-        playFallback();
-    };
-  };
-  
-  useEffect(() => {
-      if ('speechSynthesis' in window) {
-          window.speechSynthesis.getVoices();
-      }
-  }, []);
-
-
   const setFilter = (mode: FilterMode) => {
     if (isProcessing) return;
     setIsAutoPlay(false);
@@ -305,9 +221,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
   };
 
   const handleNext = () => {
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    setIsPlayingAudio(false);
-
     if (currentIndex < activeDeck.length - 1) {
       playSound('flip');
       setIsFlipped(false);
@@ -379,9 +292,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
 
   const handlePrev = () => {
     if (currentIndex > 0 && !isProcessing) {
-      if ('speechSynthesis' in window) window.speechSynthesis.cancel(); 
-      setIsPlayingAudio(false);
-      
       setIsAutoPlay(false);
       setIsProcessing(true);
       playSound('flip');
@@ -396,9 +306,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
 
   const handleRestart = () => {
     if (isProcessing) return;
-    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
-    setIsPlayingAudio(false);
-
     setIsAutoPlay(false);
     setIsFlipped(false);
     setFeedback(null);
@@ -599,17 +506,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         >
           
           <div className="absolute inset-0 backface-hidden bg-white dark:bg-slate-900 rounded-3xl flex flex-col items-center justify-center border border-slate-200 dark:border-slate-800 p-8 transition-colors overflow-hidden">
-             
-             <button 
-                onClick={playWordAudio}
-                disabled={isLoadingAudio}
-                className={`absolute top-6 right-6 p-3 rounded-full shadow-sm z-20 transition-all
-                   ${isPlayingAudio ? 'bg-indigo-100 text-indigo-600 animate-pulse' : 'bg-slate-50 text-slate-400 hover:bg-slate-100 hover:text-indigo-600 dark:bg-slate-800 dark:hover:bg-slate-700'}
-                `}
-             >
-                {isLoadingAudio ? <Loader2 size={24} className="animate-spin" /> : <Volume2 size={24} />}
-             </button>
-
              <div className="flex-grow flex flex-col items-center justify-center text-center px-4 w-full">
                  <h2 className="text-4xl sm:text-5xl font-black text-slate-800 dark:text-white break-words leading-tight max-w-full">{currentWord.english}</h2>
                  <p className="mt-6 text-lg text-slate-500 dark:text-slate-400 italic font-medium max-w-md">
@@ -622,16 +518,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
           </div>
 
           <div className="absolute inset-0 backface-hidden rotate-y-180 bg-gradient-to-br from-indigo-600 to-indigo-700 dark:from-indigo-900 dark:to-slate-900 text-white rounded-3xl flex flex-col items-center justify-center p-8 text-center border border-indigo-500 dark:border-slate-700 overflow-hidden">
-             <button 
-                onClick={playWordAudio}
-                disabled={isLoadingAudio}
-                className={`absolute top-6 right-6 p-3 rounded-full shadow-sm z-20 transition-all
-                   ${isPlayingAudio ? 'bg-white/20 text-white animate-pulse' : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white'}
-                `}
-             >
-                {isLoadingAudio ? <Loader2 size={24} className="animate-spin" /> : <Volume2 size={24} />}
-             </button>
-
             <div className="flex-grow flex flex-col items-center justify-center w-full overflow-y-auto no-scrollbar relative z-10">
               <h3 className="text-3xl sm:text-4xl font-bold mb-4 break-words max-w-full">{currentWord.turkish}</h3>
               <p className="text-indigo-200 text-sm italic mb-6 pb-3 border-b border-white/20">{currentWord.context}</p>

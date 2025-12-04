@@ -230,7 +230,7 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ words, onFinish, onBack, on
             </div>
         </div>
 
-        <div className={`grid gap-2 sm:gap-3 flex-1 content-start overflow-y-auto pb-20 
+        <div className={`grid gap-2 sm:gap-3 flex-1 content-start overflow-y-auto pb-24 custom-scrollbar
             ${pairCount <= 8 ? 'grid-cols-4' : pairCount <= 12 ? 'grid-cols-4 sm:grid-cols-6' : 'grid-cols-5 sm:grid-cols-6'}`}>
             {cards.map((card) => (
                 <button
@@ -259,7 +259,7 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ words, onFinish, onBack, on
             ))}
         </div>
 
-        <div className="shrink-0 pt-2 flex justify-center">
+        <div className="shrink-0 pt-2 flex justify-center pb-safe">
             <button onClick={() => startGame(pairCount)} className="flex items-center gap-2 text-slate-400 hover:text-indigo-500 transition-colors text-xs font-bold">
                 <Shuffle size={14} /> Yeniden Dağıt
             </button>

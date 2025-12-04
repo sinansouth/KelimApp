@@ -24,6 +24,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
   const [bookmarksCount, setBookmarksCount] = useState(0);
   const [totalWords, setTotalWords] = useState(0);
   const [unitStats, setUnitStats] = useState<{unit: UnitDef, memorized: number, total: number, bookmarks: number}[]>([]);
+  const [tooltipBadgeId, setTooltipBadgeId] = useState<string | null>(null);
 
   useEffect(() => {
       setStats(getUserStats());
@@ -346,13 +347,21 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                         return (
                             <div 
                                 key={badge.id} 
-                                className={`relative p-4 rounded-3xl border-2 text-center flex flex-col items-center gap-2 transition-all
+                                onClick={() => setTooltipBadgeId(tooltipBadgeId === badge.id ? null : badge.id)}
+                                className={`relative p-4 rounded-3xl border-2 text-center flex flex-col items-center gap-2 transition-all cursor-pointer
                                     ${isUnlocked 
                                         ? 'bg-yellow-50 dark:bg-yellow-900/10 border-yellow-200 dark:border-yellow-800/50' 
                                         : 'opacity-60 grayscale'
                                     }`}
                                 style={!isUnlocked ? {backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'} : {}}
                             >
+                                {/* Tooltip */}
+                                {tooltipBadgeId === badge.id && (
+                                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[10px] px-2 py-1 rounded whitespace-nowrap z-50 pointer-events-none animate-in fade-in zoom-in">
+                                        {badge.name}
+                                    </div>
+                                )}
+
                                 <div className="text-4xl mb-1 filter drop-shadow-sm h-16 w-16 sm:h-20 sm:w-20 flex items-center justify-center">
                                     {isImage ? (
                                         <img src={badge.image || badge.icon} alt={badge.name} className="w-full h-full object-contain" />

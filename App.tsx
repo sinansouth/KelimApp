@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty } from './types';
+import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty, Challenge } from './types';
 import { VOCABULARY } from './data/vocabulary';
 import TopicSelector from './components/TopicSelector';
 import { UNIT_ASSETS, UI_ICONS, AVATARS, FRAMES, BACKGROUNDS, BADGES } from './data/assets';
@@ -25,7 +25,8 @@ import FeedbackModal from './components/FeedbackModal';
 import AdminModal from './components/AdminModal'; 
 import InstallPromptModal from './components/InstallPromptModal';
 import OnboardingTutorial from './components/OnboardingTutorial';
-import { ChevronLeft, Zap, Trophy, User } from 'lucide-react';
+import ChallengeModal from './components/ChallengeModal';
+import { ChevronLeft, Zap, Trophy, User, Swords } from 'lucide-react';
 import { getUserProfile, getTheme, saveTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, clearLocalUserData, UserStats } from './services/userService';
 import { getAuthInstance, syncLocalToCloud, subscribeToUserChanges, syncData } from './services/firebase'; 
 import { ANNOUNCEMENTS } from './data/announcements';
@@ -58,6 +59,7 @@ const App: React.FC = () => {
   const [showAdminModal, setShowAdminModal] = useState(false); 
   const [showTutorial, setShowTutorial] = useState(false);
   const [showAvatarModal, setShowAvatarModal] = useState(false); 
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
 
   const [availableGradesForReview, setAvailableGradesForReview] = useState<string[]>([]);
   const [topicTitle, setTopicTitle] = useState<string>('');
@@ -79,6 +81,9 @@ const App: React.FC = () => {
     type: 'standard' | 'bookmarks' | 'memorized' | 'custom' | 'review';
   } | null>(null);
   
+  // Challenge Props for Quiz
+  const [challengeState, setChallengeState] = useState<{ mode: 'create' | 'join', data?: Challenge, unitId?: string } | null>(null);
+
   const lastQuizConfig = useRef<{count: number, difficulty: QuizDifficulty, originalWords: WordCard[], allDistractors: WordCard[]} | null>(null);
   
   const lastActiveTime = useRef<number>(Date.now());
@@ -407,10 +412,12 @@ const App: React.FC = () => {
       if (pendingQuizConfig) { setPendingQuizConfig(null); return true; }
       if (showTutorial) { setShowTutorial(false); localStorage.setItem('tutorial_seen', 'true'); return true; }
       if (showAvatarModal) { setShowAvatarModal(false); return true; }
+      if (showChallengeModal) { setShowChallengeModal(false); return true; }
       
       if (mode !== AppMode.HOME) {
           setMode(AppMode.HOME);
           setIsSRSReview(false);
+          setChallengeState(null);
           refreshGlobalState();
           return true;
       }
@@ -420,7 +427,7 @@ const App: React.FC = () => {
       if (selectedCategory) { setSelectedCategory(null); return true; }
       
       return false; 
-  }, [mode, selectedUnit, selectedGrade, selectedCategory, showSettings, showSRSInfo, showMarket, showGradeSelection, showFeedbackModal, showAdminModal, pendingQuizConfig, showAuthModal, showOnboardingModal, showTutorial, showAvatarModal]);
+  }, [mode, selectedUnit, selectedGrade, selectedCategory, showSettings, showSRSInfo, showMarket, showGradeSelection, showFeedbackModal, showAdminModal, pendingQuizConfig, showAuthModal, showOnboardingModal, showTutorial, showAvatarModal, showChallengeModal]);
 
   useEffect(() => {
     const setupBackButton = async () => {
@@ -479,7 +486,7 @@ const App: React.FC = () => {
   };
   
   const handleGoHome = () => { 
-      setMode(AppMode.HOME); setTopicTitle(''); setWords([]); setAllUnitWords([]); setSelectedUnit(null); setSelectedStudyMode(null); setSelectedGrade(null); setSelectedCategory(null); setIsSRSReview(false); setPendingQuizConfig(null); setShowGradeSelection(false); 
+      setMode(AppMode.HOME); setTopicTitle(''); setWords([]); setAllUnitWords([]); setSelectedUnit(null); setSelectedStudyMode(null); setSelectedGrade(null); setSelectedCategory(null); setIsSRSReview(false); setPendingQuizConfig(null); setShowGradeSelection(false); setChallengeState(null);
       refreshGlobalState();
   };
   
@@ -704,6 +711,37 @@ const App: React.FC = () => {
       } 
   };
 
+  // --- Challenge Logic ---
+  const handleCreateChallenge = (config: { grade: GradeLevel, unit: UnitDef, difficulty: QuizDifficulty, count: number }) => {
+      setShowChallengeModal(false);
+      
+      if (VOCABULARY[config.unit.id]) {
+          const unitWords = VOCABULARY[config.unit.id].map(w => ({...w, unitId: config.unit.id}));
+          // Shuffle and pick specific count
+          const challengeWords = shuffleArray(unitWords).slice(0, config.count);
+          
+          setWords(challengeWords);
+          setAllUnitWords(unitWords); // Distractors can be from the full unit
+          setTopicTitle(`Düello Oluştur: ${config.unit.title}`);
+          setActiveQuizDifficulty(config.difficulty);
+          
+          setChallengeState({ mode: 'create', unitId: config.unit.id });
+          setMode(AppMode.QUIZ);
+      } else {
+          alert("Bu ünitede kelime bulunamadı.");
+      }
+  };
+
+  const handleJoinChallenge = (challengeData: Challenge, challengeWords: WordCard[]) => {
+       setShowChallengeModal(false);
+       setWords(challengeWords);
+       setAllUnitWords(challengeWords); // Distractors same as pool for fairness or simpler
+       setTopicTitle(`Düello: ${challengeData.creatorName}`);
+       setActiveQuizDifficulty(challengeData.difficulty);
+       setChallengeState({ mode: 'join', data: challengeData });
+       setMode(AppMode.QUIZ);
+  };
+
   const onSelectCategoryHandler = (cat: CategoryType | null) => { if (cat) addHistoryEntry(); setSelectedCategory(cat); };
   const onSelectGradeHandler = (grade: GradeLevel | null) => { if (grade) addHistoryEntry(); setSelectedGrade(grade); };
   const onSelectUnitHandler = (unit: UnitDef | null) => { if (unit) addHistoryEntry(); setSelectedUnit(unit); };
@@ -726,7 +764,10 @@ const App: React.FC = () => {
             difficulty={activeQuizDifficulty}
             onCelebrate={handleTriggerCelebration} 
             onBadgeUnlock={handleBadgeUnlock} 
-            grade={selectedGrade} 
+            grade={selectedGrade}
+            challengeMode={challengeState?.mode}
+            challengeData={challengeState?.data}
+            unitIdForChallenge={challengeState?.unitId}
         /> 
     ); break;
     case AppMode.CUSTOM_PRACTICE: content = ( <WordSelector words={allUnitWords} unitTitle={topicTitle.replace(' (Özel Çalışma)', '')} onStart={handleCustomPracticeStart} onBack={handleManualBack} /> ); break;
@@ -841,6 +882,13 @@ const App: React.FC = () => {
             onUpdate={() => { handleProfileUpdate(); }} 
         />
       )}
+      {showChallengeModal && (
+          <ChallengeModal 
+              onClose={() => setShowChallengeModal(false)} 
+              onCreateChallenge={handleCreateChallenge}
+              onJoinChallenge={handleJoinChallenge}
+          />
+      )}
       <InstallPromptModal />
       
       {showSRSInfo && <SRSInfoModal onClose={handleManualBack} />}
@@ -901,6 +949,11 @@ const App: React.FC = () => {
                   {UI_ICONS.notifications} {hasUnreadAnnouncements && <span className="absolute top-2.5 right-2.5 w-2 h-2 bg-red-500 rounded-full ring-2 ring-white"></span>}
                 </button>
              )}
+             {/* Challenge Button */}
+             <button onClick={() => setShowChallengeModal(true)} className="flex items-center justify-center w-10 h-10 rounded-full transition-all active:scale-95 text-orange-500 bg-orange-100 dark:bg-orange-900/30">
+                 <Swords size={20} />
+             </button>
+
              {mode !== AppMode.INFO && <button onClick={handleOpenInfo} className="flex items-center justify-center w-10 h-10 rounded-full transition-all active:scale-95" style={{color: 'var(--color-text-muted)'}}>{UI_ICONS.info}</button>}
              
              {mode !== AppMode.PROFILE && (

@@ -141,3 +141,19 @@ export interface DailyState {
   quests: Quest[];
   wordOfTheDayIndex: number;
 }
+
+export interface Challenge {
+    id: string;
+    creatorId: string;
+    creatorName: string;
+    creatorScore: number;
+    wordIndices: number[]; // Store indices of words in ALL_WORDS pool or similar ID list
+    unitId: string; // If specific unit, or 'mixed'
+    difficulty: QuizDifficulty;
+    wordCount: number;
+    opponentId?: string;
+    opponentName?: string;
+    opponentScore?: number;
+    status: 'waiting' | 'completed';
+    createdAt: number;
+}

@@ -1,9 +1,10 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { WordCard, Badge, GradeLevel, QuizDifficulty } from '../types';
-import { CheckCircle, XCircle, Bookmark, Info, Clock } from 'lucide-react';
-import { updateStats, handleQuizResult, handleReviewResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress } from '../services/userService';
+import { WordCard, Badge, GradeLevel, QuizDifficulty, Challenge } from '../types';
+import { CheckCircle, XCircle, Bookmark, Info, Clock, Swords, Copy, Trophy } from 'lucide-react';
+import { updateStats, handleQuizResult, handleReviewResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress, getUserProfile } from '../services/userService';
 import { playSound } from '../services/soundService';
+import { createChallenge, completeChallenge } from '../services/firebase';
 import Mascot from './Mascot';
 
 interface QuizProps {
@@ -18,9 +19,14 @@ interface QuizProps {
   onBadgeUnlock?: (badge: Badge) => void;
   grade?: GradeLevel | null;
   difficulty?: QuizDifficulty;
+  
+  // Challenge Props
+  challengeMode?: 'create' | 'join';
+  challengeData?: Challenge;
+  unitIdForChallenge?: string; // To reconstruct or save reference
 }
 
-const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome, isBookmarkQuiz, isReviewMode, onCelebrate, onBadgeUnlock, grade, difficulty = 'normal' }) => {
+const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome, isBookmarkQuiz, isReviewMode, onCelebrate, onBadgeUnlock, grade, difficulty = 'normal', challengeMode, challengeData, unitIdForChallenge }) => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [score, setScore] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
@@ -28,6 +34,10 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
   const [showResults, setShowResults] = useState(false);
   const [autoBookmarked, setAutoBookmarked] = useState(false);
   const [addedToMemorized, setAddedToMemorized] = useState(false);
+  
+  // Challenge States
+  const [createdChallengeId, setCreatedChallengeId] = useState<string | null>(null);
+  const [challengeResult, setChallengeResult] = useState<'win' | 'loss' | 'tie' | null>(null);
   
   // Determine Time Limit based on Difficulty
   const getTimeLimit = (diff: QuizDifficulty) => {
@@ -206,7 +216,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
         if (isReviewMode) {
             handleReviewResult(wordId, true);
             updateStats('review_remember', grade, wordId);
-        } else {
+        } else if (!challengeMode) {
             const newBadges = updateStats('quiz_correct', grade);
             if (newBadges.length > 0 && onBadgeUnlock) {
                 newBadges.forEach(b => onBadgeUnlock(b));
@@ -243,7 +253,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
         if (isReviewMode) {
              handleReviewResult(wordId, false); 
              updateStats('review_forgot', grade, wordId);
-        } else {
+        } else if (!challengeMode) {
              updateStats('quiz_wrong', grade);
              handleQuizResult(wordId, false);
 
@@ -270,7 +280,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
     }, delay);
   };
 
-  const handleNext = (currentScoreValue?: number) => {
+  const handleNext = async (currentScoreValue?: number) => {
     if (timerRef.current) clearTimeout(timerRef.current);
     
     const actualScore = currentScoreValue !== undefined ? currentScoreValue : score;
@@ -287,7 +297,39 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
       
       const percentage = Math.round((actualScore / questions.length) * 100);
       
-      if (!isReviewMode) {
+      // HANDLE CHALLENGE COMPLETION
+      if (challengeMode === 'create') {
+           // Map current words back to indices in ALL_WORDS (requires passing a huge list or just storing specific IDs)
+           // Simplification: We need to store sufficient info to reconstruct this quiz.
+           // Since we passed specific `words` to this component, we can just find their indices in the full VOCABULARY.
+           // For optimization, let's assume `allWords` was passed correctly containing these words.
+           if (allWords && unitIdForChallenge) {
+                const wordIndices = words.map(w => allWords.findIndex(aw => aw.english === w.english && aw.unitId === w.unitId));
+                const user = getUserProfile();
+                
+                // Calculate score based on percentage (0-100) for simplicity in comparison
+                const finalScore = percentage;
+                
+                try {
+                    const id = await createChallenge(user.name, finalScore, wordIndices, unitIdForChallenge, difficulty);
+                    setCreatedChallengeId(id);
+                } catch (e) {
+                    console.error("Error creating challenge", e);
+                }
+           }
+      } else if (challengeMode === 'join' && challengeData) {
+          const myScore = percentage;
+          const oppScore = challengeData.creatorScore;
+          const user = getUserProfile();
+          
+          await completeChallenge(challengeData.id, user.name, myScore);
+          
+          if (myScore > oppScore) setChallengeResult('win');
+          else if (myScore < oppScore) setChallengeResult('loss');
+          else setChallengeResult('tie');
+      }
+      
+      if (!isReviewMode && !challengeMode) {
           updateQuestProgress('finish_quiz', 1);
           if (percentage === 100) {
              updateQuestProgress('perfect_quiz', 1);
@@ -300,16 +342,91 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
           if (percentage >= 70 && onCelebrate) {
               onCelebrate(percentage === 100 ? "Mükemmel!" : "Tebrikler!", 'quiz');
           }
-      } else {
+      } else if (isReviewMode) {
           if (onCelebrate) onCelebrate("Günlük tekrar tamamlandı!", 'goal');
       }
     }
+  };
+
+  const copyCode = () => {
+      if (createdChallengeId) {
+          navigator.clipboard.writeText(createdChallengeId);
+          alert("Kopyalandı!");
+      }
   };
 
   if (!questions.length) return <div className="p-10 text-center text-slate-500">Soru bulunamadı.</div>;
 
   if (showResults) {
     const percentage = Math.round((score / questions.length) * 100);
+    
+    if (challengeMode === 'create') {
+        return (
+             <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto p-6 text-center animate-in fade-in zoom-in duration-500">
+                <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-2xl w-full border-2 border-orange-400 relative overflow-hidden">
+                     <div className="absolute top-0 left-0 w-full h-2 bg-orange-400"></div>
+                     
+                     <div className="w-20 h-20 bg-orange-100 text-orange-500 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
+                         <Swords size={40} />
+                     </div>
+                     
+                     <h2 className="text-2xl font-black text-slate-800 dark:text-white mb-2">Düello Hazır!</h2>
+                     <p className="text-slate-500 text-sm mb-6">Skorun: <span className="font-bold text-indigo-500">% {percentage}</span></p>
+                     
+                     {createdChallengeId ? (
+                         <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 mb-6">
+                             <p className="text-xs text-slate-500 uppercase font-bold mb-2">Düello Kodu</p>
+                             <div className="flex items-center justify-center gap-3">
+                                 <span className="text-3xl font-black tracking-widest text-slate-800 dark:text-white">{createdChallengeId}</span>
+                                 <button onClick={copyCode} className="p-2 bg-white dark:bg-slate-700 rounded-lg shadow-sm hover:scale-105 transition-transform">
+                                     <Copy size={20} className="text-slate-600 dark:text-slate-300" />
+                                 </button>
+                             </div>
+                             <p className="text-[10px] text-slate-400 mt-2">Bu kodu arkadaşına gönder!</p>
+                         </div>
+                     ) : (
+                         <div className="mb-6 text-slate-400 text-sm animate-pulse">Kod oluşturuluyor...</div>
+                     )}
+
+                     <button onClick={onHome} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold">Ana Menüye Dön</button>
+                </div>
+             </div>
+        )
+    }
+
+    if (challengeMode === 'join' && challengeData) {
+        return (
+             <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto p-6 text-center animate-in fade-in zoom-in duration-500">
+                <div className={`bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-2xl w-full border-4 ${challengeResult === 'win' ? 'border-green-500' : challengeResult === 'loss' ? 'border-red-500' : 'border-yellow-500'}`}>
+                     
+                     <div className="mb-6">
+                         {challengeResult === 'win' ? <Trophy size={60} className="text-yellow-500 mx-auto animate-bounce" /> : 
+                          challengeResult === 'loss' ? <XCircle size={60} className="text-red-500 mx-auto" /> :
+                          <div className="text-4xl">🤝</div>}
+                     </div>
+                     
+                     <h2 className="text-3xl font-black text-slate-800 dark:text-white mb-6">
+                         {challengeResult === 'win' ? 'KAZANDIN!' : challengeResult === 'loss' ? 'KAYBETTİN' : 'BERABERE'}
+                     </h2>
+                     
+                     <div className="flex justify-center items-center gap-8 mb-8">
+                         <div className="text-center">
+                             <div className="text-sm font-bold text-slate-400 mb-1">SEN</div>
+                             <div className={`text-4xl font-black ${challengeResult === 'win' ? 'text-green-500' : ''}`}>{percentage}%</div>
+                         </div>
+                         <div className="text-2xl text-slate-300 font-black">VS</div>
+                         <div className="text-center">
+                             <div className="text-sm font-bold text-slate-400 mb-1 truncate max-w-[80px]">{challengeData.creatorName}</div>
+                             <div className={`text-4xl font-black ${challengeResult === 'loss' ? 'text-red-500' : ''}`}>{challengeData.creatorScore}%</div>
+                         </div>
+                     </div>
+
+                     <button onClick={onHome} className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold">Ana Menüye Dön</button>
+                </div>
+             </div>
+        )
+    }
+
     return (
       <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto p-6 text-center animate-in fade-in zoom-in duration-500">
         <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] shadow-2xl w-full border border-slate-100 dark:border-slate-800">
@@ -336,10 +453,11 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
   const currentQuestion = questions[currentQuestionIndex];
 
+  // CHANGED: Use min-h-full and justify-start to prevent cutting off content on small screens.
   return (
-    <div className="w-full max-w-2xl mx-auto p-4 flex flex-col h-full justify-center">
+    <div className="w-full max-w-2xl mx-auto p-4 flex flex-col min-h-full justify-start pt-4 pb-20">
        
-       <div className="flex justify-between items-center mb-2">
+       <div className="flex justify-between items-center mb-2 shrink-0">
          <div className="w-12 h-12 flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl font-bold text-slate-600 dark:text-slate-300 shadow-sm">
             {currentQuestionIndex + 1}
          </div>
@@ -351,7 +469,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
       {/* Timer Bar */}
       {!isAnswered && (
-          <div className="w-full flex items-center gap-2 mb-2 px-1">
+          <div className="w-full flex items-center gap-2 mb-2 px-1 shrink-0">
               <Clock size={14} className={`${timeLeft <= 5 ? 'text-red-500 animate-pulse' : 'text-slate-400'}`} />
               <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div 
@@ -363,25 +481,35 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
           </div>
       )}
 
-      <div className="flex justify-center mb-2 relative" style={{minHeight: '120px'}}>
-          <Mascot mood={mascotMood} size={120} message={mascotMessage} />
+      {/* Challenge Banner */}
+      {challengeMode && (
+           <div className="mb-2 w-full text-center">
+               <span className="bg-orange-500 text-white text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm">
+                   <Swords size={10} className="inline mr-1" /> DÜELLO
+               </span>
+           </div>
+      )}
+
+      {/* Reduced size to prevent overflow */}
+      <div className="flex justify-center mb-2 relative shrink-0" style={{minHeight: '85px'}}>
+          <Mascot mood={mascotMood} size={85} message={mascotMessage} />
       </div>
 
-      <div className="flex-grow flex flex-col justify-center mb-8 mt-2">
-         <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6 relative">
+      <div className="flex-grow flex flex-col justify-center mb-4 mt-2">
+         <div className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-3xl shadow-sm border border-slate-100 dark:border-slate-800 mb-6 relative shrink-0">
              <h2 className="text-3xl sm:text-5xl font-black text-center text-slate-800 dark:text-white leading-tight break-words px-4">
                 {currentQuestion.word}
              </h2>
              {isReviewMode && (
                  <div className="mt-2 text-xs font-bold text-center text-orange-500 uppercase tracking-widest opacity-80">Günlük Tekrar</div>
              )}
-             {autoBookmarked && !isReviewMode && (
+             {autoBookmarked && !isReviewMode && !challengeMode && (
                  <div className="mt-3 flex items-center justify-center gap-1.5 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 py-1 px-3 rounded-full w-fit mx-auto">
                      <Bookmark size={14} className="fill-current"/> 
                      <span className="text-xs font-bold">Favorilere eklendi</span>
                  </div>
              )}
-             {addedToMemorized && !isReviewMode && (
+             {addedToMemorized && !isReviewMode && !challengeMode && (
                  <div className="mt-3 flex items-center justify-center gap-1.5 text-green-600 bg-green-50 dark:bg-green-900/20 py-1 px-3 rounded-full w-fit mx-auto">
                      <CheckCircle size={14} /> 
                      <span className="text-xs font-bold">Ezberlenenlere eklendi</span>
@@ -414,7 +542,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
          {/* Explanation Box */}
          {isAnswered && currentQuestion.explanation && (
-             <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-sm text-blue-800 dark:text-blue-200 flex gap-3 items-start animate-in slide-in-from-bottom-2">
+             <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-2xl text-sm text-blue-800 dark:text-blue-200 flex gap-3 items-start animate-in slide-in-from-bottom-2 shrink-0">
                  <Info size={20} className="shrink-0 mt-0.5" />
                  <p className="font-medium leading-relaxed">
                      <strong>Bağlam:</strong> {currentQuestion.explanation}
@@ -424,7 +552,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
       </div>
       
       {isAnswered && (
-          <button onClick={() => handleNext()} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none active:scale-[0.98] transition-transform mb-4 animate-in slide-in-from-bottom-4 text-lg">
+          <button onClick={() => handleNext()} className="w-full py-4 bg-indigo-600 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none active:scale-[0.98] transition-transform mt-4 mb-6 animate-in slide-in-from-bottom-4 text-lg shrink-0">
               {currentQuestionIndex < questions.length - 1 ? 'Sonraki Soru' : 'Sonuçları Gör'}
           </button>
       )}

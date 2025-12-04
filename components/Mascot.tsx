@@ -4,10 +4,10 @@ import React from 'react';
 // In a real scenario, these would be distinct transparent GIFs.
 // Since I cannot edit the files, I am using mix-blend-mode to remove white backgrounds visually on light themes.
 const MASCOT_GIFS = {
-    neutral: 'https://8upload.com/image/160e404efdfd1eae/neutral.png',
-    happy: 'https://8upload.com/image/4b9916de6026ca5f/happy.png',
-    sad: 'https://8upload.com/image/a71f3c671ef54227/sad.png',
-    thinking: 'https://8upload.com/image/bbef47d0c5119b40/thinking.png' // Placeholder: reuse neutral if specific thinking gif is missing
+    neutral: 'https://8upload.com/image/683d30980d832725/neutral.png',
+    happy: 'https://8upload.com/image/c725cfc9f2eb36c7/happy.png',
+    sad: 'https://8upload.com/image/a365c1b92ddaff6e/sad.png',
+    thinking: 'https://8upload.com/image/f78213d42d2c769f/thinking.png' // Placeholder: reuse neutral if specific thinking gif is missing
 };
 
 interface MascotProps {

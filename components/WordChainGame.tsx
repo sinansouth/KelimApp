@@ -32,6 +32,9 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
   const [usedWords, setUsedWords] = useState<Set<string>>(new Set());
   const [currentLetter, setCurrentLetter] = useState<string>(''); // Target start letter
 
+  // Use a Ref to track used words for the bot's async logic to avoid stale closures
+  const usedWordsRef = useRef<Set<string>>(new Set());
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -57,7 +60,10 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
           sender: 'bot'
       }]);
       
-      setUsedWords(new Set([startWord]));
+      const newUsed = new Set([startWord]);
+      setUsedWords(newUsed);
+      usedWordsRef.current = newUsed;
+      
       setCurrentLetter(startWord.slice(-1));
       setScore(0);
       setLives(3);
@@ -79,8 +85,8 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
           return;
       }
 
-      // 2. Check if word was already used
-      if (usedWords.has(userWord)) {
+      // 2. Check if word was already used (Using Ref for immediate check)
+      if (usedWordsRef.current.has(userWord)) {
           handleError(`Bu kelime zaten kullanıldı!`);
           return;
       }
@@ -96,7 +102,14 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
       // Valid Move
       playSound('correct');
       setMessages(prev => [...prev, { id: Date.now(), text: userWord, sender: 'user' }]);
-      setUsedWords(prev => new Set(prev).add(userWord));
+      
+      // Update both state and ref
+      setUsedWords(prev => {
+          const next = new Set(prev).add(userWord);
+          usedWordsRef.current = next;
+          return next;
+      });
+      
       setScore(prev => prev + 10);
       
       // XP: 10 per word
@@ -126,11 +139,12 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
 
   const botTurn = (startChar: string) => {
       // Bot tries to find a word starting with startChar
-      // Prefer words from current unit, then fallback to all words
-      // CRITICAL: Check against usedWords (which includes bot's previous words and user's words)
+      // CRITICAL: Check against usedWordsRef.current to ensure we have the latest list including user's last word
+      const usedSet = usedWordsRef.current;
+      
       const availableWords = allWords.filter(w => {
           const wLower = w.english.toLocaleLowerCase('en');
-          return wLower.startsWith(startChar) && !usedWords.has(wLower);
+          return wLower.startsWith(startChar) && !usedSet.has(wLower);
       });
 
       if (availableWords.length > 0) {
@@ -140,7 +154,14 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
           const pick = pickPool[Math.floor(Math.random() * pickPool.length)].english.toLocaleLowerCase('en');
 
           setMessages(prev => [...prev, { id: Date.now(), text: pick, sender: 'bot' }]);
-          setUsedWords(prev => new Set(prev).add(pick));
+          
+          // Update both state and ref
+          setUsedWords(prev => {
+              const next = new Set(prev).add(pick);
+              usedWordsRef.current = next;
+              return next;
+          });
+
           setCurrentLetter(pick.slice(-1));
           playSound('pop');
       } else {
@@ -202,8 +223,8 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
              {messages.map((msg) => (
                  <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
                      {msg.sender === 'bot' && (
-                         <div className="w-8 h-8 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center mr-2 shrink-0">
-                            <Mascot mood="happy" size={30} />
+                         <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center mr-2 shrink-0 overflow-hidden">
+                            <Mascot mood="happy" size={35} />
                          </div>
                      )}
                      <div 
@@ -222,7 +243,7 @@ const WordChainGame: React.FC<WordChainGameProps> = ({ unitWords, allWords, onFi
         </div>
 
         {/* Input Area */}
-        <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0">
+        <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 shrink-0 pb-safe">
              {!isGameOver ? (
                  <form onSubmit={handleSubmit} className="flex gap-2 relative">
                     <div className="absolute -top-10 left-0 bg-indigo-600 text-white text-xs px-3 py-1 rounded-full font-bold shadow-lg animate-bounce">

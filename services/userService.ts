@@ -54,6 +54,30 @@ export interface AppSettings {
   theme: ThemeType;
 }
 
+// --- TIME UTILITIES (Turkey Time Zone Enforcement) ---
+
+// Returns the current time as a Date object, adjusted to Turkey Time (Europe/Istanbul)
+export const getTurkeyTime = (): Date => {
+    const now = new Date();
+    // 'tr-TR' locale with 'Europe/Istanbul' timeZone automatically handles DST and offsets
+    const turkeyTimeStr = now.toLocaleString("en-US", { timeZone: "Europe/Istanbul" });
+    return new Date(turkeyTimeStr);
+};
+
+// Returns YYYY-MM-DD string based on Turkey Time
+export const getTodayDateString = (): string => {
+    const trDate = getTurkeyTime();
+    const year = trDate.getFullYear();
+    const month = String(trDate.getMonth() + 1).padStart(2, '0');
+    const day = String(trDate.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+// Get current timestamp in Turkey Time (milliseconds)
+export const getTurkeyTimestamp = (): number => {
+    return getTurkeyTime().getTime();
+};
+
 // Default Values
 const DEFAULT_PROFILE: UserProfile = {
     name: '',
@@ -68,7 +92,7 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 const getWeekId = () => {
-    const d = new Date();
+    const d = getTurkeyTime(); // Use Turkey Time
     d.setHours(0,0,0,0);
     d.setDate(d.getDate() + 4 - (d.getDay() || 7));
     const yearStart = new Date(d.getFullYear(),0,1);
@@ -86,7 +110,7 @@ const DEFAULT_STATS: UserStats = {
     quizCorrect: 0,
     quizWrong: 0,
     dailyGoal: 20,
-    date: new Date().toISOString().split('T')[0],
+    date: getTodayDateString(), // Use Turkey Date
     xpBoostEndTime: 0,
     lastGoalMetDate: null,
     viewedWordsToday: [],
@@ -96,7 +120,7 @@ const DEFAULT_STATS: UserStats = {
     completedUnits: [],
     completedGrades: [],
     weekly: {
-        weekId: getWeekId(),
+        weekId: getWeekId(), // Use Turkey Week
         quizCorrect: 0,
         quizWrong: 0,
         cardsViewed: 0,
@@ -148,8 +172,9 @@ export const getUserStats = (): UserStats => {
         if (!stored) return DEFAULT_STATS;
         const stats = JSON.parse(stored);
         
-        // Daily Reset Logic
-        const today = new Date().toISOString().split('T')[0];
+        // Daily Reset Logic (Based on Turkey Time)
+        const today = getTodayDateString();
+        
         if (stats.date !== today) {
             stats.date = today;
             stats.flashcardsViewed = 0;
@@ -157,25 +182,25 @@ export const getUserStats = (): UserStats => {
             stats.quizWrong = 0;
             stats.viewedWordsToday = [];
             
-            // Streak Logic: Reset only if missed a day (current logic in updateStats handles increment)
-            // Here we check if streak is broken (more than 1 day gap)
-            const lastDate = stats.lastStudyDate ? new Date(stats.lastStudyDate) : null;
-            if (lastDate) {
-                const now = new Date();
-                // Reset hours for accurate day diff
-                const d1 = new Date(lastDate); d1.setHours(0,0,0,0);
-                const d2 = new Date(); d2.setHours(0,0,0,0);
-                const diffDays = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+            // Streak Logic: Check if streak is broken
+            const lastDateStr = stats.lastStudyDate;
+            if (lastDateStr) {
+                // We parse strings to dates, assuming they are YYYY-MM-DD
+                const d1 = new Date(lastDateStr); 
+                const d2 = new Date(today);
+                // Calculate difference in days
+                const diffTime = Math.abs(d2.getTime() - d1.getTime());
+                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
                 
                 if (diffDays > 1) {
                     const prof = getUserProfile();
                     if (prof.inventory && prof.inventory.streakFreezes > 0) {
                          prof.inventory.streakFreezes--;
                          saveUserProfile(prof);
-                         // Streak kept alive by freeze, set last study date to yesterday effectively
-                         // But we don't change lastStudyDate here, just don't reset streak
-                         // Actually, to allow increment today, we treat it as if they studied yesterday
-                         stats.lastStudyDate = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+                         // Freeze used: Pretend last study date was yesterday
+                         const yesterday = new Date(getTurkeyTime());
+                         yesterday.setDate(yesterday.getDate() - 1);
+                         stats.lastStudyDate = yesterday.toISOString().split('T')[0];
                     } else {
                         stats.streak = 0;
                     }
@@ -183,7 +208,7 @@ export const getUserStats = (): UserStats => {
             }
         }
 
-        // Weekly Reset
+        // Weekly Reset (Turkey Time)
         const currentWeek = getWeekId();
         if (stats.weekly?.weekId !== currentWeek) {
             stats.weekly = {
@@ -274,7 +299,7 @@ export const removeFromBookmarks = (id: string) => {
     } catch {}
 };
 
-// --- SRS System ---
+// --- SRS System (Using Turkey Time) ---
 
 interface SRSData {
     box: number; // 1-5
@@ -295,18 +320,19 @@ export const saveSRSData = (data: Record<string, SRSData>) => {
 
 export const registerSRSInteraction = (wordId: string) => {
     const data = getSRSData();
+    const now = getTurkeyTimestamp();
     if (!data[wordId]) {
         // Initial interaction places it in box 1, but scheduled for TOMORROW
-        // This prevents "review" list being populated immediately after studying
-        data[wordId] = { box: 1, nextReview: Date.now() + (24 * 60 * 60 * 1000) };
+        data[wordId] = { box: 1, nextReview: now + (24 * 60 * 60 * 1000) };
         saveSRSData(data);
     }
 };
 
 export const handleReviewResult = (wordId: string, success: boolean) => {
     const data = getSRSData();
+    const now = getTurkeyTimestamp();
     // Default to box 1 if not found (shouldn't happen in review mode but safety check)
-    let entry = data[wordId] || { box: 1, nextReview: Date.now() };
+    let entry = data[wordId] || { box: 1, nextReview: now };
 
     if (success) {
         entry.box = Math.min(entry.box + 1, 5);
@@ -317,7 +343,7 @@ export const handleReviewResult = (wordId: string, success: boolean) => {
     // Intervals: 1d, 3d, 7d, 14d, 30d
     const intervals = [0, 1, 3, 7, 14, 30];
     const daysToAdd = intervals[entry.box];
-    entry.nextReview = Date.now() + (daysToAdd * 24 * 60 * 60 * 1000);
+    entry.nextReview = now + (daysToAdd * 24 * 60 * 60 * 1000);
 
     data[wordId] = entry;
     saveSRSData(data);
@@ -329,26 +355,19 @@ export const handleQuizResult = (wordId: string, success: boolean) => {
 
 export const getDueWords = (filterUnitIds?: string[]) => {
     const data = getSRSData();
-    const now = Date.now();
+    const now = getTurkeyTimestamp();
     const dueIds: string[] = [];
 
     Object.entries(data).forEach(([id, entry]) => {
         if (entry.nextReview <= now) {
             if (filterUnitIds) {
-                // Check if word belongs to allowed units
-                // ID format: unitId|englishWord or just englishWord (legacy)
                 const parts = id.split('|');
                 const unitId = parts.length > 1 ? parts[0] : null;
-                
-                // If legacy ID (no unit), include it if no specific unit filter or general match
-                // If modern ID, check unitId against filter
                 if (unitId) {
                      if (filterUnitIds.includes(unitId)) {
                         dueIds.push(id);
                      }
                 } else {
-                    // Legacy/unknown unit words included for safety, or could filter out
-                    // Let's include them
                     dueIds.push(id);
                 }
             } else {
@@ -357,14 +376,10 @@ export const getDueWords = (filterUnitIds?: string[]) => {
         }
     });
 
-    // Map ids back to word objects
-    // Performance optimization: iterate vocabulary once or use a lookup map
-    // Since VOCABULARY is structured by unit, we can iterate relevant units if filtered
     let candidateWords: any[] = [];
     if (filterUnitIds) {
         filterUnitIds.forEach(uid => {
              if (VOCABULARY[uid]) {
-                 // Add unitId to words for proper identification
                  candidateWords = [...candidateWords, ...VOCABULARY[uid].map(w => ({...w, unitId: uid}))];
              }
         });
@@ -372,7 +387,6 @@ export const getDueWords = (filterUnitIds?: string[]) => {
         candidateWords = Object.entries(VOCABULARY).flatMap(([uid, words]) => words.map(w => ({...w, unitId: uid})));
     }
 
-    // Filter candidates that are in dueIds list
     return candidateWords.filter(w => {
         const id = w.unitId ? `${w.unitId}|${w.english}` : w.english;
         return dueIds.includes(id);
@@ -381,7 +395,7 @@ export const getDueWords = (filterUnitIds?: string[]) => {
 
 export const getDueGrades = () => {
     const data = getSRSData();
-    const now = Date.now();
+    const now = getTurkeyTimestamp();
     const dueGrades = new Set<string>();
     
     Object.entries(data).forEach(([id, entry]) => {
@@ -389,7 +403,6 @@ export const getDueGrades = () => {
             const parts = id.split('|');
             if (parts.length > 1) {
                 const unitId = parts[0];
-                // Find grade for unit
                 Object.entries(UNIT_ASSETS).forEach(([grade, units]) => {
                     if (units.some(u => u.id === unitId)) {
                         dueGrades.add(grade);
@@ -403,19 +416,18 @@ export const getDueGrades = () => {
 
 export const getTotalDueCount = () => {
     const data = getSRSData();
-    const now = Date.now();
+    const now = getTurkeyTimestamp();
     return Object.values(data).filter(e => e.nextReview <= now).length;
 };
 
 export const getDueCountForGrade = (grade: string) => {
     const data = getSRSData();
-    const now = Date.now();
+    const now = getTurkeyTimestamp();
     const units = UNIT_ASSETS[grade]?.map(u => u.id) || [];
     let count = 0;
     Object.entries(data).forEach(([id, entry]) => {
         if (entry.nextReview <= now) {
             const parts = id.split('|');
-            // Check if unit ID is in the grade's unit list
             if (parts.length > 1 && units.includes(parts[0])) {
                 count++;
             }
@@ -442,41 +454,36 @@ export const updateStats = (
     amount: number = 1
 ): Badge[] => {
     const stats = getUserStats();
-    const now = new Date();
+    const today = getTodayDateString(); // Turkey Time Date
     
-    // Use 23:59 cut-off for daily reset simulation in logic, but basic date string comparison works for day change
-    const today = now.toISOString().split('T')[0];
-    
-    // Streak Logic - Simplified: If date changed and it's consecutive, increment.
     if (stats.date !== today) {
-        const last = stats.lastStudyDate ? new Date(stats.lastStudyDate) : null;
-        if (last) {
-            const d1 = new Date(last); d1.setHours(0,0,0,0);
-            const d2 = new Date(); d2.setHours(0,0,0,0);
-            const diff = Math.ceil((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
+        // New day!
+        const lastDateStr = stats.lastStudyDate;
+        
+        if (lastDateStr) {
+            const d1 = new Date(lastDateStr);
+            const d2 = new Date(today);
+            const diffTime = Math.abs(d2.getTime() - d1.getTime());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
 
-            if (diff === 1) stats.streak++;
-            else if (diff > 1) {
-                 // Check for streak freeze is handled in getUserStats usually, but let's ensure logic holds
-                 // If getUserStats didn't catch it (app wasn't opened), it resets. 
-                 // If opened, getUserStats handles freeze consumption.
-                 // Here we just increment if valid or 1 if broken.
-                 // For simplicity, if diff > 1, user broke streak unless getUserStats handled it
-                 stats.streak = 1; 
+            if (diffDays === 1) {
+                stats.streak++;
+            } else if (diffDays > 1) {
+                 // Freeze logic should have handled this in getUserStats, 
+                 // but if not, reset to 1 (starting fresh today)
+                 stats.streak = 1;
             }
         } else {
             stats.streak = 1;
         }
         stats.lastStudyDate = today;
-        // Note: Resetting daily counters happens in getUserStats when reading
     } else {
-        // Same day, ensure lastStudyDate is set if it was null (first action)
         if (!stats.lastStudyDate) stats.lastStudyDate = today;
     }
 
     // XP Calculation
     let xpGain = 0;
-    const multiplier = (stats.xpBoostEndTime > Date.now()) ? 2 : 1;
+    const multiplier = (stats.xpBoostEndTime > Date.now()) ? 2 : 1; // Boost uses local device time for duration, acceptable
 
     switch (action) {
         case 'card_view':
@@ -485,12 +492,12 @@ export const updateStats = (
                 stats.viewedWordsToday.push(unitId);
             }
             stats.weekly.cardsViewed += amount;
-            xpGain = 3 * amount; // Increased per request
+            xpGain = 3 * amount;
             break;
         case 'quiz_correct':
             stats.quizCorrect += amount;
             stats.weekly.quizCorrect += amount;
-            xpGain = 20 * amount; // Increased per request
+            xpGain = 20 * amount;
             break;
         case 'quiz_wrong':
             stats.quizWrong += amount;
@@ -514,7 +521,6 @@ export const updateStats = (
 
     stats.xp += xpGain * multiplier;
 
-    // Level Up Logic
     const newLevel = Math.floor(Math.sqrt(stats.xp / 100)) + 1;
     if (newLevel > stats.level) {
         stats.level = newLevel;
@@ -522,7 +528,6 @@ export const updateStats = (
 
     saveUserStats(stats);
     
-    // Check Badges
     const unlockedBadges: Badge[] = [];
     BADGES.forEach(badge => {
         if (!stats.badges.includes(badge.id)) {
@@ -534,7 +539,7 @@ export const updateStats = (
     });
     
     if (unlockedBadges.length > 0) {
-        saveUserStats(stats); // Save badge unlock
+        saveUserStats(stats);
     }
 
     return unlockedBadges;
@@ -544,7 +549,6 @@ export const updateGameStats = (game: 'matching' | 'typing' | 'chain' | 'maze' |
     const stats = getUserStats();
     
     if (game === 'matching') {
-        // Logic changed: score is passed, higher is better
         if (score > stats.weekly.matchingBestTime) stats.weekly.matchingBestTime = score;
     } else if (game === 'typing') {
         if (score > stats.weekly.typingHighScore) stats.weekly.typingHighScore = score;
@@ -578,12 +582,12 @@ export const updateTimeSpent = (minutes: number): Badge[] => {
     return unlockedBadges;
 };
 
-// --- Daily Quests ---
+// --- Daily Quests (Turkey Time) ---
 
 export const getDailyState = () => {
     try {
         const stored = localStorage.getItem(KEYS.DAILY);
-        const today = new Date().toISOString().split('T')[0];
+        const today = getTodayDateString(); // Turkey Date
         
         if (stored) {
             const data = JSON.parse(stored);
@@ -595,7 +599,8 @@ export const getDailyState = () => {
         const newState = {
             date: today,
             quests: newQuests,
-            wordOfTheDayIndex: Math.floor(Math.random() * 2000)
+            // wordOfTheDayIndex no longer needed for random word, but keeping structure for compatibility
+            wordOfTheDayIndex: 0 
         };
         localStorage.setItem(KEYS.DAILY, JSON.stringify(newState));
         return newState;
@@ -657,7 +662,6 @@ export const updateQuestProgress = (type: string, amount: number) => {
             if (q.current >= q.target) {
                 q.current = q.target;
                 q.isCompleted = true;
-                // Award Quest Reward
                 const stats = getUserStats();
                 stats.xp += q.rewardXP;
                 stats.questsCompleted++;
@@ -729,7 +733,6 @@ export const buyItem = (itemId: 'streak_freeze' | 'xp_boost', cost: number): boo
              profile.inventory.streakFreezes = (profile.inventory.streakFreezes || 0) + 1;
              saveUserProfile(profile);
         } else if (itemId === 'xp_boost') {
-             // 1 Hour Boost
              stats.xpBoostEndTime = Date.now() + (60 * 60 * 1000);
         }
         
@@ -786,23 +789,28 @@ export const adminResetDailyQuests = () => {
     localStorage.removeItem(KEYS.DAILY);
 };
 
-// --- Utils ---
+// --- Random Word (Revised Logic) ---
 
-export const getWordOfTheDay = () => {
-    // Use ONLY General English words for Word of the Day
-    const genA1 = VOCABULARY['gen_a1'] || [];
-    const genA2 = VOCABULARY['gen_a2'] || [];
-    const genB1 = VOCABULARY['gen_b1'] || [];
-    const genB2 = VOCABULARY['gen_b2'] || [];
-    const genC1 = VOCABULARY['gen_c1'] || [];
+export const getRandomWordForGrade = (grade: GradeLevel | string | null) => {
+    if (!grade) return null;
+
+    // Get units for this grade
+    const units = UNIT_ASSETS[grade];
+    if (!units || units.length === 0) return null;
+
+    // Pick a random unit (ignoring 'all' units if preferred, but keeping it simple for variety)
+    // Filter out empty units first
+    const validUnits = units.filter(u => VOCABULARY[u.id] && VOCABULARY[u.id].length > 0);
     
-    const allWords = [...genA1, ...genA2, ...genB1, ...genB2, ...genC1];
+    if (validUnits.length === 0) return null;
+
+    const randomUnit = validUnits[Math.floor(Math.random() * validUnits.length)];
+    const words = VOCABULARY[randomUnit.id];
     
-    if (allWords.length === 0) return null;
-    
-    const state = getDailyState();
-    const index = state.wordOfTheDayIndex % allWords.length;
-    return allWords[index];
+    if (!words || words.length === 0) return null;
+
+    const randomWord = words[Math.floor(Math.random() * words.length)];
+    return randomWord;
 };
 
 export const saveLastActivity = (grade: string, unitId: string) => {
@@ -828,11 +836,8 @@ export const updateLastUpdatedTimestamp = () => {
 };
 
 export const checkDataVersion = () => {
-    // Handle version migrations if needed
     const currentVer = parseInt(localStorage.getItem(KEYS.VERSION) || '0');
-    if (currentVer < 3) { // Assuming version 3 is current
-        // Reset data if critical changes
-        // localStorage.clear(); 
+    if (currentVer < 3) { 
         localStorage.setItem(KEYS.VERSION, '3');
         return true;
     }
@@ -844,20 +849,17 @@ export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?
         localStorage.clear();
         window.location.reload();
     } else if (scope.type === 'unit' && scope.value) {
-        // Remove only for specific unit
         const mem = getMemorizedSet();
         const newMem = new Set<string>();
         mem.forEach(id => { if (!id.startsWith(scope.value!)) newMem.add(id); });
         localStorage.setItem(KEYS.MEMORIZED, JSON.stringify([...newMem]));
         
-        // Remove from SRS
         const srs = getSRSData();
         Object.keys(srs).forEach(id => { if (id.startsWith(scope.value!)) delete srs[id]; });
         saveSRSData(srs);
         
         updateLastUpdatedTimestamp();
     }
-    // Grade reset logic similar to unit...
 };
 
 export const clearLocalUserData = () => {
@@ -866,5 +868,4 @@ export const clearLocalUserData = () => {
     localStorage.removeItem(KEYS.MEMORIZED);
     localStorage.removeItem(KEYS.BOOKMARKS);
     localStorage.removeItem(KEYS.SRS);
-    // Keep settings
 };
