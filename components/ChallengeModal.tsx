@@ -1,12 +1,12 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { X, Swords, Copy, ArrowRight, Hash, GraduationCap, BookOpen, Settings, Check, Globe, Lock, Users, UserPlus, Search, User, Clock, History } from 'lucide-react';
+import { X, Swords, Copy, ArrowRight, Hash, GraduationCap, BookOpen, Settings, Check, Globe, Lock, Users, UserPlus, Search, User, Clock, History, Trophy, PlayCircle, RefreshCw, Calendar, AlertCircle } from 'lucide-react';
 import { playSound } from '../services/soundService';
-import { getChallenge, getOpenChallenges, getFriends, getAuthInstance, getPastChallenges } from '../services/firebase';
-import { WordCard, GradeLevel, UnitDef, QuizDifficulty, Challenge } from '../types';
+import { getChallenge, getOpenChallenges, getFriends, getAuthInstance, getPastChallenges, getTournaments, joinTournament, checkTournamentTimeouts } from '../services/firebase';
+import { WordCard, GradeLevel, UnitDef, QuizDifficulty, Challenge, Tournament, TournamentMatch } from '../types';
 import { VOCABULARY } from '../data/vocabulary';
 import { UNIT_ASSETS } from '../data/assets';
+import TournamentTree from './TournamentTree';
 
 interface ChallengeModalProps {
   onClose: () => void;
@@ -15,12 +15,14 @@ interface ChallengeModalProps {
 }
 
 const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChallenge, onJoinChallenge }) => {
-  const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'history'>('menu');
+  const [mode, setMode] = useState<'menu' | 'create' | 'join' | 'history' | 'tournaments' | 'tournament_view'>('menu');
   const [joinCode, setJoinCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [challengeList, setChallengeList] = useState<Challenge[]>([]);
   const [historyList, setHistoryList] = useState<Challenge[]>([]);
+  const [tournamentList, setTournamentList] = useState<Tournament[]>([]);
+  const [selectedTournament, setSelectedTournament] = useState<Tournament | null>(null);
 
   // Creation States
   const [step, setStep] = useState<number>(1);
@@ -47,14 +49,11 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
   const countOptions = [10, 20, 30];
 
   useEffect(() => {
-      if (mode === 'join') {
-          fetchOpenChallenges();
-      }
-      if (mode === 'history') {
-          fetchHistory();
-      }
+      if (mode === 'join') fetchOpenChallenges();
+      if (mode === 'history') fetchHistory();
+      if (mode === 'tournaments') fetchTournaments();
+      
       if (mode === 'create' && step === 3) {
-          // Load friends when reaching step 3
           const auth = getAuthInstance();
           if (auth.currentUser) {
               getFriends(auth.currentUser.uid).then(list => {
@@ -89,6 +88,22 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
               console.error(e);
           }
       }
+      setLoading(false);
+  }
+
+  const fetchTournaments = async () => {
+      setLoading(true);
+      try {
+          const list = await getTournaments();
+          setTournamentList(list);
+          
+          // LAZY TRIGGER: Check active tournaments for timeouts automatically
+          list.forEach(t => {
+              if (t.status === 'active') {
+                  checkTournamentTimeouts(t.id).catch(console.error);
+              }
+          });
+      } catch (e) { console.error(e); }
       setLoading(false);
   }
 
@@ -139,6 +154,38 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
       }
   };
 
+  const handleJoinTournament = async (tId: string) => {
+      setLoading(true);
+      try {
+          await joinTournament(tId);
+          fetchTournaments();
+          alert("Turnuvaya kaydoldun!");
+      } catch (e: any) {
+          alert(e.message || "Hata");
+      } finally {
+          setLoading(false);
+      }
+  };
+
+  const handlePlayTournamentMatch = (match: TournamentMatch) => {
+      if (!selectedTournament) return;
+      
+      const unitId = selectedTournament.unitId;
+      let pool: WordCard[] = [];
+      if (unitId === 'all') pool = Object.values(VOCABULARY).flat();
+      else pool = VOCABULARY[unitId] || [];
+
+      const words = pool.sort(() => 0.5 - Math.random()).slice(0, selectedTournament.config.wordCount);
+      
+      // Pass tournament info to play
+      onJoinChallenge({ 
+          matchId: match.id, 
+          tournamentId: selectedTournament.id, 
+          difficulty: selectedTournament.config.difficulty,
+          tournamentName: selectedTournament.title
+      }, words);
+  };
+
   const handleCreateSubmit = () => {
       if (selectedGrade && selectedUnit) {
           (onCreateChallenge as any)({
@@ -151,56 +198,79 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
           });
       }
   };
+  
+  const auth = getAuthInstance();
+  const myUid = auth.currentUser?.uid;
+  
+  const formatTime = (timestamp: number) => {
+      const d = new Date(timestamp);
+      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  }
+
+  const formatDate = (timestamp: number) => {
+      return new Date(timestamp).toLocaleDateString();
+  }
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
         
         <div className="bg-orange-500 p-5 text-center relative shrink-0">
             <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white">
                 <X size={24} />
             </button>
             <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center text-orange-500 mx-auto mb-2 shadow-lg">
-                <Swords size={24} />
+                {mode === 'tournaments' || mode === 'tournament_view' ? <Trophy size={24} /> : <Swords size={24} />}
             </div>
-            <h2 className="text-xl font-black text-white mb-0.5">Meydan Oku</h2>
-            <p className="text-orange-100 text-xs font-medium">Arkadaşınla kozlarını paylaş!</p>
+            <h2 className="text-xl font-black text-white mb-0.5">
+                {mode === 'tournaments' || mode === 'tournament_view' ? 'Turnuvalar' : 'Meydan Oku'}
+            </h2>
+            <p className="text-orange-100 text-xs font-medium">
+                {mode === 'tournaments' || mode === 'tournament_view' ? 'Şampiyon kim olacak?' : 'Arkadaşınla kozlarını paylaş!'}
+            </p>
         </div>
 
         <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
             {mode === 'menu' ? (
-                <div className="space-y-4">
+                <div className="space-y-3">
                     <button 
                         onClick={() => setMode('create')}
-                        className="w-full py-5 px-6 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-between group"
+                        className="w-full py-4 px-5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-indigo-200 dark:shadow-none transition-all active:scale-95 flex items-center justify-between group"
                     >
                         <div className="text-left">
-                            <div className="text-lg font-black">Düello Oluştur</div>
-                            <div className="text-xs opacity-80 font-medium mt-1">Kendi kurallarınla yarış</div>
+                            <div className="text-base font-black">Düello Oluştur</div>
+                            <div className="text-xs opacity-80 font-medium">Kendi kurallarınla yarış</div>
                         </div>
-                        <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-                            <ArrowRight className="group-hover:translate-x-1 transition-transform" />
-                        </div>
+                        <ArrowRight className="group-hover:translate-x-1 transition-transform" size={20} />
                     </button>
 
                     <button 
                         onClick={() => setMode('join')}
-                        className="w-full py-5 px-6 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-orange-500 dark:hover:border-orange-500 text-slate-700 dark:text-white rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-between group"
+                        className="w-full py-4 px-5 bg-white dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 hover:border-orange-500 dark:hover:border-orange-500 text-slate-700 dark:text-white rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-between group"
                     >
                         <div className="text-left">
-                            <div className="text-lg font-black">Düelloya Katıl</div>
-                            <div className="text-xs text-slate-500 font-medium mt-1">Açık davetleri gör</div>
+                            <div className="text-base font-black">Düelloya Katıl</div>
+                            <div className="text-xs text-slate-500 font-medium">Açık davetleri gör</div>
                         </div>
-                        <div className="w-10 h-10 bg-slate-100 dark:bg-slate-700 rounded-full flex items-center justify-center text-slate-400 group-hover:text-orange-500 transition-colors">
-                             <Hash size={20} />
+                        <Hash size={20} className="text-slate-400 group-hover:text-orange-500 transition-colors" />
+                    </button>
+
+                    <button 
+                        onClick={() => setMode('tournaments')}
+                        className="w-full py-4 px-5 bg-gradient-to-r from-yellow-500 to-amber-600 text-white rounded-2xl font-bold shadow-md transition-all active:scale-95 flex items-center justify-between group"
+                    >
+                        <div className="text-left">
+                            <div className="text-base font-black">Turnuvalar</div>
+                            <div className="text-xs opacity-90 font-medium">Büyük ödül için yarış</div>
                         </div>
+                        <Trophy size={20} className="group-hover:scale-110 transition-transform" />
                     </button>
                     
                     <button 
                         onClick={() => setMode('history')}
-                        className="w-full py-4 px-6 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 group"
+                        className="w-full py-3 px-5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 rounded-2xl font-bold transition-all active:scale-95 flex items-center justify-center gap-2 group mt-2"
                     >
-                        <History size={18} /> Geçmiş Düellolar
+                        <History size={16} /> Geçmiş Maçlar
                     </button>
                 </div>
             ) : mode === 'join' ? (
@@ -224,6 +294,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
                                         <span className="font-bold text-sm text-slate-800 dark:text-white">{c.creatorName}</span>
                                         <span className="text-xs font-black text-indigo-500 bg-indigo-100 dark:bg-indigo-900/30 px-2 py-0.5 rounded">{c.creatorScore}%</span>
                                     </div>
+                                    <div className="text-[10px] text-slate-400 mb-1 truncate">
+                                        {c.grade === 'GENERAL' ? 'Genel' : `${c.grade}. Sınıf`} • {c.unitName}
+                                    </div>
                                     <div className="flex justify-between text-[10px] text-slate-500">
                                          <span className="flex items-center gap-1">
                                              {c.type === 'friend' ? <User size={10} /> : <Globe size={10} />}
@@ -231,7 +304,7 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
                                          </span>
                                          <span className="flex items-center gap-1">
                                              <Clock size={10} />
-                                             {Math.floor((Date.now() - c.createdAt) / 60000)} dk önce
+                                             {formatTime(c.createdAt)}
                                          </span>
                                     </div>
                                 </button>
@@ -266,6 +339,90 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
 
                     <button onClick={() => setMode('menu')} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl">Geri</button>
                 </div>
+            ) : mode === 'tournaments' ? (
+                 <div className="space-y-4">
+                     {loading ? <div className="text-center py-8 text-slate-400">Yükleniyor...</div> : tournamentList.length > 0 ? (
+                         tournamentList.map(t => {
+                             const isRegistered = t.participants.includes(myUid || '');
+                             const now = Date.now();
+                             // Safe date parsing
+                             const regStart = t.registrationStartDate || 0;
+                             
+                             const isNotStartedYet = t.status === 'registration' && now < regStart;
+                             const isRegistrationOpen = t.status === 'registration' && !isNotStartedYet && now <= t.registrationEndDate;
+
+                             return (
+                             <div key={t.id} className="p-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-sm">
+                                 <div className="flex justify-between items-start mb-2">
+                                     <div>
+                                         <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-wide mb-1">
+                                             {t.grade === 'GENERAL' ? 'Genel' : `${t.grade}. Sınıf`} • {t.unitName}
+                                         </div>
+                                         <h3 className="font-bold text-lg text-slate-800 dark:text-white">{t.title}</h3>
+                                     </div>
+                                     <span className={`px-2 py-1 text-[10px] font-bold rounded uppercase ${
+                                         t.status === 'registration' ? (isNotStartedYet ? 'bg-slate-200 text-slate-600' : 'bg-green-100 text-green-600') : 
+                                         t.status === 'active' ? 'bg-blue-100 text-blue-600' : 'bg-slate-100 text-slate-500'
+                                     }`}>
+                                         {t.status === 'registration' ? (isNotStartedYet ? 'Bekleniyor' : 'Kayıt Açık') : t.status === 'active' ? 'Devam Ediyor' : 'Tamamlandı'}
+                                     </span>
+                                 </div>
+                                 
+                                 <div className="grid grid-cols-2 gap-2 text-[10px] text-slate-500 mb-3 bg-slate-50 dark:bg-slate-800 p-2 rounded-lg">
+                                     <div>
+                                         <span className="block font-bold text-slate-400">Kayıt:</span>
+                                         {isNotStartedYet 
+                                             ? `${formatDate(regStart)}'de Başlıyor`
+                                             : `Bitiş: ${formatDate(t.registrationEndDate)}`
+                                         }
+                                     </div>
+                                     <div>
+                                         <span className="block font-bold text-slate-400">Maçlar:</span>
+                                         {formatDate(t.startDate)}
+                                     </div>
+                                 </div>
+
+                                 <div className="flex gap-4 text-xs text-slate-500 mb-4">
+                                     <span className="flex items-center gap-1"><Users size={14} /> {t.participants.length}/{t.maxParticipants}</span>
+                                     {t.minLevel > 1 && <span className="flex items-center gap-1"><Trophy size={14} /> Min Lvl {t.minLevel}</span>}
+                                 </div>
+
+                                 {t.status === 'registration' ? (
+                                     !isRegistered ? (
+                                        <button 
+                                            onClick={() => handleJoinTournament(t.id)}
+                                            disabled={!isRegistrationOpen}
+                                            className={`w-full py-2 rounded-xl font-bold text-sm transition-colors ${!isRegistrationOpen ? 'bg-slate-200 text-slate-500 cursor-not-allowed' : 'bg-green-500 hover:bg-green-600 text-white'}`}
+                                        >
+                                            {isNotStartedYet ? `Kayıt ${formatDate(regStart)}'de Başlıyor` : 'Turnuvaya Katıl'}
+                                        </button>
+                                     ) : (
+                                         <div className="w-full py-2 bg-green-50 text-green-600 border border-green-200 rounded-xl font-bold text-sm text-center flex items-center justify-center gap-2">
+                                             <Check size={16} /> Kayıtlısın
+                                         </div>
+                                     )
+                                 ) : (
+                                     <button 
+                                        onClick={() => { setSelectedTournament(t); setMode('tournament_view'); }}
+                                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors"
+                                     >
+                                         Turnuvayı Görüntüle
+                                     </button>
+                                 )}
+                             </div>
+                         )})
+                     ) : (
+                         <div className="text-center py-10 text-slate-400">Aktif turnuva bulunamadı.</div>
+                     )}
+                     <button onClick={() => setMode('menu')} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl mt-2">Geri</button>
+                 </div>
+            ) : mode === 'tournament_view' && selectedTournament ? (
+                <TournamentTree 
+                    tournament={selectedTournament} 
+                    currentUserId={myUid || ''} 
+                    onPlayMatch={handlePlayTournamentMatch}
+                    onBack={() => setMode('tournaments')}
+                />
             ) : mode === 'history' ? (
                  <div className="space-y-4">
                     <div className="flex items-center justify-between mb-2">
@@ -278,8 +435,6 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
                     ) : historyList.length > 0 ? (
                          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
                              {historyList.map(c => {
-                                 const auth = getAuthInstance();
-                                 const myUid = auth.currentUser?.uid;
                                  const isCreator = c.creatorId === myUid;
                                  const opponentName = isCreator ? (c.opponentName || 'Rakip') : c.creatorName;
                                  const myScore = isCreator ? c.creatorScore : c.opponentScore;
@@ -293,7 +448,9 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
                                  return (
                                      <div key={c.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex justify-between items-center">
                                          <div>
-                                             <div className="text-xs text-slate-400 mb-1">{new Date(c.createdAt).toLocaleDateString()}</div>
+                                             <div className="text-[10px] text-slate-400 mb-1">
+                                                 {new Date(c.createdAt).toLocaleDateString()} • {c.grade === 'GENERAL' ? 'Genel' : `${c.grade}. Sınıf`}
+                                             </div>
                                              <div className="font-bold text-sm text-slate-800 dark:text-white">vs {opponentName}</div>
                                          </div>
                                          <div className="text-right">

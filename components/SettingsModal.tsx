@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, Volume2, VolumeX, MessageSquare, Lock, Key, RotateCcw } from 'lucide-react';
-import { AppSettings, getAppSettings, saveAppSettings, resetAppProgress } from '../services/userService';
+import { X, Volume2, VolumeX, MessageSquare, Lock, Key, RotateCcw, ShieldCheck } from 'lucide-react';
+import { AppSettings, getAppSettings, saveAppSettings, resetAppProgress, getUserProfile } from '../services/userService';
 import { APP_CONFIG } from '../config/appConfig';
 import ResetScopeModal from './ResetScopeModal';
 import { playSound } from '../services/soundService';
@@ -18,9 +18,13 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
   const [showAdminInput, setShowAdminInput] = useState(false);
   const [adminPassword, setAdminPassword] = useState('');
   const [showResetModal, setShowResetModal] = useState(false);
+  const [isAdminUser, setIsAdminUser] = useState(false);
 
   useEffect(() => {
       setSettings(getAppSettings());
+      const profile = getUserProfile();
+      // Check both boolean true and string 'true' just in case
+      setIsAdminUser(profile.isAdmin === true || String(profile.isAdmin) === 'true');
   }, []);
 
   const toggleSound = () => {
@@ -106,40 +110,58 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
                 </div>
             </button>
 
-            <div className="p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-xl border border-yellow-100 dark:border-yellow-800/30 text-center">
-                <p className="text-[10px] text-yellow-700 dark:text-yellow-500 font-medium">
-                    Temalar ve diğer özellikler için <strong>XP Market</strong>'i ziyaret et!
-                </p>
-            </div>
+            {isAdminUser ? (
+                <button 
+                    onClick={() => { onClose(); onOpenAdmin(); }}
+                    className="w-full flex items-center gap-3 p-3 rounded-xl bg-gradient-to-r from-red-600 to-red-700 text-white shadow-lg shadow-red-500/30 transition-all hover:scale-[1.02] active:scale-95 text-left relative overflow-hidden"
+                >
+                    <div className="absolute top-0 right-0 w-20 h-20 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                    <div className="p-2 bg-white/20 rounded-lg backdrop-blur-sm">
+                        <ShieldCheck size={18} />
+                    </div>
+                    <div>
+                        <div className="font-black text-sm">Yönetici Paneli</div>
+                        <div className="text-xs text-red-100 font-medium">Sistem kontrolü</div>
+                    </div>
+                </button>
+            ) : (
+                <div className="p-3 bg-yellow-50 dark:bg-yellow-900/10 rounded-xl border border-yellow-100 dark:border-yellow-800/30 text-center">
+                    <p className="text-[10px] text-yellow-700 dark:text-yellow-500 font-medium">
+                        Temalar ve diğer özellikler için <strong>XP Market</strong>'i ziyaret et!
+                    </p>
+                </div>
+            )}
             
-            {/* Admin Login Section */}
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-                 {!showAdminInput ? (
-                     <div className="flex justify-between items-center">
-                         <span className="text-[10px] text-slate-400">v{APP_CONFIG.version}</span>
-                         <button 
-                            onClick={() => setShowAdminInput(true)}
-                            className="p-2 text-slate-300 hover:text-slate-500 transition-colors"
-                         >
-                             <Lock size={14} />
-                         </button>
-                     </div>
-                 ) : (
-                     <form onSubmit={handleAdminLogin} className="flex gap-2 animate-in fade-in">
-                         <input 
-                            type="password" 
-                            value={adminPassword}
-                            onChange={(e) => setAdminPassword(e.target.value)}
-                            placeholder="Yönetici Şifresi"
-                            className="flex-1 text-xs p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-1 focus:ring-red-500 outline-none"
-                            autoFocus
-                         />
-                         <button type="submit" className="p-2 bg-red-500 text-white rounded-lg">
-                             <Key size={14} />
-                         </button>
-                     </form>
-                 )}
-            </div>
+            {/* Admin Login Section (Only show if NOT admin already) */}
+            {!isAdminUser && (
+                <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+                     {!showAdminInput ? (
+                         <div className="flex justify-between items-center">
+                             <span className="text-[10px] text-slate-400">v{APP_CONFIG.version}</span>
+                             <button 
+                                onClick={() => setShowAdminInput(true)}
+                                className="p-2 text-slate-300 hover:text-slate-500 transition-colors"
+                             >
+                                 <Lock size={14} />
+                             </button>
+                         </div>
+                     ) : (
+                         <form onSubmit={handleAdminLogin} className="flex gap-2 animate-in fade-in">
+                             <input 
+                                type="password" 
+                                value={adminPassword}
+                                onChange={(e) => setAdminPassword(e.target.value)}
+                                placeholder="Yönetici Şifresi"
+                                className="flex-1 text-xs p-2 rounded-lg bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:ring-1 focus:ring-red-500 outline-none"
+                                autoFocus
+                             />
+                             <button type="submit" className="p-2 bg-red-500 text-white rounded-lg">
+                                 <Key size={14} />
+                             </button>
+                         </form>
+                     )}
+                </div>
+            )}
         </div>
       </div>
     </div>

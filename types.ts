@@ -1,5 +1,4 @@
 
-
 import { ReactNode } from 'react';
 
 export interface WordCard {
@@ -148,14 +147,71 @@ export interface Challenge {
     creatorName: string;
     creatorScore: number;
     wordIndices: number[]; 
-    unitId: string; 
+    unitId: string;
+    unitName?: string; // Added for display
+    grade?: string; // Added for display 
     difficulty: QuizDifficulty;
     wordCount: number;
-    targetFriendId?: string; // If type is 'friend'
+    targetFriendId?: string; 
     opponentId?: string;
     opponentName?: string;
     opponentScore?: number;
     status: 'waiting' | 'completed';
-    winnerId?: string; // 'creator', 'opponent', or 'tie'
+    winnerId?: string; 
     createdAt: number;
+}
+
+export interface TournamentRewards {
+    firstPlace: number;
+    secondPlace: number;
+    thirdPlace: number;
+    participation: number;
+}
+
+export interface Tournament {
+    id: string;
+    title: string;
+    grade: string;
+    unitId: string;
+    unitName: string;
+    status: 'registration' | 'active' | 'completed';
+    registrationStartDate: number; // New: When registration opens
+    registrationEndDate: number; // When registration closes
+    startDate: number; // When matches start
+    endDate: number;
+    roundDuration: number; // Minutes per round
+    participants: string[];
+    matches: TournamentMatch[];
+    currentRound: number; // 32, 16, 8, 4, 2
+    championId?: string;
+    maxParticipants: number;
+    minLevel: number; 
+    rewards: TournamentRewards; 
+    config: {
+        difficulty: QuizDifficulty;
+        wordCount: number;
+    };
+}
+
+export interface TournamentMatch {
+    id: string;
+    round: number; // 16, 8, 4, 2
+    player1Id?: string;
+    player1Name?: string;
+    player2Id?: string; 
+    player2Name?: string;
+    
+    score1_leg1?: number;
+    time1_leg1?: number; // Duration in seconds
+    score2_leg1?: number;
+    time2_leg1?: number;
+    
+    score1_leg2?: number;
+    time1_leg2?: number;
+    score2_leg2?: number;
+    time2_leg2?: number;
+    
+    winnerId?: string;
+    status: 'waiting' | 'leg1_active' | 'leg2_active' | 'completed';
+    updatedAt?: number; // Track when last played to handle timeouts
 }

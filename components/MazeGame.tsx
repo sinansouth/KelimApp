@@ -16,8 +16,8 @@ interface MazeGameProps {
 }
 
 // --- Constants ---
-const GRID_SIZE = 21; // Odd number for maze generation
-const POOL_SIZE = 3;  // 3x3 Goal Areas
+const GRID_SIZE = 21; 
+const POOL_SIZE = 3;  
 const ENEMY_COUNT = 3;
 const TICK_RATE = 130; 
 
@@ -30,7 +30,6 @@ interface Position {
 
 interface DoorArea {
   id: string;
-  // Top-left coordinate of the 3x3 pool
   x: number;
   y: number;
   word: string;
@@ -43,14 +42,13 @@ interface Enemy {
   id: number;
   pos: Position;
   state: EnemyState;
-  lastMove: Position; // Direction of last move
-  targetPos: Position | null; // Where it saw the player last
+  lastMove: Position; 
+  targetPos: Position | null; 
   startPos: Position;
   color: string;
-  patience: number; // How long to keep chasing after losing sight
+  patience: number; 
 }
 
-// --- Memoized Grid Component ---
 const MazeGrid = React.memo(({ grid, doors }: { grid: CellType[][], doors: DoorArea[] }) => {
   return (
     <div 
@@ -77,10 +75,10 @@ const MazeGrid = React.memo(({ grid, doors }: { grid: CellType[][], doors: DoorA
                 }
             }
 
-            // Improved Wall Visibility: Lighter color, thicker look for mobile
-            const wallClass = 'bg-slate-700 border-[0.5px] border-slate-600 shadow-inner'; 
+            // Flat colors, no shadows/borders for performance
+            const wallClass = 'bg-slate-700'; 
             const pathClass = 'bg-[#0f172a]';
-            const poolClass = 'bg-indigo-900/50 border border-indigo-500/30';
+            const poolClass = 'bg-indigo-900/50';
 
             return (
                 <div key={`${x}-${y}`} className={`w-full h-full relative ${cell === 'wall' ? wallClass : cell === 'pool' ? poolClass : pathClass}`}>
@@ -104,7 +102,6 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
   const [grid, setGrid] = useState<CellType[][]>([]);
   const [playerPos, setPlayerPos] = useState<Position>({ x: 10, y: 10 });
   
-  // Movement Refs
   const nextDirRef = useRef<Position>({ x: 0, y: 0 });
   const currentDirRef = useRef<Position>({ x: 0, y: 0 });
   const isMovingRef = useRef<boolean>(false);
@@ -118,7 +115,6 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
   const [gameState, setGameState] = useState<'starting' | 'playing' | 'won' | 'lost' | 'hit'>('starting');
   const [hitMessage, setHitMessage] = useState<string>('');
 
-  // Game Loop Refs
   const playerPosRef = useRef<Position>({ x: 10, y: 10 });
   const doorsRef = useRef<DoorArea[]>([]);
   const enemiesRef = useRef<Enemy[]>([]); 
@@ -213,11 +209,9 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
     const target = words[Math.floor(Math.random() * words.length)];
     setCurrentWord(target);
 
-    // Smart Distractors Logic
     const allVocab = Object.values(VOCABULARY).flat();
     const distractors = getSmartDistractors(target, allVocab, 3);
     
-    // Fallback if not enough smart distractors
     if (distractors.length < 3) {
         const remaining = 3 - distractors.length;
         const randoms = words
@@ -280,20 +274,13 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
         });
     }
     setEnemies(newEnemies);
-    
-    // Start with countdown state
     setGameState('starting');
-    
-    setTimeout(() => {
-        setGameState('playing');
-    }, 2000);
+    setTimeout(() => { setGameState('playing'); }, 2000);
 
   }, [words, level]);
 
   const getValidMoves = (pos: Position, currentGrid: CellType[][]) => {
-       const moves = [
-          {x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}
-       ];
+       const moves = [{x: 0, y: -1}, {x: 0, y: 1}, {x: -1, y: 0}, {x: 1, y: 0}];
        return moves.filter(m => {
            const nx = pos.x + m.x;
            const ny = pos.y + m.y;
@@ -329,7 +316,6 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
       if (next.x !== 0 || next.y !== 0) {
           const checkX = currentPos.x + next.x;
           const checkY = currentPos.y + next.y;
-          
           if (checkX >= 0 && checkX < GRID_SIZE && checkY >= 0 && checkY < GRID_SIZE && maze[checkY][checkX] !== 'wall') {
               dir = next;
               currentDirRef.current = next;
@@ -340,18 +326,14 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
       if (dir.x !== 0 || dir.y !== 0) {
           let newX = currentPos.x + dir.x;
           let newY = currentPos.y + dir.y;
-
-          if (newX < 0) newX = GRID_SIZE - 1;
-          else if (newX >= GRID_SIZE) newX = 0;
+          if (newX < 0) newX = GRID_SIZE - 1; else if (newX >= GRID_SIZE) newX = 0;
 
           if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE && maze[newY][newX] !== 'wall') {
               setPlayerPos({ x: newX, y: newY });
-              
               const hitDoor = doorsRef.current.find(d => 
                   newX >= d.x && newX < d.x + POOL_SIZE &&
                   newY >= d.y && newY < d.y + POOL_SIZE
               );
-
               if (hitDoor) {
                   if (hitDoor.isCorrect) handleLevelWin(); else handleDoorFail();
                   currentDirRef.current = {x:0, y:0};
@@ -369,13 +351,11 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
       if (gameTickRef.current % 2 === 0) {
           moveEnemies(playerPosRef.current);
       }
-
       checkCollisions();
   };
 
   const moveEnemies = (targetPos: Position) => {
       const currentGrid = gridRef.current;
-      
       setEnemies(prev => prev.map(enemy => {
           let newState = enemy.state;
           let target = enemy.targetPos;
@@ -385,32 +365,23 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
           const canSeePlayer = dist < 12 && hasLineOfSight(enemy.pos, targetPos, currentGrid);
 
           if (canSeePlayer) {
-              newState = 'chasing';
-              target = targetPos; 
-              patience = 60; 
+              newState = 'chasing'; target = targetPos; patience = 60; 
           } else if (patience > 0) {
-              patience--;
-              newState = 'chasing';
+              patience--; newState = 'chasing';
           } else {
-              newState = 'wandering';
-              target = null;
+              newState = 'wandering'; target = null;
           }
           
           if (newState === 'chasing' && target && enemy.pos.x === target.x && enemy.pos.y === target.y) {
-              newState = 'wandering';
-              target = null;
-              patience = 0;
+              newState = 'wandering'; target = null; patience = 0;
           }
 
           const possibleMoves = getValidMoves(enemy.pos, currentGrid).filter(m => {
              const nx = enemy.pos.x + m.x;
              const ny = enemy.pos.y + m.y;
-             
              if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) return false;
-             
              const cell = currentGrid[ny][nx];
              if (cell === 'pool') return false;
-             
              return true;
           });
 
@@ -428,7 +399,6 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
               bestMove = possibleMoves[0];
           } else {
               const nonReverseMoves = possibleMoves.filter(m => !(m.x === -enemy.lastMove.x && m.y === -enemy.lastMove.y));
-              
               if (nonReverseMoves.length > 0) {
                   bestMove = nonReverseMoves[Math.floor(Math.random() * nonReverseMoves.length)];
               } else {
@@ -436,14 +406,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
               }
           }
           
-          return { 
-              ...enemy, 
-              pos: { x: enemy.pos.x + bestMove.x, y: enemy.pos.y + bestMove.y }, 
-              lastMove: bestMove,
-              state: newState,
-              targetPos: target,
-              patience: patience
-          };
+          return { ...enemy, pos: { x: enemy.pos.x + bestMove.x, y: enemy.pos.y + bestMove.y }, lastMove: bestMove, state: newState, targetPos: target, patience: patience };
       }));
   };
 
@@ -468,8 +431,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
   };
 
   useEffect(() => {
-      if (gameState === 'playing') startGameLoop();
-      else stopGameLoop();
+      if (gameState === 'playing') startGameLoop(); else stopGameLoop();
       return () => stopGameLoop();
   }, [gameState]);
 
@@ -501,7 +463,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
       if (!touchStartRef.current) return;
       const dx = e.changedTouches[0].clientX - touchStartRef.current.x;
       const dy = e.changedTouches[0].clientY - touchStartRef.current.y;
-      if (Math.abs(dx) > 20 || Math.abs(dy) > 20) { // Increased sensitivity a bit
+      if (Math.abs(dx) > 20 || Math.abs(dy) > 20) { 
           if (Math.abs(dx) > Math.abs(dy)) handleInput(dx > 0 ? 1 : -1, 0);
           else handleInput(0, dy > 0 ? 1 : -1);
       }
@@ -518,14 +480,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
               setLives(l => l - 1);
               const center = Math.floor(GRID_SIZE / 2);
               setPlayerPos({ x: center, y: center });
-              setEnemies(enemiesRef.current.map(e => ({ 
-                  ...e, 
-                  pos: e.startPos, 
-                  state: 'wandering',
-                  lastMove: {x:0, y:0},
-                  targetPos: null,
-                  patience: 0
-              })));
+              setEnemies(enemiesRef.current.map(e => ({ ...e, pos: e.startPos, state: 'wandering', lastMove: {x:0, y:0}, targetPos: null, patience: 0 })));
               currentDirRef.current = {x:0, y:0};
               nextDirRef.current = {x:0, y:0};
               setGameState('playing');
@@ -586,12 +541,12 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
       top: `${(pos.y / GRID_SIZE) * 100}%`,
       width: `${100 / GRID_SIZE}%`,
       height: `${100 / GRID_SIZE}%`,
-      transition: `top ${speed}ms linear, left ${speed}ms linear`
+      transition: `top ${speed}ms linear, left ${speed}ms linear`,
+      willChange: 'top, left'
   });
 
   return (
     <div className="flex flex-col h-full bg-[#0f172a] text-slate-200 select-none overflow-hidden relative">
-        {/* Header */}
         <div className="p-2 flex justify-between items-center bg-slate-900/80 border-b border-slate-700 shadow-md shrink-0 z-20">
             <div className="flex items-center gap-3">
                 <div className="flex gap-1">
@@ -604,19 +559,15 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
             <div className="font-black text-lg text-yellow-400 font-mono tracking-widest">{score.toString().padStart(4, '0')}</div>
         </div>
 
-        {/* Word Hint */}
         <div className="py-2 text-center bg-slate-900/50 shrink-0 border-b border-slate-700 z-10 relative">
              <div className="absolute top-0 left-0 w-full h-[1px] bg-gradient-to-r from-transparent via-cyan-500 to-transparent opacity-50"></div>
              <span className="text-[9px] text-cyan-300 uppercase tracking-[0.2em] font-bold block mb-0.5 shadow-cyan-500/50">HEDEF</span>
              <h2 className="text-xl font-black text-white tracking-wide drop-shadow-[0_0_10px_rgba(255,255,255,0.8)] px-2">{currentWord?.english}</h2>
         </div>
 
-        {/* Game Area - UPDATED: Larger size on mobile, w-full max-w-xl */}
         <div className="flex-1 flex items-center justify-center p-2 relative overflow-hidden touch-none" style={{ touchAction: 'none' }} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
             <div className="relative rounded-xl shadow-2xl overflow-hidden bg-slate-900 border-4 border-slate-700 aspect-square w-full max-w-xl">
-                
                 <MazeGrid grid={grid} doors={doors} />
-
                 <div className="absolute inset-0 w-full h-full pointer-events-none">
                     {enemies.map((enemy) => (
                         <div key={enemy.id} className="absolute flex items-center justify-center z-20" style={getEntityStyle(enemy.pos, TICK_RATE * 2)}> 
@@ -624,14 +575,12 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
                             {enemy.state === 'chasing' && <div className="absolute -top-3 left-1/2 -translate-x-1/2 text-red-500 animate-bounce font-bold text-xs">!</div>}
                         </div>
                     ))}
-
                     <div className="absolute flex items-center justify-center z-30" style={getEntityStyle(playerPos, TICK_RATE)}>
                         <div className="w-[70%] h-[70%] bg-cyan-400/20 blur-md rounded-full absolute animate-pulse"></div>
                         <Bot size={'80%'} className="text-cyan-300 fill-cyan-500/40 relative z-10 drop-shadow-[0_0_5px_cyan]" />
                     </div>
                 </div>
 
-                {/* States Overlays */}
                 {gameState === 'starting' && (
                     <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-[2px] animate-in fade-in">
                          <div className="bg-slate-900/90 p-6 rounded-2xl border-2 border-cyan-500 shadow-xl text-center animate-pulse">
@@ -651,7 +600,6 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
             </div>
         </div>
 
-        {/* Controls Area - Bottom */}
         <div className="pb-safe bg-slate-900/80 border-t border-slate-800/50 p-2 shrink-0 z-20">
             <div className="flex justify-between items-center px-4 mb-2">
                 <button onClick={handleExit} className="text-slate-500 hover:text-red-400 text-xs font-bold">Çıkış</button>
@@ -659,43 +607,12 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
                 <div className="w-8"></div>
             </div>
             <div className="grid grid-cols-3 gap-1 max-w-[200px] mx-auto">
-                 {/* Empty Top Left */}
                  <div></div>
-                 
-                 {/* UP Button */}
-                 <button 
-                    onPointerDown={(e) => { e.preventDefault(); handleInput(0, -1); }}
-                    className="h-14 bg-slate-800 rounded-xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center text-cyan-400 hover:bg-slate-700"
-                 >
-                    <ChevronUp size={32} />
-                 </button>
-                 
-                 {/* Empty Top Right */}
+                 <button onPointerDown={(e) => { e.preventDefault(); handleInput(0, -1); }} className="h-14 bg-slate-800 rounded-xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center text-cyan-400 hover:bg-slate-700"><ChevronUp size={32} /></button>
                  <div></div>
-
-                 {/* LEFT Button */}
-                 <button 
-                    onPointerDown={(e) => { e.preventDefault(); handleInput(-1, 0); }}
-                    className="h-14 bg-slate-800 rounded-xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center text-cyan-400 hover:bg-slate-700"
-                 >
-                    <ChevronLeft size={32} />
-                 </button>
-
-                 {/* DOWN Button */}
-                 <button 
-                    onPointerDown={(e) => { e.preventDefault(); handleInput(0, 1); }}
-                    className="h-14 bg-slate-800 rounded-xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center text-cyan-400 hover:bg-slate-700"
-                 >
-                    <ChevronDown size={32} />
-                 </button>
-
-                 {/* RIGHT Button */}
-                 <button 
-                    onPointerDown={(e) => { e.preventDefault(); handleInput(1, 0); }}
-                    className="h-14 bg-slate-800 rounded-xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center text-cyan-400 hover:bg-slate-700"
-                 >
-                    <ChevronRightIcon size={32} />
-                 </button>
+                 <button onPointerDown={(e) => { e.preventDefault(); handleInput(-1, 0); }} className="h-14 bg-slate-800 rounded-xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center text-cyan-400 hover:bg-slate-700"><ChevronLeft size={32} /></button>
+                 <button onPointerDown={(e) => { e.preventDefault(); handleInput(0, 1); }} className="h-14 bg-slate-800 rounded-xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center text-cyan-400 hover:bg-slate-700"><ChevronDown size={32} /></button>
+                 <button onPointerDown={(e) => { e.preventDefault(); handleInput(1, 0); }} className="h-14 bg-slate-800 rounded-xl border-b-4 border-slate-950 active:border-b-0 active:translate-y-1 transition-all flex items-center justify-center text-cyan-400 hover:bg-slate-700"><ChevronRightIcon size={32} /></button>
             </div>
         </div>
     </div>

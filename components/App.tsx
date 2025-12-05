@@ -1,47 +1,47 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty, Challenge, Tournament, TournamentMatch } from './types';
-import { VOCABULARY } from './data/vocabulary';
-import TopicSelector from './components/TopicSelector';
-import { UNIT_ASSETS, UI_ICONS, AVATARS, FRAMES, BACKGROUNDS, BADGES, THEME_COLORS } from './data/assets';
-import FlashcardDeck from './components/FlashcardDeck';
-import Quiz from './components/Quiz';
-import Profile from './components/Profile';
-import GrammarView from './components/GrammarView';
-import WordSelector from './components/WordSelector';
-import InfoView from './components/InfoView';
-import AnnouncementsView from './components/AnnouncementsView';
-import EmptyStateWarning from './components/EmptyStateWarning';
-import Celebration from './components/Celebration';
-import SettingsModal from './components/SettingsModal';
-import QuizSetupModal from './components/QuizSetupModal';
-import SRSInfoModal from './components/SRSInfoModal';
-import GradeSelectionModal from './components/GradeSelectionModal';
-import MarketModal from './components/MarketModal';
-import AvatarModal from './components/AvatarModal';
-import AuthModal from './components/AuthModal';
-import OnboardingModal from './components/OnboardingModal';
-import FeedbackModal from './components/FeedbackModal';
-import AdminModal from './components/AdminModal'; 
-import InstallPromptModal from './components/InstallPromptModal';
-import ChallengeModal from './components/ChallengeModal';
-import UserProfileModal from './components/UserProfileModal';
-import WelcomeScreen from './components/WelcomeScreen';
-import CustomAlert, { AlertType } from './components/CustomAlert'; 
+import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty, Challenge, Tournament, TournamentMatch } from '../types';
+import { VOCABULARY } from '../data/vocabulary';
+import TopicSelector from './TopicSelector';
+import { UNIT_ASSETS, UI_ICONS, AVATARS, FRAMES, BACKGROUNDS, BADGES, THEME_COLORS } from '../data/assets';
+import FlashcardDeck from './FlashcardDeck';
+import Quiz from './Quiz';
+import Profile from './Profile';
+import GrammarView from './GrammarView';
+import WordSelector from './WordSelector';
+import InfoView from './InfoView';
+import AnnouncementsView from './AnnouncementsView';
+import EmptyStateWarning from './EmptyStateWarning';
+import Celebration from './Celebration';
+import SettingsModal from './SettingsModal';
+import QuizSetupModal from './QuizSetupModal';
+import SRSInfoModal from './SRSInfoModal';
+import GradeSelectionModal from './GradeSelectionModal';
+import MarketModal from './MarketModal';
+import AvatarModal from './AvatarModal';
+import AuthModal from './AuthModal';
+import OnboardingModal from './OnboardingModal';
+import FeedbackModal from './FeedbackModal';
+import AdminModal from './AdminModal'; 
+import InstallPromptModal from './InstallPromptModal';
+import ChallengeModal from './ChallengeModal';
+import UserProfileModal from './UserProfileModal';
+import WelcomeScreen from './WelcomeScreen';
+import CustomAlert, { AlertType } from './CustomAlert'; 
 import { ChevronLeft, Zap, Trophy, User, Swords } from 'lucide-react';
-import { getUserProfile, getTheme, saveTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, clearLocalUserData, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, UserStats } from './services/userService';
-import { getAuthInstance, syncLocalToCloud, subscribeToUserChanges, syncData, getOpenChallenges } from './services/firebase'; 
-import { requestNotificationPermission } from './services/notificationService';
-import { ANNOUNCEMENTS } from './data/announcements';
-import { playSound } from './services/soundService';
-import { APP_CONFIG } from './config/appConfig';
+import { getUserProfile, getTheme, saveTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, clearLocalUserData, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, UserStats } from '../services/userService';
+import { getAuthInstance, syncLocalToCloud, subscribeToUserChanges, syncData, getOpenChallenges } from '../services/firebase'; 
+import { requestNotificationPermission } from '../services/notificationService';
+import { ANNOUNCEMENTS } from '../data/announcements';
+import { playSound } from '../services/soundService';
+import { APP_CONFIG } from '../config/appConfig';
 import { App as CapacitorApp } from '@capacitor/app';
 import { StatusBar, Style } from '@capacitor/status-bar';
 import { Capacitor } from '@capacitor/core';
 import { onAuthStateChanged } from 'firebase/auth';
-import MatchingGame from './components/MatchingGame'; 
-import MazeGame from './components/MazeGame'; 
-import WordSearchGame from './components/WordSearchGame'; 
+import MatchingGame from './MatchingGame'; 
+import MazeGame from './MazeGame'; 
+import WordSearchGame from './WordSearchGame'; 
 
 const App: React.FC = () => {
   const [mode, setMode] = useState<AppMode>(AppMode.HOME);
@@ -199,9 +199,15 @@ const App: React.FC = () => {
               } else {
                   checkForDuels();
                   localStorage.setItem('lgs_last_uid', user.uid);
-                  refreshGlobalState();
+                  
+                  // Ensure local state matches cloud preferences upon login
+                  // This covers the case where user logs in on a new device
                   const updatedSettings = getAppSettings();
-                  applyTheme(updatedSettings.theme);
+                  if (updatedSettings.theme && updatedSettings.theme !== currentTheme) {
+                      applyTheme(updatedSettings.theme);
+                  }
+                  
+                  refreshGlobalState();
               }
           });
           return () => unsubscribeAuth();
@@ -281,6 +287,13 @@ const App: React.FC = () => {
           await syncLocalToCloud(auth.currentUser.uid);
           checkForDuels();
       }
+      
+      // Explicitly re-read settings to ensure theme changes are picked up across devices
+      const latestSettings = getAppSettings();
+      if (latestSettings.theme && latestSettings.theme !== currentTheme) {
+          applyTheme(latestSettings.theme);
+      }
+      
       refreshGlobalState();
   };
   
@@ -348,7 +361,7 @@ const App: React.FC = () => {
               if (gradeUnits) { allowedUnitIds = gradeUnits.map(u => u.id); } 
               unitWords = getDueWords(allowedUnitIds); 
               if (unitWords.length === 0) { handleTriggerCelebration("Tebrikler! Şu an tekrar edilecek kelime yok.", 'goal'); return; } 
-              allDistractors = Object.entries(VOCABULARY).flatMap(([uid, words]) => words.map(w => ({...w, unitId: uid}))); 
+              allDistractors = Object.entries(VOCABULARY).flatMap(([uid, words]) => (words as WordCard[]).map(w => ({...w, unitId: uid}))); 
           } else { 
               const dueGrades = getDueGrades(); 
               if (dueGrades.length > 1) { setAvailableGradesForReview(dueGrades); setActiveModal('grade'); return; } 
@@ -357,13 +370,13 @@ const App: React.FC = () => {
                   const gradeUnits = UNIT_ASSETS[g]; 
                   if (gradeUnits) { allowedUnitIds = gradeUnits.map(u => u.id); } 
                   unitWords = getDueWords(allowedUnitIds); 
-                  allDistractors = Object.entries(VOCABULARY).flatMap(([uid, words]) => words.map(w => ({...w, unitId: uid}))); 
+                  allDistractors = Object.entries(VOCABULARY).flatMap(([uid, words]) => (words as WordCard[]).map(w => ({...w, unitId: uid}))); 
               } else { handleTriggerCelebration("Tebrikler! Şu an tekrar edilecek kelime yok.", 'goal'); return; } 
           } 
       } else { 
           if (isAllInOne && selectedGrade) { 
               const units = UNIT_ASSETS[selectedGrade]; 
-              units.forEach(u => { if (u.id !== unit.id && VOCABULARY[u.id]) { const taggedWords = VOCABULARY[u.id].map(w => ({ ...w, unitId: u.id })); unitWords = [...unitWords, ...taggedWords]; } }); 
+              units.forEach(u => { if (u.id !== unit.id && VOCABULARY[u.id]) { const taggedWords = (VOCABULARY[u.id] as WordCard[]).map(w => ({ ...w, unitId: u.id })); unitWords = [...unitWords, ...taggedWords]; } }); 
           } else { unitWords = (VOCABULARY[unit.id] || []).map(w => ({ ...w, unitId: unit.id })); } 
           allDistractors = unitWords; 
       } 
@@ -405,7 +418,7 @@ const App: React.FC = () => {
       let allowedUnitIds: string[] = []; 
       if (gradeUnits) { allowedUnitIds = gradeUnits.map(u => u.id); } 
       const dueWords = getDueWords(allowedUnitIds); 
-      const allDistractors = Object.entries(VOCABULARY).flatMap(([uid, words]) => words.map(w => ({...w, unitId: uid}))); 
+      const allDistractors = Object.entries(VOCABULARY).flatMap(([uid, words]) => (words as WordCard[]).map(w => ({...w, unitId: uid}))); 
       setWords(shuffleArray(dueWords)); setAllUnitWords(allDistractors); setTopicTitle(`Günlük Tekrar (${grade}. Sınıf)`); setIsSRSReview(true); setActiveQuizType('review'); setActiveQuizDifficulty('normal'); changeMode(AppMode.QUIZ); 
   };
 

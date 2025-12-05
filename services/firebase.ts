@@ -1,3 +1,6 @@
+
+
+
 import { initializeApp } from 'firebase/app';
 import { 
     getAuth, 
@@ -23,7 +26,9 @@ import {
     getDocs,
     onSnapshot,
     updateDoc,
-    arrayUnion
+    arrayUnion,
+    addDoc,
+    deleteDoc
 } from 'firebase/firestore';
 
 import { 
@@ -36,9 +41,13 @@ import {
     clearLocalUserData,
     saveUserProfile,
     saveUserStats,
-    saveAppSettings
+    saveAppSettings,
+    updateStats
 } from './userService';
-import { Challenge, QuizDifficulty } from '../types';
+import { Challenge, QuizDifficulty, Tournament, TournamentMatch } from '../types';
+import { UNIT_ASSETS } from '../data/assets';
+import { Announcement } from '../data/announcements';
+import { sendNotification } from './notificationService';
 
 // REPLACE WITH YOUR FIREBASE CONFIG
 const firebaseConfig = {
@@ -245,6 +254,77 @@ export const deleteAccount = async () => {
     clearLocalUserData();
     window.location.reload();
 };
+
+// --- ADMIN ACTIONS ---
+
+export const searchUser = async (queryText: string) => {
+    const usersRef = collection(db, "users");
+    
+    // Try Email
+    let q = query(usersRef, where("email", "==", queryText), limit(1));
+    let snap = await getDocs(q);
+    if (!snap.empty) return snap.docs[0].data();
+
+    // Try Name
+    q = query(usersRef, where("leaderboardData.name", "==", queryText), limit(1));
+    snap = await getDocs(q);
+    if (!snap.empty) return snap.docs[0].data();
+
+    // Try UID
+    try {
+        const docRef = doc(db, "users", queryText);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) return docSnap.data();
+    } catch(e) {}
+
+    return null;
+}
+
+export const findUserByEmail = async (email: string) => {
+   return searchUser(email);
+}
+
+export const toggleAdminStatus = async (uid: string, isAdmin: boolean) => {
+    const userRef = doc(db, "users", uid);
+    await updateDoc(userRef, { "profile.isAdmin": isAdmin });
+}
+
+export const adminGiveXP = async (uid: string, amount: number) => {
+    const userRef = doc(db, "users", uid);
+    const userSnap = await getDoc(userRef);
+    
+    if (userSnap.exists()) {
+        const data = userSnap.data();
+        const currentXP = data.stats?.xp || 0;
+        const newXP = currentXP + amount;
+        
+        await updateDoc(userRef, { 
+            "stats.xp": newXP,
+            "leaderboardData.xp": newXP 
+        });
+    }
+}
+
+// --- ANNOUNCEMENTS ---
+
+export const createGlobalAnnouncement = async (title: string, content: string) => {
+    const announcementsRef = collection(db, "announcements");
+    await addDoc(announcementsRef, {
+        id: `ann_${Date.now()}`,
+        title,
+        content,
+        date: new Date().toLocaleDateString('tr-TR'),
+        createdAt: Date.now()
+    });
+}
+
+export const getGlobalAnnouncements = async (): Promise<Announcement[]> => {
+    const announcementsRef = collection(db, "announcements");
+    const q = query(announcementsRef, orderBy("createdAt", "desc"), limit(10));
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => doc.data() as Announcement);
+}
+
 
 // --- DATA SYNC ---
 
@@ -464,6 +544,20 @@ export const createChallenge = async (
     
     const challengeId = Math.random().toString(36).substring(2, 8).toUpperCase();
     
+    // Find unit title and grade for better display in lists
+    let unitName = 'Karışık';
+    let grade = 'Genel';
+    if (unitId && unitId !== 'mixed') {
+        for (const [g, units] of Object.entries(UNIT_ASSETS)) {
+            const found = units.find(u => u.id === unitId);
+            if (found) {
+                unitName = found.title;
+                grade = g;
+                break;
+            }
+        }
+    }
+
     const challengeData: Challenge = {
         id: challengeId,
         type,
@@ -472,6 +566,8 @@ export const createChallenge = async (
         creatorScore: creatorScore,
         wordIndices: wordIndices,
         unitId: unitId,
+        unitName: unitName,
+        grade: grade,
         difficulty: difficulty,
         wordCount: wordCount,
         status: 'waiting',
@@ -509,11 +605,7 @@ export const getOpenChallenges = async (currentUid: string): Promise<Challenge[]
     const expiration = 24 * 60 * 60 * 1000; // 24 hours
     const validTime = now - expiration;
 
-    // FIX: Simplified Query to avoid "Composite Index" error.
-    // Instead of filtering by type and time in the query (which requires an index),
-    // we fetch all 'waiting' games and filter in memory.
-    // Ideally, this should use an index for performance in a large app,
-    // but this ensures it works without manual console setup.
+    // Simplified Query
     const q = query(
         challengesRef, 
         where("status", "==", "waiting")
@@ -530,27 +622,20 @@ export const getOpenChallenges = async (currentUid: string): Promise<Challenge[]
         const isMyOwn = data.creatorId === currentUid;
         
         if (!isExpired && !isMyOwn) {
-            // Add Public challenges
             if (data.type === 'public') {
                 challenges.push(data);
             } 
-            // Add Friend challenges specifically for me
             else if (data.type === 'friend' && data.targetFriendId === currentUid) {
                 challenges.push(data);
             }
         }
     });
     
-    // Sort by newest first
     return challenges.sort((a,b) => b.createdAt - a.createdAt);
 };
 
 export const getPastChallenges = async (currentUid: string): Promise<Challenge[]> => {
     const challengesRef = collection(db, "challenges");
-    
-    // We fetch all completed challenges where user was involved
-    // Note: Firestore doesn't support OR queries easily across different fields without composite index.
-    // We will fetch separately and merge.
     
     const qCreator = query(
         challengesRef,
@@ -572,7 +657,6 @@ export const getPastChallenges = async (currentUid: string): Promise<Challenge[]
     snap1.forEach(doc => challenges.push(doc.data() as Challenge));
     snap2.forEach(doc => challenges.push(doc.data() as Challenge));
     
-    // Deduplicate and sort by date desc
     const uniqueChallenges = Array.from(new Map(challenges.map(item => [item.id, item])).values());
     return uniqueChallenges.sort((a, b) => b.createdAt - a.createdAt);
 };
@@ -601,6 +685,300 @@ export const completeChallenge = async (challengeId: string, opponentName: strin
     }
 };
 
+// --- TOURNAMENT SYSTEM ---
+
+export const createTournament = async (data: Partial<Tournament>) => {
+    if (!auth.currentUser) return;
+    
+    const tid = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const tournamentData: Tournament = {
+        id: tid,
+        title: data.title || 'Yeni Turnuva',
+        grade: data.grade || 'A1',
+        unitId: data.unitId || 'all',
+        unitName: data.unitName || 'Karışık',
+        status: 'registration',
+        registrationStartDate: data.registrationStartDate || Date.now(),
+        registrationEndDate: data.registrationEndDate || (Date.now() + (2 * 24 * 60 * 60 * 1000)), // Default 2 days for reg
+        startDate: data.startDate || (Date.now() + (3 * 24 * 60 * 60 * 1000)), // Default start in 3 days
+        endDate: data.endDate || (Date.now() + (7 * 24 * 60 * 60 * 1000)),
+        maxParticipants: data.maxParticipants || 32,
+        minLevel: data.minLevel || 1, // New Level Limit
+        roundDuration: data.roundDuration || 30, // Minutes per round (Changed)
+        rewards: data.rewards || { firstPlace: 1000, secondPlace: 500, thirdPlace: 250, participation: 50 }, // Rewards
+        participants: [],
+        matches: [],
+        currentRound: data.maxParticipants || 32, // Default start
+        config: data.config || { difficulty: 'normal', wordCount: 20 }
+    };
+
+    await setDoc(doc(db, "tournaments", tid), tournamentData);
+    return tid;
+};
+
+export const updateTournament = async (tournamentId: string, data: Partial<Tournament>) => {
+     if (!auth.currentUser) return;
+     const tRef = doc(db, "tournaments", tournamentId);
+     await updateDoc(tRef, data);
+}
+
+export const deleteTournament = async (tournamentId: string) => {
+     if (!auth.currentUser) return;
+     await deleteDoc(doc(db, "tournaments", tournamentId));
+}
+
+export const updateTournamentStatus = async (tournamentId: string, status: 'registration' | 'active' | 'completed') => {
+    const tRef = doc(db, "tournaments", tournamentId);
+    await updateDoc(tRef, { status });
+}
+
+// Function to process timeouts for matches in a tournament (AUTOMATIC/LAZY TRIGGERED)
+// Returns true if any update was made
+export const checkTournamentTimeouts = async (tournamentId: string): Promise<boolean> => {
+    const tRef = doc(db, "tournaments", tournamentId);
+    const tSnap = await getDoc(tRef);
+    
+    if (!tSnap.exists()) return false;
+    
+    const tournament = tSnap.data() as Tournament;
+    const currentUserId = auth.currentUser?.uid;
+    
+    // Only process active tournaments
+    if (tournament.status !== 'active') {
+        // If registration expired, start it automatically
+        if (tournament.status === 'registration' && Date.now() > tournament.registrationEndDate) {
+             // Generate brackets and start
+             // Simplified: Just mark active. Real bracket generation logic would go here.
+             await updateDoc(tRef, { status: 'active' });
+             if (currentUserId && tournament.participants.includes(currentUserId)) {
+                 sendNotification("Turnuva Başladı!", `${tournament.title} başladı, iyi şanslar!`);
+             }
+             return true;
+        }
+        return false;
+    }
+
+    const matches = tournament.matches;
+    let hasUpdates = false;
+    const now = Date.now();
+    
+    // Round Duration Logic: Minutes
+    // Using MINUTES now
+    const ROUND_DURATION = (tournament.roundDuration || 30) * 60 * 1000; // Minutes to Ms
+    
+    // Calculate expected round end time
+    // Round 32 -> 16 -> 8 -> 4 -> 2
+    let roundsPlayed = 0;
+    if (tournament.maxParticipants === 32) {
+        if (tournament.currentRound === 16) roundsPlayed = 1;
+        if (tournament.currentRound === 8) roundsPlayed = 2;
+        if (tournament.currentRound === 4) roundsPlayed = 3;
+        if (tournament.currentRound === 2) roundsPlayed = 4;
+    } else if (tournament.maxParticipants === 64) {
+        if (tournament.currentRound === 32) roundsPlayed = 1;
+        if (tournament.currentRound === 16) roundsPlayed = 2;
+        if (tournament.currentRound === 8) roundsPlayed = 3;
+        if (tournament.currentRound === 4) roundsPlayed = 4;
+        if (tournament.currentRound === 2) roundsPlayed = 5;
+    }
+    
+    const roundStartTime = tournament.startDate + (roundsPlayed * ROUND_DURATION);
+    const roundEndTime = roundStartTime + ROUND_DURATION;
+
+    // Check for matches relevant to current user to send notifications
+    if (currentUserId) {
+        const myMatch = matches.find(m => (m.player1Id === currentUserId || m.player2Id === currentUserId) && m.round === tournament.currentRound && m.status !== 'completed');
+        if (myMatch) {
+            // Check if it's waiting for me specifically
+            // e.g. Leg 1 or Leg 2 pending
+            let needToPlay = false;
+             if (myMatch.player1Id === currentUserId) {
+                if (myMatch.score1_leg1 === undefined) needToPlay = true;
+                else if (myMatch.round !== 2 && myMatch.score1_leg2 === undefined) needToPlay = true;
+             } else {
+                if (myMatch.score2_leg1 === undefined) needToPlay = true;
+                else if (myMatch.round !== 2 && myMatch.score2_leg2 === undefined) needToPlay = true;
+             }
+
+             if (needToPlay) {
+                 // Send a notification (throttled by local storage or similar usually, but here simply calling it)
+                 // Ideally we check if we already notified recently. 
+                 // For this demo, we assume this function is called on page load.
+                 sendNotification("Sıra Sende!", `${tournament.title} turnuvasında maç sırası sende.`);
+             }
+        }
+    }
+
+    // Check if current round time has expired
+    if (now > roundEndTime) {
+        // Timeout Logic: Force finish current round matches
+        const currentRoundMatches = matches.filter(m => m.round === tournament.currentRound && m.status !== 'completed');
+        
+        if (currentRoundMatches.length > 0) {
+            for (let i = 0; i < matches.length; i++) {
+                const m = matches[i];
+                if (m.round === tournament.currentRound && m.status !== 'completed') {
+                    let updated = false;
+                    
+                    // Set 0 for unplayed
+                    if (m.score1_leg1 === undefined) { m.score1_leg1 = 0; updated = true; }
+                    if (m.score2_leg1 === undefined) { m.score2_leg1 = 0; updated = true; }
+                    
+                    if (m.round !== 2) {
+                        if (m.score1_leg2 === undefined) { m.score1_leg2 = 0; updated = true; }
+                        if (m.score2_leg2 === undefined) { m.score2_leg2 = 0; updated = true; }
+                    }
+                    
+                    if (updated) {
+                         const total1 = (m.score1_leg1 || 0) + (m.score1_leg2 || 0);
+                         const total2 = (m.score2_leg1 || 0) + (m.score2_leg2 || 0);
+                         
+                         m.status = 'completed';
+                         m.winnerId = total1 >= total2 ? m.player1Id : m.player2Id;
+                         
+                         hasUpdates = true;
+                    }
+                }
+            }
+             if (currentUserId && currentRoundMatches.some(m => m.player1Id === currentUserId || m.player2Id === currentUserId)) {
+                  sendNotification("Tur Bitti!", `${tournament.title} turnuvasında tur süresi doldu.`);
+             }
+        }
+    }
+    
+    if (hasUpdates) {
+        await updateDoc(tRef, { matches: matches });
+        return true;
+    }
+    return false;
+};
+
+
+export const joinTournament = async (tournamentId: string) => {
+    if (!auth.currentUser) throw new Error("Giriş yapmalısınız.");
+    
+    const userStats = getUserStats();
+    const tRef = doc(db, "tournaments", tournamentId);
+    const tSnap = await getDoc(tRef);
+    
+    if (!tSnap.exists()) throw new Error("Turnuva bulunamadı.");
+    const tData = tSnap.data() as Tournament;
+    
+    if (tData.status !== 'registration') throw new Error("Kayıtlar kapandı.");
+    
+    // Check start date
+    if (Date.now() < (tData.registrationStartDate || 0)) throw new Error("Kayıtlar henüz başlamadı.");
+    
+    // Check end date
+    if (Date.now() > tData.registrationEndDate) throw new Error("Kayıt süresi doldu.");
+
+    // Level Check
+    if (userStats.level < (tData.minLevel || 1)) throw new Error(`Bu turnuvaya katılmak için ${tData.minLevel}. seviye olmalısınız.`);
+
+    if (tData.participants.length >= tData.maxParticipants) throw new Error("Turnuva dolu.");
+    if (tData.participants.includes(auth.currentUser.uid)) throw new Error("Zaten katıldınız.");
+    
+    await updateDoc(tRef, {
+        participants: arrayUnion(auth.currentUser.uid)
+    });
+};
+
+export const getTournaments = async (): Promise<Tournament[]> => {
+    // Fetch active or registration tournaments
+    const q = query(collection(db, "tournaments"), limit(20));
+    const snaps = await getDocs(q);
+    const tournaments: Tournament[] = [];
+    snaps.forEach(d => tournaments.push(d.data() as Tournament));
+    
+    return tournaments.sort((a,b) => {
+        const statusWeight = { 'registration': 3, 'active': 2, 'completed': 1 };
+        const statusDiff = statusWeight[a.status] - statusWeight[b.status];
+        if (statusDiff !== 0) return statusDiff * -1;
+        return b.startDate - a.startDate;
+    });
+};
+
+export const submitTournamentScore = async (tournamentId: string, matchId: string, score: number, timeTaken: number = 0) => {
+    if (!auth.currentUser) return;
+    const userId = auth.currentUser.uid;
+    
+    const tRef = doc(db, "tournaments", tournamentId);
+    const tSnap = await getDoc(tRef);
+    if (!tSnap.exists()) return;
+    
+    const tournament = tSnap.data() as Tournament;
+    const matchIndex = tournament.matches.findIndex(m => m.id === matchId);
+    
+    if (matchIndex === -1) return;
+    
+    const match = tournament.matches[matchIndex];
+    const isPlayer1 = match.player1Id === userId;
+    
+    const isFinal = match.round === 2;
+    let updatedMatch = { ...match };
+    
+    if (isFinal) {
+         if (isPlayer1) { updatedMatch.score1_leg1 = score; updatedMatch.time1_leg1 = timeTaken; }
+         else { updatedMatch.score2_leg1 = score; updatedMatch.time2_leg1 = timeTaken; }
+         
+         if (updatedMatch.score1_leg1 !== undefined && updatedMatch.score2_leg1 !== undefined) {
+             updatedMatch.status = 'completed';
+             // Win Logic: Score first, then Time
+             if (updatedMatch.score1_leg1 > updatedMatch.score2_leg1) updatedMatch.winnerId = updatedMatch.player1Id;
+             else if (updatedMatch.score2_leg1 > updatedMatch.score1_leg1) updatedMatch.winnerId = updatedMatch.player2Id;
+             else {
+                 // Scores equal, check time (lower is better)
+                 const t1 = updatedMatch.time1_leg1 || 9999;
+                 const t2 = updatedMatch.time2_leg1 || 9999;
+                 updatedMatch.winnerId = t1 <= t2 ? updatedMatch.player1Id : updatedMatch.player2Id;
+             }
+             
+             await updateDoc(tRef, { championId: updatedMatch.winnerId });
+             // Award Rewards
+             if (updatedMatch.winnerId) adminGiveXP(updatedMatch.winnerId, tournament.rewards.firstPlace);
+             const loserId = updatedMatch.winnerId === updatedMatch.player1Id ? updatedMatch.player2Id : updatedMatch.player1Id;
+             if (loserId) adminGiveXP(loserId, tournament.rewards.secondPlace);
+             
+             // Notify winner
+             if (updatedMatch.winnerId === userId) sendNotification("Tebrikler!", "Turnuva şampiyonu oldunuz!");
+         }
+    } else {
+        // Regular Match (2 Legs) - Simplified here, usually would wait for leg 2
+        // For this example, we treat single game as leg 1 or 2 depending on slot
+        if (isPlayer1) {
+             if (updatedMatch.score1_leg1 === undefined) { updatedMatch.score1_leg1 = score; updatedMatch.time1_leg1 = timeTaken; }
+             else { updatedMatch.score1_leg2 = score; updatedMatch.time1_leg2 = timeTaken; }
+        } else {
+             if (updatedMatch.score2_leg1 === undefined) { updatedMatch.score2_leg1 = score; updatedMatch.time2_leg1 = timeTaken; }
+             else { updatedMatch.score2_leg2 = score; updatedMatch.time2_leg2 = timeTaken; }
+        }
+        
+        const p1Done = updatedMatch.score1_leg1 !== undefined && updatedMatch.score1_leg2 !== undefined;
+        const p2Done = updatedMatch.score2_leg1 !== undefined && updatedMatch.score2_leg2 !== undefined;
+        
+        if (p1Done && p2Done) {
+             updatedMatch.status = 'completed';
+             const total1 = (updatedMatch.score1_leg1 || 0) + (updatedMatch.score1_leg2 || 0);
+             const total2 = (updatedMatch.score2_leg1 || 0) + (updatedMatch.score2_leg2 || 0);
+             const time1 = (updatedMatch.time1_leg1 || 0) + (updatedMatch.time1_leg2 || 0);
+             const time2 = (updatedMatch.time2_leg1 || 0) + (updatedMatch.time2_leg2 || 0);
+
+             if (total1 > total2) updatedMatch.winnerId = updatedMatch.player1Id;
+             else if (total2 > total1) updatedMatch.winnerId = updatedMatch.player2Id;
+             else updatedMatch.winnerId = time1 <= time2 ? updatedMatch.player1Id : updatedMatch.player2Id;
+        }
+    }
+    
+    const newMatches = [...tournament.matches];
+    newMatches[matchIndex] = updatedMatch;
+    
+    await updateDoc(tRef, { matches: newMatches });
+    
+    // Participation Reward (Once per tournament logic needed, simplified here)
+    updateStats('xp', null, undefined, tournament.rewards.participation);
+};
+
+
 // --- FEEDBACK ---
 
 export const sendFeedback = async (type: 'bug' | 'suggestion', message: string, contact: string) => {
@@ -620,18 +998,14 @@ export const getLeaderboard = async (grade: string, mode: 'xp' | 'quiz' | 'flash
     const usersRef = collection(db, "users");
     let q;
     
-    // Mapping mode to field in leaderboardData
     let field = 'leaderboardData.xp';
     if (mode === 'quiz') field = 'leaderboardData.quizCorrect'; 
     if (mode === 'flashcard') field = 'leaderboardData.cardsViewed';
     if (mode === 'matching') field = 'leaderboardData.matchingBestTime';
     if (mode === 'maze') field = 'leaderboardData.mazeHighScore';
     if (mode === 'wordSearch') field = 'leaderboardData.wordSearchHighScore';
-    if (mode === 'duel') field = 'leaderboardData.duelPoints'; // Using POINTS for leaderboard sorting
+    if (mode === 'duel') field = 'leaderboardData.duelPoints'; 
 
-    // Updated Query: Removed 'isGuest' filter to prevent composite index error.
-    // Guest filtering will be done client-side.
-    // Increased limit to 100 to ensure we get enough real users after filtering.
     q = query(
         usersRef, 
         orderBy(field, "desc"), 
@@ -643,7 +1017,6 @@ export const getLeaderboard = async (grade: string, mode: 'xp' | 'quiz' | 'flash
     
     snapshot.forEach(doc => {
         const data = doc.data();
-        // Client-side filtering for non-guests
         if (data.isGuest === false && data.leaderboardData) {
             let val = 0;
              if (mode === 'xp') val = data.leaderboardData.xp;
@@ -673,6 +1046,6 @@ export const getLeaderboard = async (grade: string, mode: 'xp' | 'quiz' | 'flash
         }
     });
     
-    // Return top 50 from the filtered list
     return entries.slice(0, 50);
 };
+

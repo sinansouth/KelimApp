@@ -1,4 +1,5 @@
 
+
 import { Quest, Badge, GradeLevel, ThemeType } from '../types';
 import { BADGES, UNIT_ASSETS } from '../data/assets';
 import { VOCABULARY } from '../data/vocabulary';
@@ -16,6 +17,7 @@ export interface UserProfile {
   lastUsernameChange?: number;
   isGuest?: boolean;
   friendCode?: string;
+  isAdmin?: boolean;
 }
 
 export interface UserStats {
@@ -47,8 +49,8 @@ export interface UserStats {
     matchingBestTime: number;
     mazeHighScore: number;
     wordSearchHighScore: number;
-    typingHighScore: number; // Kept for data consistency, but unused in quests
-    chainHighScore: number;  // Kept for data consistency, but unused in quests
+    typingHighScore: number; 
+    chainHighScore: number;  
   };
   lastActivity?: { grade: string; unitId: string };
 }
@@ -58,24 +60,24 @@ export interface AppSettings {
   theme: ThemeType;
 }
 
-// --- TIME UTILITIES (Turkey Time Zone Enforcement) ---
+// --- TIME UTILITIES ---
 
 export const getTurkeyTime = (): Date => {
     const now = new Date();
-    const turkeyTimeStr = now.toLocaleString("en-US", { timeZone: "Europe/Istanbul" });
-    return new Date(turkeyTimeStr);
+    return now;
 };
 
+// Returns YYYY-MM-DD based on local device time
 export const getTodayDateString = (): string => {
-    const trDate = getTurkeyTime();
-    const year = trDate.getFullYear();
-    const month = String(trDate.getMonth() + 1).padStart(2, '0');
-    const day = String(trDate.getDate()).padStart(2, '0');
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
 };
 
 export const getTurkeyTimestamp = (): number => {
-    return getTurkeyTime().getTime();
+    return Date.now();
 };
 
 const generateFriendCode = (): string => {
@@ -87,7 +89,6 @@ const generateFriendCode = (): string => {
     return result;
 };
 
-// Default Values
 const DEFAULT_PROFILE: UserProfile = {
     name: '',
     grade: '',
@@ -99,11 +100,12 @@ const DEFAULT_PROFILE: UserProfile = {
     purchasedBackgrounds: ['bg_default'],
     inventory: { streakFreezes: 0 },
     isGuest: false,
-    friendCode: ''
+    friendCode: '',
+    isAdmin: false
 };
 
 const getWeekId = () => {
-    const d = getTurkeyTime(); 
+    const d = new Date(); 
     d.setHours(0,0,0,0);
     d.setDate(d.getDate() + 4 - (d.getDay() || 7));
     const yearStart = new Date(d.getFullYear(),0,1);
@@ -150,7 +152,6 @@ const DEFAULT_SETTINGS: AppSettings = {
     theme: 'dark'
 };
 
-// Storage Keys
 const KEYS = {
     PROFILE: 'lgs_user_profile',
     STATS: 'lgs_user_stats',
@@ -195,8 +196,11 @@ export const createGuestProfile = (grade: string) => {
         friendCode: generateFriendCode()
     };
     saveUserProfile(profile);
-    const stats = getUserStats();
+    
+    // Reset stats for new guest
+    const stats = { ...DEFAULT_STATS, date: getTodayDateString() };
     saveUserStats(stats);
+    
     return profile;
 };
 
@@ -209,45 +213,16 @@ export const getUserStats = (): UserStats => {
         const stats = JSON.parse(stored);
         
         const today = getTodayDateString();
-        
         if (stats.date !== today) {
             stats.date = today;
             stats.viewedWordsToday = [];
-            
-            const lastDateStr = stats.lastStudyDate;
-            if (lastDateStr) {
-                const d1 = new Date(lastDateStr); 
-                const d2 = new Date(today);
-                const diffTime = Math.abs(d2.getTime() - d1.getTime());
-                const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                
-                if (diffDays > 1) {
-                    const prof = getUserProfile();
-                    if (prof.inventory && prof.inventory.streakFreezes > 0) {
-                         prof.inventory.streakFreezes--;
-                         saveUserProfile(prof);
-                         const yesterday = new Date(getTurkeyTime());
-                         yesterday.setDate(yesterday.getDate() - 1);
-                         stats.lastStudyDate = yesterday.toISOString().split('T')[0];
-                    } else {
-                        stats.streak = 0;
-                    }
-                }
-            }
         }
 
         const currentWeek = getWeekId();
         if (stats.weekly?.weekId !== currentWeek) {
             stats.weekly = {
                 weekId: currentWeek,
-                quizCorrect: stats.weekly?.quizCorrect || 0, 
-                quizWrong: stats.weekly?.quizWrong || 0,     
-                cardsViewed: stats.weekly?.cardsViewed || 0, 
-                matchingBestTime: 0, 
-                mazeHighScore: 0,    
-                wordSearchHighScore: 0,
-                typingHighScore: 0,
-                chainHighScore: 0
+                quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, mazeHighScore: 0, wordSearchHighScore: 0, typingHighScore: 0, chainHighScore: 0
             };
         }
 
@@ -348,8 +323,9 @@ export const saveSRSData = (data: Record<string, SRSData>) => {
 
 export const registerSRSInteraction = (wordId: string) => {
     const data = getSRSData();
-    const now = getTurkeyTimestamp();
+    const now = Date.now();
     if (!data[wordId]) {
+        // Start at box 1, review tomorrow
         data[wordId] = { box: 1, nextReview: now + (24 * 60 * 60 * 1000) };
         saveSRSData(data);
     }
@@ -357,7 +333,7 @@ export const registerSRSInteraction = (wordId: string) => {
 
 export const handleReviewResult = (wordId: string, success: boolean) => {
     const data = getSRSData();
-    const now = getTurkeyTimestamp();
+    const now = Date.now();
     let entry = data[wordId];
 
     if (!entry) {
@@ -369,6 +345,7 @@ export const handleReviewResult = (wordId: string, success: boolean) => {
             entry.box = 1;
         }
         
+        // Box 1: 1 day, Box 2: 3 days, Box 3: 7 days, Box 4: 14 days, Box 5: 30 days
         const intervals = [0, 1, 3, 7, 14, 30];
         const daysToAdd = intervals[entry.box];
         entry.nextReview = now + (daysToAdd * 24 * 60 * 60 * 1000);
@@ -379,24 +356,25 @@ export const handleReviewResult = (wordId: string, success: boolean) => {
 };
 
 export const handleQuizResult = (wordId: string, success: boolean) => {
+    // Updates SRS even for regular quizzes
     handleReviewResult(wordId, success);
 };
 
 export const getDueWords = (filterUnitIds?: string[]) => {
     const data = getSRSData();
-    const now = getTurkeyTimestamp();
+    const now = Date.now();
     const dueIds: string[] = [];
 
     Object.entries(data).forEach(([id, entry]) => {
+        // Check if review time has passed or is now
         if (entry.nextReview <= now) {
             if (filterUnitIds) {
                 const parts = id.split('|');
                 const unitId = parts.length > 1 ? parts[0] : null;
-                if (unitId) {
-                     if (filterUnitIds.includes(unitId)) {
-                        dueIds.push(id);
-                     }
-                } else {
+                if (unitId && filterUnitIds.includes(unitId)) {
+                    dueIds.push(id);
+                } else if (!unitId) {
+                     // Legacy format without unit ID might need handling
                     dueIds.push(id);
                 }
             } else {
@@ -424,7 +402,7 @@ export const getDueWords = (filterUnitIds?: string[]) => {
 
 export const getDueGrades = () => {
     const data = getSRSData();
-    const now = getTurkeyTimestamp();
+    const now = Date.now();
     const dueGrades = new Set<string>();
     
     Object.entries(data).forEach(([id, entry]) => {
@@ -445,13 +423,13 @@ export const getDueGrades = () => {
 
 export const getTotalDueCount = () => {
     const data = getSRSData();
-    const now = getTurkeyTimestamp();
+    const now = Date.now();
     return Object.values(data).filter(e => e.nextReview <= now).length;
 };
 
 export const getDueCountForGrade = (grade: string) => {
     const data = getSRSData();
-    const now = getTurkeyTimestamp();
+    const now = Date.now();
     const units = UNIT_ASSETS[grade]?.map(u => u.id) || [];
     let count = 0;
     Object.entries(data).forEach(([id, entry]) => {
@@ -477,33 +455,54 @@ export const getSRSStatus = () => {
 // --- Stats Updates ---
 
 export const updateStats = (
-    action: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 'memorized' | 'review_remember' | 'review_forgot' | 'perfect_quiz' | 'duel_result',
+    action: 'card_view' | 'quiz_correct' | 'quiz_wrong' | 'memorized' | 'review_remember' | 'review_forgot' | 'perfect_quiz' | 'duel_result' | 'xp',
     grade?: GradeLevel | null,
     unitId?: string,
     amount: number = 1
 ): Badge[] => {
     const stats = getUserStats();
-    const today = getTodayDateString(); 
+    const todayStr = getTodayDateString();
     
-    if (stats.date !== today) {
-        const lastDateStr = stats.lastStudyDate;
-        if (lastDateStr) {
-            const d1 = new Date(lastDateStr);
-            const d2 = new Date(today);
-            const diffTime = Math.abs(d2.getTime() - d1.getTime());
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Robust Date parsing that handles timezones correctly for Streak calculation
+    // We compare the YYYY-MM-DD strings directly to avoid timezone shifts on midnight
+    const currentLastStudyDate = stats.lastStudyDate; 
+    const currentTodayDate = todayStr;
+
+    // Streak Logic
+    if (currentLastStudyDate !== currentTodayDate) {
+        if (currentLastStudyDate) {
+            // Create dates in local time at midnight to compare difference in days
+            const last = new Date(currentLastStudyDate);
+            const now = new Date(currentTodayDate);
+            
+            // Reset hours to avoid issues
+            last.setHours(0,0,0,0);
+            now.setHours(0,0,0,0);
+            
+            const diffTime = now.getTime() - last.getTime();
+            const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
             if (diffDays === 1) {
+                // Consecutive day
                 stats.streak++;
             } else if (diffDays > 1) {
-                 stats.streak = 1;
+                // Streak broken
+                const prof = getUserProfile();
+                if (prof.inventory && prof.inventory.streakFreezes > 0) {
+                    // Consume freeze
+                    prof.inventory.streakFreezes--;
+                    saveUserProfile(prof);
+                    // Keep streak
+                } else {
+                    // Reset streak
+                    stats.streak = 1;
+                }
             }
         } else {
+            // First time ever studying
             stats.streak = 1;
         }
-        stats.lastStudyDate = today;
-    } else {
-        if (!stats.lastStudyDate) stats.lastStudyDate = today;
+        stats.lastStudyDate = todayStr;
     }
 
     let xpGain = 0;
@@ -543,16 +542,19 @@ export const updateStats = (
             break;
         case 'duel_result':
             stats.duelPoints = (stats.duelPoints || 0) + amount;
-            if (amount === 3) {
+            if (amount === 3) { // WIN
                 stats.duelWins = (stats.duelWins || 0) + 1;
+                xpGain = 100;
                 updateQuestProgress('win_duel', 1);
-                xpGain = 100; // XP for winning
-            } else if (amount === 1) {
-                xpGain = 30; // XP for tie
-            } else {
-                xpGain = 10; // Participation XP
+            } else if (amount === 1) { // TIE
+                xpGain = 30;
+            } else { // LOSS
+                xpGain = 10; 
             }
             updateQuestProgress('play_duel', 1);
+            break;
+        case 'xp':
+            xpGain = amount;
             break;
     }
 
@@ -591,6 +593,10 @@ export const updateGameStats = (game: 'matching' | 'maze' | 'wordSearch' | 'typi
         if (score > stats.weekly.mazeHighScore) stats.weekly.mazeHighScore = score;
     } else if (game === 'wordSearch') {
         if (score > stats.weekly.wordSearchHighScore) stats.weekly.wordSearchHighScore = score;
+    } else if (game === 'typing') {
+        if (score > stats.weekly.typingHighScore) stats.weekly.typingHighScore = score;
+    } else if (game === 'chain') {
+        if (score > stats.weekly.chainHighScore) stats.weekly.chainHighScore = score;
     }
     
     saveUserStats(stats);
@@ -900,6 +906,7 @@ export const clearLocalUserData = () => {
     localStorage.removeItem(KEYS.MEMORIZED);
     localStorage.removeItem(KEYS.BOOKMARKS);
     localStorage.removeItem(KEYS.SRS);
+    // Don't remove settings to keep theme/sound preference across logins
 };
 
 export const overwriteLocalWithCloud = (cloudData: any) => {
@@ -908,5 +915,8 @@ export const overwriteLocalWithCloud = (cloudData: any) => {
     if (cloudData.memorized) localStorage.setItem(KEYS.MEMORIZED, cloudData.memorized);
     if (cloudData.bookmarks) localStorage.setItem(KEYS.BOOKMARKS, cloudData.bookmarks);
     if (cloudData.srs) localStorage.setItem(KEYS.SRS, cloudData.srs);
+    if (cloudData.settings) saveAppSettings(cloudData.settings);
+    
     updateLastUpdatedTimestamp();
 };
+

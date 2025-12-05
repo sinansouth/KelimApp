@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
 import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp, Play, Pause, Loader2 } from 'lucide-react';
@@ -86,6 +87,18 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     setIsAutoPlay(false);
   }, [initialWords]);
 
+  const activeDeck = useMemo(() => {
+    let deck = shuffledDeck;
+    if (filterMode === 'bookmarks') {
+      deck = deck.filter(word => bookmarks.has(getUniqueId(word)));
+    } else if (filterMode === 'memorized') {
+      deck = deck.filter(word => memorized.has(getUniqueId(word)));
+    }
+    return deck;
+  }, [shuffledDeck, filterMode, bookmarks, memorized]);
+
+  const currentWord = activeDeck.length > 0 ? activeDeck[currentIndex] : null;
+
   // Auto Play Logic
   useEffect(() => {
     if (!isAutoPlay) {
@@ -96,14 +109,26 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     // Clear existing timer
     if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current);
 
-    const READ_TIME = 4000; // 4 seconds to read front
-    const ANSWER_TIME = 3000; // 3 seconds to read back
+    const READ_TIME = 3500; // time to read front
+    const ANSWER_TIME = 3000; // time to read back
 
     autoPlayTimerRef.current = setTimeout(() => {
         if (!isFlipped) {
             // Flip card
             playSound('flip');
             setIsFlipped(true);
+            
+            // RECORD STATS IN AUTO PLAY
+            if (currentWord) {
+                const wordId = getUniqueId(currentWord);
+                const newBadges = updateStats('card_view', grade, wordId);
+                updateQuestProgress('view_cards', 1);
+                registerSRSInteraction(wordId);
+                if (newBadges.length > 0 && onBadgeUnlock) {
+                    newBadges.forEach(b => onBadgeUnlock(b));
+                }
+            }
+
         } else {
             // Next card
             if (currentIndex < activeDeck.length - 1) {
@@ -119,18 +144,8 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     return () => {
         if (autoPlayTimerRef.current) clearTimeout(autoPlayTimerRef.current);
     };
-  }, [isAutoPlay, isFlipped, currentIndex]);
+  }, [isAutoPlay, isFlipped, currentIndex, currentWord, activeDeck.length]);
 
-
-  const activeDeck = useMemo(() => {
-    let deck = shuffledDeck;
-    if (filterMode === 'bookmarks') {
-      deck = deck.filter(word => bookmarks.has(getUniqueId(word)));
-    } else if (filterMode === 'memorized') {
-      deck = deck.filter(word => memorized.has(getUniqueId(word)));
-    }
-    return deck;
-  }, [shuffledDeck, filterMode, bookmarks, memorized]);
 
   useEffect(() => {
     if (currentIndex >= activeDeck.length && activeDeck.length > 0) {
@@ -138,7 +153,6 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
     }
   }, [activeDeck.length, currentIndex]);
 
-  const currentWord = activeDeck.length > 0 ? activeDeck[currentIndex] : null;
 
   const setFilter = (mode: FilterMode) => {
     if (isProcessing) return;

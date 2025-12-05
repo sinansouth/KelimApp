@@ -7,9 +7,11 @@ interface GradeSelectionModalProps {
   onClose: () => void;
   onSelect: (grade: GradeLevel) => void;
   grades: string[];
+  title?: string;
+  description?: string;
 }
 
-const GradeSelectionModal: React.FC<GradeSelectionModalProps> = ({ onClose, onSelect, grades }) => {
+const GradeSelectionModal: React.FC<GradeSelectionModalProps> = ({ onClose, onSelect, grades, title, description }) => {
   // Sort grades logically
   const sortedGrades = [...grades].sort((a, b) => {
       const isNumA = !isNaN(Number(a));
@@ -20,10 +22,10 @@ const GradeSelectionModal: React.FC<GradeSelectionModalProps> = ({ onClose, onSe
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[80vh]">
         
         <div className="flex items-center justify-between p-5 border-b border-slate-100 dark:border-slate-800">
-            <h3 className="font-bold text-slate-800 dark:text-white truncate pr-4">Sınıf Seç</h3>
+            <h3 className="font-bold text-slate-800 dark:text-white truncate pr-4">{title || 'Sınıf Seç'}</h3>
             <button onClick={onClose} className="p-2 rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-500 transition-colors">
                 <X size={20} />
             </button>
@@ -31,7 +33,7 @@ const GradeSelectionModal: React.FC<GradeSelectionModalProps> = ({ onClose, onSe
 
         <div className="p-6 overflow-y-auto custom-scrollbar">
             <p className="text-sm text-slate-500 dark:text-slate-400 mb-4 text-center">
-                Hangi sınıfın kelimelerini tekrar etmek istiyorsun?
+                {description || 'Hangi sınıfın kelimelerini tekrar etmek istiyorsun?'}
             </p>
             
             <div className="grid grid-cols-2 gap-3">

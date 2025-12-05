@@ -1,12 +1,10 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { X, Layers, CheckCircle, Bookmark, Filter, PieChart, BarChart3, Trophy, Lock, Target, Eye, Flame, Gamepad2, WholeWord, Search, Grid3X3, Keyboard, Brain, Swords } from 'lucide-react';
+import { X, Layers, CheckCircle, Bookmark, Filter, PieChart, BarChart3, Trophy, Lock, Target, Eye, Flame, Gamepad2, WholeWord, Search, Grid3X3, Keyboard, Brain, Swords, Clock, Activity } from 'lucide-react';
 import { getUserStats, getSRSStatus, getMemorizedSet, UserStats } from '../services/userService';
 import { BADGES, UNIT_ASSETS } from '../data/assets';
 import { VOCABULARY } from '../data/vocabulary';
-import { GradeLevel } from '../types';
-import { UnitDef } from '../types';
+import { GradeLevel, UnitDef } from '../types';
 
 interface StatsModalProps {
   onClose: () => void;
@@ -129,6 +127,20 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
   }, [stats]);
 
   const formatVal = (n: number) => n.toLocaleString();
+  
+  const formatTime = (minutes: number) => {
+      if (minutes < 60) return `${minutes}dk`;
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${h}s ${m}dk`;
+  };
+  
+  const getAccuracy = () => {
+      if (!stats) return 0;
+      const total = stats.quizCorrect + stats.quizWrong;
+      if (total === 0) return 0;
+      return Math.round((stats.quizCorrect / total) * 100);
+  };
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
@@ -168,43 +180,84 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
             {/* GENERAL TAB */}
             {activeTab === 'general' && (
                 <div className="space-y-6">
-                    <div className="grid grid-cols-3 gap-3">
-                        <div className="p-4 rounded-2xl border text-center flex flex-col items-center gap-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-                             <Trophy size={24} className="text-yellow-500" />
-                             <span className="text-xs text-slate-500 font-bold uppercase">Toplam XP</span>
-                             <span className="text-xl font-black text-slate-800 dark:text-white">{formatVal(stats?.xp || 0)}</span>
+                    
+                    {/* Time & Accuracy Cards */}
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="p-5 rounded-3xl border relative overflow-hidden group" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
+                             <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                 <Clock size={64} />
+                             </div>
+                             <div className="relative z-10">
+                                 <span className="text-xs font-bold uppercase tracking-wider" style={{color: 'var(--color-text-muted)'}}>Toplam Süre</span>
+                                 <div className="text-2xl font-black mt-1" style={{color: 'var(--color-text-main)'}}>
+                                     {formatTime(stats?.totalTimeSpent || 0)}
+                                 </div>
+                                 <div className="text-[10px] mt-1 text-green-500 font-bold">Verimli Çalışma</div>
+                             </div>
                         </div>
-                         <div className="p-4 rounded-2xl border text-center flex flex-col items-center gap-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-                             <Target size={24} className="text-indigo-500" />
-                             <span className="text-xs text-slate-500 font-bold uppercase">Seviye</span>
-                             <span className="text-xl font-black text-slate-800 dark:text-white">{stats?.level || 1}</span>
-                        </div>
-                         <div className="p-4 rounded-2xl border text-center flex flex-col items-center gap-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
-                             <Flame size={24} className="text-orange-500" />
-                             <span className="text-xs text-slate-500 font-bold uppercase">Gün Seri</span>
-                             <span className="text-xl font-black text-slate-800 dark:text-white">{stats?.streak || 0}</span>
+
+                        <div className="p-5 rounded-3xl border relative overflow-hidden group" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
+                             <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity">
+                                 <Activity size={64} />
+                             </div>
+                             <div className="relative z-10">
+                                 <span className="text-xs font-bold uppercase tracking-wider" style={{color: 'var(--color-text-muted)'}}>Quiz Doğruluğu</span>
+                                 <div className="text-2xl font-black mt-1" style={{color: 'var(--color-text-main)'}}>
+                                     %{getAccuracy()}
+                                 </div>
+                                 <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full mt-2 overflow-hidden">
+                                     <div className="h-full bg-indigo-500" style={{ width: `${getAccuracy()}%` }}></div>
+                                 </div>
+                             </div>
                         </div>
                     </div>
 
+                    {/* SRS Status */}
                     <div className="p-5 rounded-3xl border" style={{backgroundColor: 'rgba(var(--color-bg-card-rgb), 0.5)', borderColor: 'var(--color-border)'}}>
                         <div className="flex items-center justify-between mb-4">
                             <div className="flex items-center gap-2 text-sm font-bold" style={{color: 'var(--color-text-main)'}}>
-                                <Layers size={18} className="text-indigo-500" /> Hafıza Kutuları (SRS)
+                                <Layers size={18} className="text-indigo-500" /> Aralıklı Tekrar (SRS) Durumu
                             </div>
+                            <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 px-2 py-0.5 rounded-full font-bold">Aktif Kelimeler</span>
                         </div>
-                        <div className="grid grid-cols-5 gap-2">
-                            {[1,2,3,4,5].map(box => (
-                                <div key={box} className="flex flex-col items-center p-2 rounded-2xl border shadow-sm" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
-                                    <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mb-1 text-white
-                                        ${box === 1 ? 'bg-red-400' : box === 2 ? 'bg-orange-400' : box === 3 ? 'bg-yellow-400' : box === 4 ? 'bg-lime-400' : 'bg-green-500'}
-                                    `}>
-                                        {box}
-                                    </div>
-                                    <span className="text-lg font-black" style={{color: 'var(--color-text-main)'}}>{srsStats[box] || 0}</span>
+                        <div className="flex items-end justify-between gap-2 h-32 pt-4">
+                            {[1,2,3,4,5].map(box => {
+                                const count = srsStats[box] || 0;
+                                const max = Math.max(...(Object.values(srsStats) as number[]), 1);
+                                const height = Math.max((count / max) * 100, 10);
+                                
+                                return (
+                                <div key={box} className="flex-1 flex flex-col items-center justify-end gap-2 group">
+                                    <div className="font-bold text-xs transition-all group-hover:-translate-y-1" style={{color: 'var(--color-text-main)'}}>{count}</div>
+                                    <div 
+                                        className={`w-full rounded-t-xl transition-all duration-500 ${box === 5 ? 'bg-green-500' : 'bg-indigo-400 opacity-70'}`} 
+                                        style={{ height: `${height}%` }}
+                                    ></div>
+                                    <div className="text-[10px] font-bold text-slate-400">Kutu {box}</div>
                                 </div>
-                            ))}
+                            )})}
                         </div>
+                        <p className="text-[10px] text-center mt-4 opacity-60" style={{color: 'var(--color-text-muted)'}}>
+                            Kutu 5'e ulaşan kelimeler kalıcı hafızaya alınmış sayılır.
+                        </p>
                     </div>
+                    
+                    {/* Quick Stats */}
+                    <div className="grid grid-cols-3 gap-3">
+                         <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center gap-1">
+                             <span className="text-[10px] uppercase font-bold text-slate-400">Ezberlenen</span>
+                             <span className="text-lg font-black text-green-500">{memorizedCount}</span>
+                         </div>
+                         <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center gap-1">
+                             <span className="text-[10px] uppercase font-bold text-slate-400">Favoriler</span>
+                             <span className="text-lg font-black text-orange-500">{bookmarksCount}</span>
+                         </div>
+                         <div className="p-3 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex flex-col items-center justify-center text-center gap-1">
+                             <span className="text-[10px] uppercase font-bold text-slate-400">Toplam</span>
+                             <span className="text-lg font-black text-blue-500">{totalWords}</span>
+                         </div>
+                    </div>
+
                 </div>
             )}
 
@@ -219,7 +272,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                                 <Eye size={18} className="text-blue-500" />
                             </div>
                             <div>
-                                <span className="text-2xl sm:text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{formatVal(stats?.flashcardsViewed || 0)}</span>
+                                <span className="text-2xl sm:text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{formatVal(Number(stats?.flashcardsViewed || 0))}</span>
                             </div>
                         </div>
 
@@ -241,32 +294,6 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                                     <span className="text-green-500">{stats?.quizCorrect} D</span>
                                     <span className="text-red-500">{stats?.quizWrong} Y</span>
                                 </div>
-                            </div>
-                        </div>
-
-                        {/* Memorized */}
-                        <div className="p-4 sm:p-5 rounded-3xl border flex flex-col justify-between h-28 sm:h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
-                            <div className="flex justify-between items-start">
-                                <span className="text-[10px] sm:text-xs font-bold uppercase text-green-500">Ezberlenen</span>
-                                <CheckCircle size={18} className="text-green-500" />
-                            </div>
-                            <div>
-                                <span className="text-2xl sm:text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{formatVal(memorizedCount)}</span>
-                                <span className="text-[10px] sm:text-xs font-medium ml-1" style={{color: 'var(--color-text-muted)'}}>/ {formatVal(totalWords)}</span>
-                            </div>
-                            <div className="w-full bg-slate-200 dark:bg-slate-700 h-1.5 rounded-full overflow-hidden mt-2">
-                                <div className="h-full bg-green-500 rounded-full" style={{ width: `${totalWords > 0 ? (memorizedCount / totalWords) * 100 : 0}%` }}></div>
-                            </div>
-                        </div>
-
-                        {/* Bookmarks */}
-                        <div className="p-4 sm:p-5 rounded-3xl border flex flex-col justify-between h-28 sm:h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
-                            <div className="flex justify-between items-start">
-                                <span className="text-[10px] sm:text-xs font-bold uppercase text-orange-500">Favoriler</span>
-                                <Bookmark size={18} className="text-orange-500" />
-                            </div>
-                            <div>
-                                <span className="text-2xl sm:text-3xl font-black" style={{color: 'var(--color-text-main)'}}>{formatVal(bookmarksCount)}</span>
                             </div>
                         </div>
                     </div>
@@ -345,7 +372,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                              </div>
                          </div>
                          <div className="text-right">
-                             <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(stats?.duelPoints || 0)} P</div>
+                             <div className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.duelPoints || 0))} P</div>
                              <div className="text-xs font-bold text-green-500">{stats?.duelWins || 0} Win</div>
                          </div>
                      </div>
@@ -358,7 +385,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                                  <span className="text-[10px] text-slate-500">En yüksek puan</span>
                              </div>
                          </div>
-                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(stats?.weekly.matchingBestTime || 0)}</span>
+                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.weekly?.matchingBestTime || 0))}</span>
                      </div>
 
                      <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
@@ -369,7 +396,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                                  <span className="text-[10px] text-slate-500">En yüksek puan</span>
                              </div>
                          </div>
-                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(stats?.weekly.mazeHighScore || 0)}</span>
+                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.weekly?.mazeHighScore || 0))}</span>
                      </div>
 
                      <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
@@ -380,7 +407,7 @@ const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: initialG
                                  <span className="text-[10px] text-slate-500">En yüksek puan</span>
                              </div>
                          </div>
-                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(stats?.weekly.wordSearchHighScore || 0)}</span>
+                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.weekly?.wordSearchHighScore || 0))}</span>
                      </div>
                 </div>
             )}
