@@ -831,8 +831,8 @@ export const getPublicUserProfile = async (uid: string) => {
             theme: data.theme || 'dark',
             badges: stats.badges || [],
             totalTimeSpent: stats.totalTimeSpent || 0,
-            quizCorrect: weekly.quizCorrect || 0,
-            quizWrong: weekly.quizWrong || 0,
+            quizCorrect: stats.quizCorrect || 0, // Lifetime
+            quizWrong: stats.quizWrong || 0,
             
             // Lifetime Duel stats for profile
             duelPoints: stats.duelPoints || 0,
@@ -840,9 +840,10 @@ export const getPublicUserProfile = async (uid: string) => {
             duelLosses: stats.duelLosses || 0,
             duelDraws: stats.duelDraws || 0,
             
-            matchingBestTime: weekly.matchingBestTime || 0,
-            mazeHighScore: weekly.mazeHighScore || 0,
-            wordSearchHighScore: weekly.wordSearchHighScore || 0
+            // Lifetime Game High Scores (use root level if available, fallback to weekly if not yet migrated)
+            matchingBestTime: stats.matchingAllTimeBest || weekly.matchingBestTime || 0,
+            mazeHighScore: stats.mazeAllTimeBest || weekly.mazeHighScore || 0,
+            wordSearchHighScore: stats.wordSearchAllTimeBest || weekly.wordSearchHighScore || 0
         };
     } catch (e) {
         return null;

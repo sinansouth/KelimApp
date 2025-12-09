@@ -257,7 +257,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
                                  <span className="text-[10px] text-slate-500">En yüksek puan</span>
                              </div>
                          </div>
-                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.weekly?.matchingBestTime || 0))}</span>
+                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.matchingAllTimeBest || stats?.weekly?.matchingBestTime || 0))}</span>
                      </div>
 
                      <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
@@ -268,7 +268,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
                                  <span className="text-[10px] text-slate-500">En yüksek puan</span>
                              </div>
                          </div>
-                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.weekly?.mazeHighScore || 0))}</span>
+                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.mazeAllTimeBest || stats?.weekly?.mazeHighScore || 0))}</span>
                      </div>
 
                      <div className="flex justify-between items-center p-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700">
@@ -279,7 +279,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
                                  <span className="text-[10px] text-slate-500">En yüksek puan</span>
                              </div>
                          </div>
-                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.weekly?.wordSearchHighScore || 0))}</span>
+                         <span className="text-lg font-black text-indigo-600 dark:text-indigo-400">{formatVal(Number(stats?.wordSearchAllTimeBest || stats?.weekly?.wordSearchHighScore || 0))}</span>
                      </div>
                 </div>
             )}

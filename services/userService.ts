@@ -45,6 +45,11 @@ export interface UserStats {
     duelDraws: number;
     duelPoints: number;
 
+    // Lifetime Game High Scores
+    matchingAllTimeBest: number;
+    mazeAllTimeBest: number;
+    wordSearchAllTimeBest: number;
+
     completedUnits: string[];
     completedGrades: string[];
     
@@ -176,6 +181,9 @@ const DEFAULT_STATS: UserStats = {
     duelLosses: 0,
     duelDraws: 0,
     duelPoints: 0,
+    matchingAllTimeBest: 0,
+    mazeAllTimeBest: 0,
+    wordSearchAllTimeBest: 0,
     completedUnits: [],
     completedGrades: [],
     weekly: DEFAULT_WEEKLY_STATS,
@@ -640,10 +648,13 @@ export const updateGameStats = (game: 'matching' | 'maze' | 'wordSearch', score:
     const stats = getUserStats();
     if (game === 'matching') {
         if (score > (stats.weekly.matchingBestTime || 0)) stats.weekly.matchingBestTime = score;
+        if (score > (stats.matchingAllTimeBest || 0)) stats.matchingAllTimeBest = score;
     } else if (game === 'maze') {
         if (score > (stats.weekly.mazeHighScore || 0)) stats.weekly.mazeHighScore = score;
+        if (score > (stats.mazeAllTimeBest || 0)) stats.mazeAllTimeBest = score;
     } else if (game === 'wordSearch') {
         if (score > (stats.weekly.wordSearchHighScore || 0)) stats.weekly.wordSearchHighScore = score;
+        if (score > (stats.wordSearchAllTimeBest || 0)) stats.wordSearchAllTimeBest = score;
     }
 
     saveUserStats(stats);

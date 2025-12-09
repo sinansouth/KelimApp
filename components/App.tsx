@@ -1,43 +1,43 @@
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty, Challenge } from './types';
-import TopicSelector from './components/TopicSelector';
-import { THEME_COLORS, UI_ICONS, UNIT_ASSETS } from './data/assets';
-import FlashcardDeck from './components/FlashcardDeck';
-import Quiz from './components/Quiz';
-import Profile from './components/Profile';
-import GrammarView from './components/GrammarView';
-import WordSelector from './components/WordSelector';
-import InfoView from './components/InfoView';
-import AnnouncementsView from './components/AnnouncementsView';
-import EmptyStateWarning from './components/EmptyStateWarning';
-import Celebration from './components/Celebration';
-import SettingsModal from './components/SettingsModal';
-import QuizSetupModal from './components/QuizSetupModal';
-import SRSInfoModal from './components/SRSInfoModal';
-import GradeSelectionModal from './components/GradeSelectionModal';
-import MarketModal from './components/MarketModal';
-import AvatarModal from './components/AvatarModal';
-import AuthModal from './components/AuthModal';
-import FeedbackModal from './components/FeedbackModal';
-import AdminModal from './components/AdminModal';
-import InstallPromptModal from './components/InstallPromptModal';
-import ChallengeModal from './components/ChallengeModal';
-import UserProfileModal from './components/UserProfileModal';
-import WelcomeScreen from './components/WelcomeScreen';
-import CustomAlert, { AlertType } from './components/CustomAlert';
+import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty, Challenge } from '../types';
+import TopicSelector from './TopicSelector';
+import { THEME_COLORS, UI_ICONS, UNIT_ASSETS } from '../data/assets';
+import FlashcardDeck from './FlashcardDeck';
+import Quiz from './Quiz';
+import Profile from './Profile';
+import GrammarView from './GrammarView';
+import WordSelector from './WordSelector';
+import InfoView from './InfoView';
+import AnnouncementsView from './AnnouncementsView';
+import EmptyStateWarning from './EmptyStateWarning';
+import Celebration from './Celebration';
+import SettingsModal from './SettingsModal';
+import QuizSetupModal from './QuizSetupModal';
+import SRSInfoModal from './SRSInfoModal';
+import GradeSelectionModal from './GradeSelectionModal';
+import MarketModal from './MarketModal';
+import AvatarModal from './AvatarModal';
+import AuthModal from './AuthModal';
+import FeedbackModal from './FeedbackModal';
+import AdminModal from './AdminModal';
+import InstallPromptModal from './InstallPromptModal';
+import ChallengeModal from './ChallengeModal';
+import UserProfileModal from './UserProfileModal';
+import WelcomeScreen from './WelcomeScreen';
+import CustomAlert, { AlertType } from './CustomAlert';
 import { ChevronLeft, Zap, Swords, Trophy, AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
-import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, UserStats, saveSRSData, saveUserStats, overwriteLocalWithCloud, updateStats } from './services/userService';
-import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData } from './services/supabase';
-import { getWordsForUnit, fetchAllWords, getVocabulary, fetchDynamicContent, getAnnouncements, getUnitAssets } from './services/contentService';
-import { requestNotificationPermission } from './services/notificationService';
-import { playSound } from './services/soundService';
-import { APP_CONFIG } from './config/appConfig';
+import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, UserStats, saveSRSData, saveUserStats, overwriteLocalWithCloud, updateStats } from '../services/userService';
+import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData } from '../services/supabase';
+import { getWordsForUnit, fetchAllWords, getVocabulary, fetchDynamicContent, getAnnouncements, getUnitAssets } from '../services/contentService';
+import { requestNotificationPermission } from '../services/notificationService';
+import { playSound } from '../services/soundService';
+import { APP_CONFIG } from '../config/appConfig';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
-import MatchingGame from './components/MatchingGame';
-import MazeGame from './components/MazeGame';
-import WordSearchGame from './components/WordSearchGame';
+import MatchingGame from './MatchingGame';
+import MazeGame from './MazeGame';
+import WordSearchGame from './WordSearchGame';
 
 const App: React.FC = () => {
     const [isAppLoading, setIsAppLoading] = useState(true);
@@ -435,6 +435,7 @@ const App: React.FC = () => {
     const handleOpenProfile = () => { changeMode(AppMode.PROFILE); setTopicTitle('Profilim'); refreshGlobalState(); };
     const handleOpenInfo = () => { changeMode(AppMode.INFO); setTopicTitle('İpuçları'); };
     const handleOpenMarket = () => { setActiveModal('market'); };
+    
     const handleOpenAnnouncements = async () => { 
         changeMode(AppMode.ANNOUNCEMENTS); 
         setTopicTitle('Duyurular'); 
@@ -444,6 +445,7 @@ const App: React.FC = () => {
             setHasUnreadAnnouncements(false); 
         } 
     };
+    
     const handleOpenSettings = () => { setActiveModal('settings'); };
 
     const handleOpenChallenge = () => {
@@ -728,6 +730,9 @@ const App: React.FC = () => {
                 duelLosses: 0,
                 duelDraws: 0,
                 duelPoints: 0, 
+                matchingAllTimeBest: 0,
+                mazeAllTimeBest: 0,
+                wordSearchAllTimeBest: 0,
                 completedUnits: [], 
                 completedGrades: [], 
                 weekly: { 
@@ -743,7 +748,7 @@ const App: React.FC = () => {
                     duelLosses: 0,
                     duelDraws: 0
                 } 
-            }} onUpdate={() => { setHeaderProfile(getUserProfile()); if (handleProfileUpdate) handleProfileUpdate(); }} />}
+            }} onUpdate={() => { setHeaderProfile(getUserProfile()); handleProfileUpdate(); }} />}
             {viewProfileId && (<UserProfileModal userId={viewProfileId} onClose={() => setViewProfileId(null)} />)}
             <CustomAlert visible={alertState.visible} title={alertState.title} message={alertState.message} type={alertState.type} onClose={() => setAlertState(prev => ({ ...prev, visible: false }))} onConfirm={alertState.onConfirm} />
             <header className="backdrop-blur-xl border-b z-50 shrink-0 transition-colors h-16 header-theme" style={{ backgroundColor: 'rgba(var(--color-bg-card-rgb), 0.8)', borderColor: 'rgba(255,255,255,0.1)' }}>

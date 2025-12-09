@@ -246,6 +246,11 @@ export interface UserStats {
     duelDraws: number;
     duelPoints: number; // Lifetime total points
 
+    // Lifetime Game High Scores
+    matchingAllTimeBest: number;
+    mazeAllTimeBest: number;
+    wordSearchAllTimeBest: number;
+
     completedUnits: string[];
     completedGrades: string[];
     
