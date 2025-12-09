@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { X, ShoppingBag, Star, Palette, Sun, Moon, Droplets, Sunset, TreePine, Crown, Candy, Image, Gamepad2, Coffee, Rocket, Heart, Leaf, CloudSnow, MessageCircle, Flame, Lock, Zap, Shield } from 'lucide-react';
-import { getUserStats, getUserProfile, buyTheme, buyFrame, buyBackground, buyItem, getTheme, saveTheme, equipFrame, equipBackground, UserStats } from '../services/userService';
-import { MarketItem, ThemeType } from '../types';
+import { getUserStats, getUserProfile, buyTheme, buyFrame, buyBackground, buyItem, getTheme, saveTheme, equipFrame, equipBackground } from '../services/userService';
+import { MarketItem, ThemeType, UserStats } from '../types';
 import { playSound } from '../services/soundService';
 import { getFrames, getBackgrounds } from '../services/contentService';
 import CustomAlert, { AlertType } from './CustomAlert';

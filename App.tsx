@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty, Challenge } from './types';
+import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty, Challenge, UserStats } from './types';
 import TopicSelector from './components/TopicSelector';
 import { THEME_COLORS, UI_ICONS, UNIT_ASSETS } from './data/assets';
 import FlashcardDeck from './components/FlashcardDeck';
@@ -27,7 +26,7 @@ import UserProfileModal from './components/UserProfileModal';
 import WelcomeScreen from './components/WelcomeScreen';
 import CustomAlert, { AlertType } from './components/CustomAlert';
 import { ChevronLeft, Zap, Swords, Trophy, AlertTriangle, RefreshCw, WifiOff } from 'lucide-react';
-import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, UserStats, saveSRSData, saveUserStats, overwriteLocalWithCloud } from './services/userService';
+import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, saveSRSData, saveUserStats, overwriteLocalWithCloud } from './services/userService';
 import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData } from './services/supabase';
 import { getWordsForUnit, fetchAllWords, getVocabulary, fetchDynamicContent, getAnnouncements, getUnitAssets } from './services/contentService';
 import { requestNotificationPermission } from './services/notificationService';
@@ -434,7 +433,16 @@ const App: React.FC = () => {
     const handleOpenProfile = () => { changeMode(AppMode.PROFILE); setTopicTitle('Profilim'); refreshGlobalState(); };
     const handleOpenInfo = () => { changeMode(AppMode.INFO); setTopicTitle('İpuçları'); };
     const handleOpenMarket = () => { setActiveModal('market'); };
-    const handleOpenAnnouncements = () => { changeMode(AppMode.ANNOUNCEMENTS); setTopicTitle('Duyurular'); const announcements = getAnnouncements(); if (announcements.length > 0) { setLastReadAnnouncementId(announcements[0].id); setHasUnreadAnnouncements(false); } };
+    // FIX: getAnnouncements is async, so we need to await it.
+    const handleOpenAnnouncements = async () => {
+        changeMode(AppMode.ANNOUNCEMENTS);
+        setTopicTitle('Duyurular');
+        const announcements = await getAnnouncements();
+        if (announcements.length > 0) {
+            setLastReadAnnouncementId(announcements[0].id);
+            setHasUnreadAnnouncements(false);
+        }
+    };
     const handleOpenSettings = () => { setActiveModal('settings'); };
 
     const handleOpenChallenge = () => {

@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { WordCard, Badge, GradeLevel, QuizDifficulty, Challenge } from '../types';
 import { CheckCircle, XCircle, Bookmark, Info, Clock, Swords, Copy, Trophy, HelpCircle, Zap, Divide, RotateCcw, Home } from 'lucide-react';
@@ -350,23 +349,16 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
            }
       } else if (challengeMode === 'join' || challengeMode === 'tournament') {
            if (challengeData) {
-                // Update local stats for the winner immediately
-                let resultType = 0;
+                // Set result for UI feedback only. Server RPC is source of truth for stats.
                 if (percentage > challengeData.creatorScore) {
                     setChallengeResult('win');
-                    resultType = 3; // 3 points for win
                 } else if (percentage < challengeData.creatorScore) {
                     setChallengeResult('loss');
-                    resultType = 0; // 0 points for loss
                 } else {
                     setChallengeResult('tie');
-                    resultType = 1; // 1 point for tie
                 }
                 
-                // Update local game stats immediately (Passing grade and resultType)
-                updateStats('duel_result', grade, undefined, resultType);
-
-                // Update server status and record winner
+                // Call RPC to update status & stats for BOTH players
                 await completeChallenge(challengeData.id, getUserProfile().name, percentage);
 
                 if (challengeMode === 'tournament' && tournamentMatchId) {

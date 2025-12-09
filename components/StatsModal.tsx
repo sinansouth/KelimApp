@@ -1,9 +1,10 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { X, Layers, CheckCircle, Bookmark, Filter, PieChart, BarChart3, Trophy, Lock, Target, Eye, Flame, Gamepad2, WholeWord, Search, Grid3X3, Keyboard, Brain, Swords, Clock, Activity, Medal } from 'lucide-react';
-import { getUserStats, getSRSStatus, getMemorizedSet, UserStats } from '../services/userService';
+import { getUserStats, getSRSStatus, getMemorizedSet } from '../services/userService';
+import { GradeLevel, UnitDef, Badge, UserStats } from '../types';
 import { getBadges, getUnitAssets } from '../services/contentService';
-import { GradeLevel, UnitDef, Badge } from '../types';
 
 interface StatsModalProps {
   onClose: () => void;
