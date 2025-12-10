@@ -2,9 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Volume2, VolumeX, MessageSquare, Lock, Key, RotateCcw, ShieldCheck } from 'lucide-react';
-import { AppSettings, getAppSettings, saveAppSettings, resetAppProgress, getUserProfile, saveUserProfile } from '../services/userService';
+import { AppSettings, getAppSettings, saveAppSettings, getUserProfile, saveUserProfile } from '../services/userService';
 import { APP_CONFIG } from '../config/appConfig';
-import ResetScopeModal from './ResetScopeModal';
 import { playSound } from '../services/soundService';
 import { syncLocalToCloud, getAuthInstance } from '../services/supabase';
 
@@ -19,7 +18,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
     const [settings, setSettings] = useState<AppSettings>({ soundEnabled: true, theme: 'dark' });
     const [showAdminInput, setShowAdminInput] = useState(false);
     const [adminPassword, setAdminPassword] = useState('');
-    const [showResetModal, setShowResetModal] = useState(false);
     const [isAdminUser, setIsAdminUser] = useState(false);
 
     useEffect(() => {
@@ -66,15 +64,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
         }
     };
 
-    const handleResetConfirm = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {
-        resetAppProgress(scope);
-        playSound('click');
-        setShowResetModal(false);
-        alert("İlerleme başarıyla sıfırlandı.");
-        onClose();
-        window.location.reload();
-    };
-
     return (
         <>
             <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
@@ -104,19 +93,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
                                 <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${settings.soundEnabled ? 'left-5' : 'left-1'}`}></div>
                             </button>
                         </div>
-
-                        <button
-                            onClick={() => setShowResetModal(true)}
-                            className="w-full flex items-center gap-3 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors border border-slate-200 dark:border-slate-700 text-left"
-                        >
-                            <div className="p-2 bg-red-100 dark:bg-red-900/30 text-red-600 rounded-lg">
-                                <RotateCcw size={18} />
-                            </div>
-                            <div>
-                                <div className="font-bold text-slate-800 dark:text-white text-sm">İlerlemeyi Sıfırla</div>
-                                <div className="text-xs text-slate-500">Tüm verileri veya üniteyi sil</div>
-                            </div>
-                        </button>
 
                         <button
                             onClick={() => { onClose(); onOpenFeedback(); }}
@@ -186,14 +162,6 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
                     </div>
                 </div>
             </div>
-
-            {showResetModal && (
-                <ResetScopeModal
-                    title="Sıfırlama Seçenekleri"
-                    onClose={() => setShowResetModal(false)}
-                    onConfirm={handleResetConfirm}
-                />
-            )}
         </>
     );
 };

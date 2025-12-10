@@ -1,18 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
-import ReactDOMServer from 'react-dom/server';
-import { X, Zap, Trophy, Unlock, Trash2, ShieldAlert, Search, User, Award, Megaphone, Users, Calendar, Save, Lock, Gift, Settings, Activity, Menu, Clock, CheckCircle, Eye, Target, Edit2, Info, Cloud, Upload, Plus, FileText, Check, Power, Database } from 'lucide-react';
-import { adminAddXP, adminSetLevel, adminUnlockAllItems, adminResetDailyQuests, adminUnlockAllBadges, adminUnlockAllAvatars, getUserStats } from '../services/userService';
+import { X, Zap, Trophy, Unlock, Trash2, ShieldAlert, Search, User, Award, Megaphone, Users, Calendar, Save, Lock, Gift, Settings, Activity, Menu, Clock, CheckCircle, Eye, Target, Edit2, Info, Cloud, Upload, Plus, FileText, Check, Power, Database, Mail, Inbox, AlertTriangle, Lightbulb } from 'lucide-react';
+import { adminAddXP, adminSetLevel, adminUnlockAllItems, adminUnlockAllBadges, adminUnlockAllAvatars, getUserStats } from '../services/userService';
 import { playSound } from '../services/soundService';
-import { createTournament, updateTournament, searchUser, adminGiveXP, toggleAdminStatus, createGlobalAnnouncement, getTournaments, deleteTournament, updateTournamentStatus, checkTournamentTimeouts, saveUnitData, getUnitData, updateUnitWords, syncLocalToCloud, getGlobalAnnouncements, deleteAnnouncement, updateAnnouncement, getGlobalSettings, updateGlobalSettings, upsertSystemContent, upsertGrammar } from '../services/supabase';
+import { createTournament, updateTournament, searchUser, adminGiveXP, createGlobalAnnouncement, getTournaments, deleteTournament, updateTournamentStatus, checkTournamentTimeouts, saveUnitData, getUnitData, updateUnitWords, syncLocalToCloud, getGlobalAnnouncements, deleteAnnouncement, updateAnnouncement, getGlobalSettings, updateGlobalSettings, upsertSystemContent, upsertGrammar, getSystemStats, getRecentUsers, updateUserRole, getAllFeedback, deleteFeedback } from '../services/supabase';
 import { getUnitAssets } from '../services/contentService';
-// FIX: Import Announcement type from ../types instead of ../data/announcements
 import { GradeLevel, QuizDifficulty, Tournament, WordCard, Announcement } from '../types';
-
-// Data imports for uploading
-import { APP_TIPS as LOCAL_TIPS } from '../data/tips';
-import { GRAMMAR_CONTENT as LOCAL_GRAMMAR } from '../data/grammarContent';
-import { UNIT_ASSETS as LOCAL_UNIT_ASSETS, AVATARS, FRAMES, BACKGROUNDS, GRADE_DATA, BADGES } from '../data/assets';
 
 interface AdminModalProps {
   onClose: () => void;
@@ -20,9 +12,12 @@ interface AdminModalProps {
 }
 
 const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'tournaments' | 'users' | 'system' | 'content' | 'database'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'tournaments' | 'users' | 'content' | 'system' | 'database' | 'inbox'>('dashboard');
   const [currentStats, setCurrentStats] = useState(getUserStats());
   
+  // Dashboard Stats
+  const [systemStats, setSystemStats] = useState({ totalUsers: 0, activeTournaments: 0, totalChallenges: 0, totalFeedback: 0 });
+
   // Tournament State
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [tId, setTId] = useState<string | null>(null); // For editing
@@ -50,6 +45,7 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
   // User Management State
   const [searchQuery, setSearchQuery] = useState('');
   const [foundUser, setFoundUser] = useState<any>(null);
+  const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [userActionLoading, setUserActionLoading] = useState(false);
   const [showUserDetails, setShowUserDetails] = useState(false); 
 
@@ -60,12 +56,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
   const [annContent, setAnnContent] = useState('');
   const [annLoading, setAnnLoading] = useState(false);
   
+  // Feedback State
+  const [feedbackList, setFeedbackList] = useState<any[]>([]);
+  
   // System State
   const [maintenanceMode, setMaintenanceMode] = useState(false);
-  
-  // Database Upload State
-  const [isUploadingData, setIsUploadingData] = useState(false);
-  const [showRLSHelp, setShowRLSHelp] = useState(false);
   
   // Content Editor State
   const [selectedEditorGrade, setSelectedEditorGrade] = useState<GradeLevel>('5');
@@ -81,8 +76,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
   const UNIT_ASSETS = getUnitAssets();
   
   useEffect(() => {
+      loadSystemStats();
       if (activeTab === 'tournaments') loadTournaments();
+      if (activeTab === 'users') loadRecentUsers();
       if (activeTab === 'system') loadSystemSettings();
+      if (activeTab === 'inbox') loadFeedback();
   }, [activeTab]);
 
   const refresh = () => {
@@ -90,9 +88,19 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
     onUpdate();
   };
 
+  const loadSystemStats = async () => {
+      const stats = await getSystemStats();
+      setSystemStats(stats);
+  };
+
   const loadTournaments = async () => {
       const list = await getTournaments();
       setTournaments(list);
+  };
+
+  const loadRecentUsers = async () => {
+      const users = await getRecentUsers();
+      setRecentUsers(users);
   };
 
   const loadAnnouncements = async () => {
@@ -115,6 +123,11 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
               setMaintenanceMode(settings.maintenance_mode.isActive);
           }
       } catch (e) { console.error(e); }
+  };
+  
+  const loadFeedback = async () => {
+      const list = await getAllFeedback();
+      setFeedbackList(list);
   };
   
   // --- Tournament Handlers ---
@@ -252,19 +265,28 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
       if (!foundUser) return;
       try {
           await adminGiveXP(foundUser.uid, amount);
-          alert(`${foundUser.leaderboardData.name} kullanıcısına ${amount} XP verildi.`);
-          const updatedUser = await searchUser(foundUser.email); if (updatedUser) setFoundUser(updatedUser);
+          alert(`${foundUser.profile.name} kullanıcısına ${amount} XP verildi.`);
+          const updatedUser = await searchUser(foundUser.email || foundUser.profile.name); if (updatedUser) setFoundUser(updatedUser);
       } catch (e) { alert("Hata"); }
   };
 
-  const handleToggleAdmin = async () => {
+  const handleUpdateRole = async (role: 'admin' | 'user' | 'banned') => {
       if (!foundUser) return;
+      if (!confirm(`Kullanıcı rolünü "${role}" olarak değiştirmek istediğine emin misin?`)) return;
       try {
-          const newStatus = !foundUser.profile.isAdmin;
-          await toggleAdminStatus(foundUser.uid, newStatus);
-          setFoundUser({ ...foundUser, profile: { ...foundUser.profile, isAdmin: newStatus } });
-          alert(`Yönetici yetkisi ${newStatus ? 'verildi' : 'alındı'}.`);
-      } catch (e) { alert("Hata"); }
+          await updateUserRole(foundUser.uid, role);
+          
+          let newIsAdmin = false;
+          let newIsBanned = false;
+          if (role === 'admin') newIsAdmin = true;
+          if (role === 'banned') newIsBanned = true;
+
+          setFoundUser({ 
+              ...foundUser, 
+              profile: { ...foundUser.profile, isAdmin: newIsAdmin, isBanned: newIsBanned, role: role } 
+          });
+          alert(`Kullanıcı rolü güncellendi: ${role}`);
+      } catch (e) { alert("Hata oluştu."); }
   };
 
   // --- Announcement Handlers ---
@@ -296,12 +318,28 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
 
   const handleDeleteAnnouncement = async (id: string) => {
       if(!confirm("Bu duyuruyu silmek istiyor musunuz?")) return;
+      // Optimistically update UI
+      setAnnouncements(prev => prev.filter(a => a.id !== id));
       try {
           await deleteAnnouncement(id);
-          loadAnnouncements();
-      } catch (e) { alert("Silinemedi."); }
+      } catch (e) { 
+          alert("Silinemedi."); 
+          loadAnnouncements(); // Revert on error
+      }
   };
   
+  // --- Feedback Handlers ---
+  const handleDeleteFeedback = async (id: number) => {
+      if (!confirm("Bu mesajı silmek istiyor musun?")) return;
+      setFeedbackList(prev => prev.filter(f => f.id !== id));
+      try {
+          await deleteFeedback(id);
+      } catch (e) {
+          alert("Silinemedi.");
+          loadFeedback();
+      }
+  };
+
   // --- System Handlers ---
   const handleMaintenanceToggle = async () => {
       const newState = !maintenanceMode;
@@ -380,7 +418,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
   const handleSetLevel = (level: number) => { adminSetLevel(level); playSound('success'); refresh(); };
   const handleUnlockBadges = () => { adminUnlockAllBadges(); playSound('success'); alert("Rozetler Açıldı!"); refresh(); };
   const handleUnlockAvatars = () => { adminUnlockAllAvatars(); playSound('success'); alert("Avatarlar Açıldı!"); refresh(); };
-  const handleResetQuests = () => { adminResetDailyQuests(); playSound('click'); alert("Görevler sıfırlandı."); refresh(); };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-200">
@@ -419,8 +456,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
                  <button onClick={() => { setActiveTab('system'); setIsMobileMenuOpen(false); }} className={`p-3 rounded-lg font-bold flex items-center gap-3 ${activeTab === 'system' ? 'bg-orange-600 text-white' : 'text-slate-400'}`}>
                      <Settings size={20} /> Sistem
                  </button>
-                 <button onClick={() => { setActiveTab('database'); setIsMobileMenuOpen(false); }} className={`p-3 rounded-lg font-bold flex items-center gap-3 ${activeTab === 'database' ? 'bg-purple-600 text-white' : 'text-slate-400'}`}>
-                     <Database size={20} /> Veri Tabanı
+                 <button onClick={() => { setActiveTab('inbox'); setIsMobileMenuOpen(false); }} className={`p-3 rounded-lg font-bold flex items-center gap-3 ${activeTab === 'inbox' ? 'bg-pink-600 text-white' : 'text-slate-400'}`}>
+                     <Inbox size={20} /> Gelen Kutusu
                  </button>
             </div>
         )}
@@ -447,8 +484,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
                  <button onClick={() => setActiveTab('system')} className={`w-full text-left p-3 rounded-xl font-bold flex items-center gap-3 transition-all ${activeTab === 'system' ? 'bg-orange-600 text-white shadow-lg shadow-orange-900/50' : 'text-slate-400 hover:bg-slate-900'}`}>
                      <Settings size={20} /> Sistem
                  </button>
-                 <button onClick={() => setActiveTab('database')} className={`w-full text-left p-3 rounded-xl font-bold flex items-center gap-3 transition-all ${activeTab === 'database' ? 'bg-purple-600 text-white shadow-lg shadow-purple-900/50' : 'text-slate-400 hover:bg-slate-900'}`}>
-                     <Database size={20} /> Veri Tabanı
+                 <button onClick={() => setActiveTab('inbox')} className={`w-full text-left p-3 rounded-xl font-bold flex items-center gap-3 transition-all ${activeTab === 'inbox' ? 'bg-pink-600 text-white shadow-lg shadow-pink-900/50' : 'text-slate-400 hover:bg-slate-900'}`}>
+                     <Inbox size={20} /> Gelen Kutusu
                  </button>
              </nav>
              
@@ -460,13 +497,34 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
         {/* Content Area */}
         <div className="flex-1 overflow-y-auto p-4 md:p-8 bg-slate-900 relative custom-scrollbar">
             
-            {/* DASHBOARD (Cheats & My Stats) */}
+            {/* DASHBOARD */}
             {activeTab === 'dashboard' && (
                 <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-300">
                     <h2 className="text-2xl md:text-3xl font-black mb-6 flex items-center gap-3">
-                        <Activity className="text-red-500" /> Hızlı İşlemler
+                        <Activity className="text-red-500" /> Genel Bakış
                     </h2>
                     
+                    {/* Stats Cards */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-1">Toplam Kullanıcı</div>
+                            <div className="text-2xl font-black text-white">{systemStats.totalUsers}</div>
+                        </div>
+                        <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-1">Aktif Turnuva</div>
+                            <div className="text-2xl font-black text-indigo-400">{systemStats.activeTournaments}</div>
+                        </div>
+                        <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-1">Toplam Düello</div>
+                            <div className="text-2xl font-black text-orange-400">{systemStats.totalChallenges}</div>
+                        </div>
+                        <div className="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-lg">
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-1">Geri Bildirim</div>
+                            <div className="text-2xl font-black text-pink-400">{systemStats.totalFeedback}</div>
+                        </div>
+                    </div>
+
+                    <h3 className="text-lg font-bold text-slate-300 mb-4">Hızlı İşlemler (Kendin İçin)</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                          <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl">
                              <div className="text-xs font-bold text-green-400 uppercase mb-4 tracking-wider flex items-center gap-2"><Gift size={14}/> Kendine XP Ekle</div>
@@ -580,52 +638,140 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
             {activeTab === 'users' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
                     <h2 className="text-2xl md:text-3xl font-black mb-6">Kullanıcı Yönetimi</h2>
-                    <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-xl min-h-[400px]">
-                        <form onSubmit={handleSearchUser} className="flex gap-3 mb-8">
+                    
+                    {/* User Search & Action Area */}
+                    <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700 shadow-xl">
+                        <form onSubmit={handleSearchUser} className="flex gap-3 mb-6">
                             <div className="relative flex-1">
                                 <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={20} />
-                                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="E-posta, Kullanıcı Adı veya UID..." className="w-full pl-12 pr-4 py-4 bg-slate-900 border border-slate-600 rounded-2xl text-base focus:border-blue-500 focus:ring-2 outline-none transition-all placeholder:text-slate-600" />
+                                <input type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} placeholder="E-posta veya Kullanıcı Adı..." className="w-full pl-12 pr-4 py-3 bg-slate-900 border border-slate-600 rounded-2xl text-sm focus:border-blue-500 focus:ring-2 outline-none" />
                             </div>
-                            <button type="submit" className="px-8 bg-blue-600 hover:bg-blue-700 rounded-2xl font-bold text-white transition-colors">Ara</button>
+                            <button type="submit" className="px-6 bg-blue-600 hover:bg-blue-700 rounded-2xl font-bold text-white transition-colors">Ara</button>
                         </form>
 
-                        {userActionLoading && <div className="text-center py-10 text-slate-400">Aranıyor...</div>}
+                        {userActionLoading && <div className="text-center py-4 text-slate-400">Aranıyor...</div>}
                         
                         {foundUser && (
-                            <div className="bg-slate-900 p-6 rounded-2xl border border-slate-600 animate-in fade-in zoom-in duration-300">
-                                <div className="flex flex-col md:flex-row items-center justify-between mb-6 gap-4">
-                                    <div className="flex items-center gap-5">
-                                        <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-4xl border-2 border-slate-700">{foundUser.profile.avatar}</div>
+                            <div className="bg-slate-900 p-4 rounded-2xl border border-slate-600 animate-in fade-in zoom-in duration-300">
+                                <div className="flex flex-col md:flex-row items-center justify-between mb-4 gap-4">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 bg-slate-800 rounded-full flex items-center justify-center text-2xl border-2 border-slate-700">{foundUser.profile.avatar}</div>
                                         <div>
-                                            <h3 className="font-bold text-xl text-white">{foundUser.profile.name}</h3>
-                                            <p className="text-sm text-slate-400 font-mono mt-0.5 break-all">{foundUser.email}</p>
-                                            <div className="flex gap-2 mt-2">
-                                                <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-yellow-500 font-bold">Lvl {foundUser.stats?.level || 1}</span>
-                                                <span className="text-[10px] bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-blue-400 font-bold">{foundUser.stats?.xp || 0} XP</span>
-                                                {foundUser.profile.isAdmin && <span className="text-[10px] bg-red-900/50 text-red-400 px-2 py-0.5 rounded border border-red-900 font-bold flex items-center gap-1"><ShieldAlert size={10}/> ADMIN</span>}
-                                            </div>
+                                            <h3 className="font-bold text-white flex items-center gap-2">
+                                                {foundUser.profile.name}
+                                                {foundUser.profile.isAdmin && <span className="text-[10px] bg-red-900/50 text-red-400 px-1.5 rounded border border-red-900">ADMIN</span>}
+                                                {foundUser.profile.isBanned && <span className="text-[10px] bg-black text-red-500 px-1.5 rounded border border-red-900">BANLI</span>}
+                                            </h3>
+                                            <p className="text-xs text-slate-400 font-mono">{foundUser.email}</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => setShowUserDetails(!showUserDetails)} className="w-full md:w-auto px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-xs font-bold border border-slate-700 transition-colors">{showUserDetails ? 'Gizle' : 'Detaylar'}</button>
-                                </div>
-                                {showUserDetails && (
-                                    <div className="mb-6 p-4 bg-slate-950 rounded-xl border border-slate-800 text-xs font-mono overflow-x-auto">
-                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                            {/* (User details here) */}
-                                            <div className="bg-slate-900 p-2 rounded border border-slate-800">Streak: {foundUser.stats?.streak}</div>
-                                            <div className="bg-slate-900 p-2 rounded border border-slate-800">Quiz: {foundUser.stats?.quizCorrect}/{foundUser.stats?.quizWrong}</div>
-                                            <div className="bg-slate-900 p-2 rounded border border-slate-800">Cards: {foundUser.stats?.flashcardsViewed}</div>
-                                            <div className="bg-slate-900 p-2 rounded border border-slate-800">Time: {Math.floor((foundUser.stats?.totalTimeSpent || 0)/60)}h</div>
-                                        </div>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => handleGiveUserXP(1000)} className="px-3 py-2 bg-slate-800 hover:bg-yellow-900/20 border border-slate-700 text-yellow-500 rounded-xl text-xs font-bold">+1000 XP</button>
+                                        
+                                        {!foundUser.profile.isBanned ? (
+                                            <button onClick={() => handleUpdateRole('banned')} className="px-3 py-2 bg-slate-800 hover:bg-red-900/20 border border-slate-700 text-red-500 rounded-xl text-xs font-bold">Banla</button>
+                                        ) : (
+                                            <button onClick={() => handleUpdateRole('user')} className="px-3 py-2 bg-slate-800 hover:bg-green-900/20 border border-slate-700 text-green-500 rounded-xl text-xs font-bold">Banı Kaldır</button>
+                                        )}
+                                        
+                                        {!foundUser.profile.isAdmin ? (
+                                            <button onClick={() => handleUpdateRole('admin')} className="px-3 py-2 bg-slate-800 hover:bg-blue-900/20 border border-slate-700 text-blue-500 rounded-xl text-xs font-bold">Admin Yap</button>
+                                        ) : (
+                                            <button onClick={() => handleUpdateRole('user')} className="px-3 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-400 rounded-xl text-xs font-bold">Admin Al</button>
+                                        )}
                                     </div>
-                                )}
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    <button onClick={() => handleGiveUserXP(1000)} className="p-4 bg-slate-800 hover:bg-yellow-900/20 border border-slate-700 hover:border-yellow-500/50 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all text-yellow-500"><Gift size={18} /> +1000 XP</button>
-                                    <button onClick={handleToggleAdmin} className={`p-4 rounded-2xl text-sm font-bold flex items-center justify-center gap-2 transition-all border ${foundUser.profile.isAdmin ? 'bg-red-900/10 border-red-800 text-red-500' : 'bg-green-900/10 border-green-800 text-green-500'}`}><Lock size={18} /> {foundUser.profile.isAdmin ? 'Yöneticiliği Al' : 'Yönetici Yap'}</button>
                                 </div>
                             </div>
                         )}
                     </div>
+
+                    {/* Recent Users List */}
+                    <div className="bg-slate-800 rounded-3xl border border-slate-700 shadow-xl overflow-hidden">
+                        <div className="p-4 border-b border-slate-700 flex justify-between items-center">
+                            <h3 className="font-bold text-white">Son Kayıt Olanlar</h3>
+                            <button onClick={loadRecentUsers} className="text-xs text-blue-400 hover:text-blue-300">Yenile</button>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left text-sm text-slate-400">
+                                <thead className="bg-slate-900 text-xs uppercase font-bold text-slate-500">
+                                    <tr>
+                                        <th className="p-4">Kullanıcı</th>
+                                        <th className="p-4">Seviye</th>
+                                        <th className="p-4">Rol</th>
+                                        <th className="p-4 text-right">İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-700">
+                                    {recentUsers.map((u) => (
+                                        <tr key={u.uid} className="hover:bg-slate-700/30 transition-colors">
+                                            <td className="p-4 font-medium text-white flex items-center gap-3">
+                                                <div className="w-8 h-8 rounded-full bg-slate-700 flex items-center justify-center">{u.profile.avatar}</div>
+                                                <div>
+                                                    <div>{u.profile.name}</div>
+                                                    <div className="text-[10px] text-slate-500">{u.email}</div>
+                                                </div>
+                                            </td>
+                                            <td className="p-4">
+                                                <span className="bg-slate-900 px-2 py-1 rounded text-xs font-bold border border-slate-700">Lvl {u.stats.level}</span>
+                                            </td>
+                                            <td className="p-4">
+                                                {u.profile.isAdmin ? <span className="text-red-400 font-bold text-xs">Admin</span> : 
+                                                 u.profile.isBanned ? <span className="text-slate-500 font-bold text-xs line-through">Banlı</span> : 
+                                                 <span className="text-blue-400 font-bold text-xs">Üye</span>}
+                                            </td>
+                                            <td className="p-4 text-right">
+                                                <button onClick={() => { setFoundUser(u); window.scrollTo(0,0); }} className="p-2 bg-slate-900 hover:bg-slate-700 rounded-lg text-slate-300 transition-colors"><Edit2 size={16}/></button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            )}
+            
+            {/* INBOX TAB (Feedback) */}
+            {activeTab === 'inbox' && (
+                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                    <h2 className="text-2xl md:text-3xl font-black mb-6">Gelen Kutusu</h2>
+                    
+                    {feedbackList.length === 0 ? (
+                        <div className="text-center py-10 text-slate-500">Henüz mesaj yok.</div>
+                    ) : (
+                        <div className="space-y-3">
+                            {feedbackList.map((msg) => (
+                                <div key={msg.id} className="bg-slate-800 p-4 rounded-2xl border border-slate-700 shadow-sm flex flex-col md:flex-row gap-4">
+                                    <div className="shrink-0 pt-1">
+                                        {msg.type === 'bug' ? (
+                                            <div className="p-2 bg-red-900/30 text-red-400 rounded-lg"><AlertTriangle size={20}/></div>
+                                        ) : (
+                                            <div className="p-2 bg-blue-900/30 text-blue-400 rounded-lg"><Lightbulb size={20}/></div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1">
+                                        <div className="flex justify-between items-start mb-1">
+                                            <span className={`text-xs font-bold px-2 py-0.5 rounded uppercase ${msg.type === 'bug' ? 'bg-red-900/20 text-red-400' : 'bg-blue-900/20 text-blue-400'}`}>
+                                                {msg.type === 'bug' ? 'Hata Bildirimi' : 'Öneri'}
+                                            </span>
+                                            <span className="text-[10px] text-slate-500">{new Date(msg.created_at).toLocaleDateString()}</span>
+                                        </div>
+                                        <p className="text-sm text-slate-300 leading-relaxed mb-2">{msg.message}</p>
+                                        {msg.contact && (
+                                            <div className="text-xs text-slate-500 font-mono bg-slate-900 p-2 rounded inline-block">
+                                                İletişim: {msg.contact}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex items-start">
+                                        <button onClick={() => handleDeleteFeedback(msg.id)} className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-900/10 rounded-lg transition-colors">
+                                            <Trash2 size={18} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
             )}
             
@@ -797,14 +943,6 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
                                 {maintenanceMode ? 'Bakımı Kapat' : 'Bakımı Aç'}
                             </button>
                         </div>
-                    </div>
-
-                    <div className="bg-slate-800 p-8 rounded-3xl border border-slate-700 shadow-xl">
-                         <h3 className="font-bold text-slate-300 mb-6 text-lg">Sıfırlama İşlemleri</h3>
-                         <div className="p-4 bg-red-900/10 border border-red-900/30 rounded-2xl">
-                             <p className="text-xs text-red-400 mb-4 font-medium leading-relaxed">Dikkat: Bu işlem tüm kullanıcıların günlük görev ilerlemelerini sıfırlar.</p>
-                             <button onClick={handleResetQuests} className="w-full py-3 bg-red-600/10 hover:bg-red-600 text-red-500 hover:text-white border border-red-600/50 hover:border-red-600 rounded-xl font-bold flex items-center justify-center gap-2 transition-all"><Trash2 size={18} /> Günlük Görevleri Sıfırla</button>
-                         </div>
                     </div>
                 </div>
             )}

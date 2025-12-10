@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
 import { ChevronLeft, ChevronRight, RotateCcw, Shuffle, Bookmark, CheckCircle, XCircle, ThumbsUp, Play, Pause, Loader2 } from 'lucide-react';
-import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized, addToBookmarks, removeFromBookmarks, handleReviewResult, registerSRSInteraction, updateQuestProgress } from '../services/userService';
+import { updateStats, getMemorizedSet, addToMemorized, removeFromMemorized, addToBookmarks, removeFromBookmarks, handleReviewResult, registerSRSInteraction, updateQuestProgress, XP_GAINS } from '../services/userService';
 import { playSound } from '../services/soundService';
 import { updateCumulativeStats } from '../services/supabase';
 
@@ -108,7 +107,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
       updateCumulativeStats('card_view', 1);
 
       // Call local service to update XP, quests, badges, etc.
-      const newBadges = updateStats('xp', grade, wordId, 3); // 3 XP per card view
+      const newBadges = updateStats(XP_GAINS.flashcard_view, { grade, unitId: wordId });
       updateQuestProgress('view_cards', 1);
       
       registerSRSInteraction(wordId);
@@ -224,12 +223,12 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
         newMemorized.add(uniqueId);
         addToMemorized(uniqueId);
         
-        const newBadges = updateStats('xp', grade, uniqueId, 10);
+        const newBadges = updateStats(XP_GAINS.flashcard_memorize, { grade, unitId: uniqueId });
         if (newBadges.length > 0 && onBadgeUnlock) {
              newBadges.forEach(b => onBadgeUnlock(b));
         }
 
-        triggerFeedback('success', 'Ezberlendi! (+10 XP)');
+        triggerFeedback('success', `Ezberlendi! (+${XP_GAINS.flashcard_memorize} XP)`);
         playSound('success');
     }
     setMemorized(newMemorized);
@@ -291,11 +290,11 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
               addToMemorized(wordId);
               setMemorized(prev => new Set(prev).add(wordId));
           }
-          updateStats('xp', grade, wordId, 10);
-          triggerFeedback('success', 'Harika! Sonraki Kutuya Geçti (+10 XP)');
+          updateStats(XP_GAINS.flashcard_memorize, { grade, unitId: wordId });
+          triggerFeedback('success', `Harika! Sonraki Kutuya Geçti (+${XP_GAINS.flashcard_memorize} XP)`);
       } else {
-          updateStats('xp', grade, wordId, 2);
-          triggerFeedback('remove-memorized', 'Kutu 1\'e Döndü (+2 XP)');
+          updateStats(XP_GAINS.flashcard_view, { grade, unitId: wordId });
+          triggerFeedback('remove-memorized', `Kutu 1'e Döndü (+${XP_GAINS.flashcard_view} XP)`);
       }
 
       setTimeout(() => {

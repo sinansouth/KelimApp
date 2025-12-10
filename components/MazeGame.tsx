@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
 import { Ghost, Bot, CheckCircle, XCircle, ArrowRight, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon, RotateCcw } from 'lucide-react';
 import { playSound } from '../services/soundService';
 // FIX: Import `updateGameStats` to handle game-specific statistics.
-import { updateStats, updateQuestProgress, updateGameStats } from '../services/userService';
+import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS } from '../services/userService';
 import { getSmartDistractors } from '../services/contentService';
 import { syncLocalToCloud } from '../services/supabase';
 
@@ -514,9 +513,9 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
       setScore(newScore);
 
       // --- IMMEDIATE XP UPDATE START ---
-      // FIX: Changed action from 'quiz_correct' to 'xp' and set the correct XP amount.
-      updateStats('xp', grade, undefined, 50);
-      updateQuestProgress('earn_xp', 50);
+      const xpGained = XP_GAINS.maze_level;
+      updateStats(xpGained, { grade });
+      updateQuestProgress('earn_xp', xpGained);
       updateGameStats('maze', newScore);
       updateQuestProgress('play_maze', 1);
       // --- IMMEDIATE XP UPDATE END ---

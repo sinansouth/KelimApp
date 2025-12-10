@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lightbulb, BookOpen, Trophy, ShoppingBag, Target, ShieldCheck, Sparkles, Gamepad2, Grid3X3, Search, ArrowRight, User, Swords, Palette, Layout, Users, Calendar, Zap, Repeat, GraduationCap, Medal, Crown, Brain, ListChecks } from 'lucide-react';
+import { XP_GAINS } from '../services/userService';
 
 interface InfoViewProps {
     onBack: () => void;
@@ -58,18 +59,18 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                     <div className="flex gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 flex items-center justify-center shrink-0 font-bold text-sm">1</div>
                                         <div>
-                                            <h4 className="font-bold text-sm text-slate-800 dark:text-white">Kartlar</h4>
+                                            <h4 className="font-bold text-sm text-slate-800 dark:text-white">Flashcard (Kelime Kartları)</h4>
                                             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-                                                Önce kelime kartlarını incele. Karta dokunarak anlamını ve örnek cümlesini gör.
+                                                Önce kelime kartlarını incele. Karta dokunarak anlamını ve örnek cümlesini gör. Her kartı görmek <strong>+{XP_GAINS.flashcard_view} XP</strong> kazandırır.
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-green-100 dark:bg-green-900/30 text-green-600 flex items-center justify-center shrink-0 font-bold text-sm">2</div>
                                         <div>
-                                            <h4 className="font-bold text-sm text-slate-800 dark:text-white">İşaretle</h4>
+                                            <h4 className="font-bold text-sm text-slate-800 dark:text-white">İşaretle ve Kazan</h4>
                                             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-                                                Bildiğin kelimeleri "Ezberledim", zorlandıklarını "Favori" yap.
+                                                Öğrendiğin kelimeleri "Ezberledim" olarak işaretle ve <strong>+{XP_GAINS.flashcard_memorize} XP</strong> kazan! Zorlandıklarını "Favori" yap.
                                             </p>
                                         </div>
                                     </div>
@@ -78,52 +79,18 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                         <div>
                                             <h4 className="font-bold text-sm text-slate-800 dark:text-white">Test Çöz</h4>
                                             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-                                                Test modunda bilgini pekiştir. Doğru cevaplarla XP kazan!
+                                                Test modunda bilgini pekiştir. Her doğru cevapla zorluğa göre <strong>10-30 XP</strong> arası kazan.
                                             </p>
                                         </div>
                                     </div>
                                     <div className="flex gap-3">
                                         <div className="w-8 h-8 rounded-lg bg-orange-100 dark:bg-orange-900/30 text-orange-600 flex items-center justify-center shrink-0 font-bold text-sm">4</div>
                                         <div>
-                                            <h4 className="font-bold text-sm text-slate-800 dark:text-white">Günlük Tekrar</h4>
+                                            <h4 className="font-bold text-sm text-slate-800 dark:text-white">Günlük Tekrar (SRS)</h4>
                                             <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5 leading-relaxed">
-                                                Ana sayfadaki "Günlük Tekrar" butonu, unutmaya başladığın kelimeleri sana hatırlatır.
+                                                Ana sayfadaki "Günlük Tekrar" butonu, unutmaya başladığın kelimeleri sana hatırlatır. Kalıcı öğrenme için her gün kontrol et!
                                             </p>
                                         </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h3 className="text-base font-black text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-                                    <Brain className="text-purple-500" size={18} /> Akıllı Tekrar Sistemi (SRS)
-                                </h3>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-3">
-                                    KelimApp, ezberlediğin kelimeleri bilimsel tekrar aralıklarıyla sana hatırlatır. "Ezberledim" işaretlediğin kelimeler:
-                                </p>
-                                <ul className="space-y-2 text-xs text-slate-600 dark:text-slate-400">
-                                    <li className="flex gap-2"><span className="text-green-500">•</span> 1 gün, 3 gün, 7 gün, 14 gün, 30 gün sonra tekrar edilir</li>
-                                    <li className="flex gap-2"><span className="text-green-500">•</span> Unutmadan önce hatırlatılır, kalıcı öğrenme sağlar</li>
-                                    <li className="flex gap-2"><span className="text-green-500">•</span> Ana sayfadaki "Günlük Tekrar" butonu ile erişilebilir</li>
-                                </ul>
-                            </div>
-
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h3 className="text-base font-black text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-                                    <GraduationCap className="text-blue-500" size={18} /> Gramer ve Özel Çalışma
-                                </h3>
-                                <div className="space-y-3">
-                                    <div>
-                                        <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">Gramer</h4>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                                            Her ünitede gramer konuları ve açıklamaları bulunur. Ünite seçtikten sonra "Gramer" butonuna tıkla.
-                                        </p>
-                                    </div>
-                                    <div>
-                                        <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">Özel Çalışma</h4>
-                                        <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                                            Sadece istediğin kelimeleri seç ve onlarla çalış. Kart veya test modunda öğren.
-                                        </p>
                                     </div>
                                 </div>
                             </div>
@@ -134,10 +101,19 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                         <Sparkles size={18} /> Gün Serisi (Streak)
                                     </h3>
                                     <p className="text-xs opacity-90 leading-relaxed">
-                                        Her gün uygulamaya girerek "Gün Seri"ni koru. Seri arttıkça XP çarpanın büyür ve daha hızlı seviye atlarsın!
+                                        Her gün uygulamaya girerek "Gün Seri"ni koru. Seri arttıkça XP çarpanın büyür ve daha hızlı seviye atlarsın! Eğer bir gün giremezsen, marketten alabileceğin "Seri Dondurucu" ile serini koruyabilirsin.
                                     </p>
                                 </div>
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
+                            </div>
+
+                             <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
+                                <h3 className="text-base font-black text-slate-800 dark:text-white mb-3 flex items-center gap-2">
+                                    <Users size={18} className="text-blue-500" /> Arkadaş Sistemi
+                                </h3>
+                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
+                                    Profilinden 6 haneli "Arkadaş Kodu"nu arkadaşlarınla paylaş. Onlar seni eklediğinde, sen de onları otomatik olarak eklersin! Birlikte düello yapın ve liderlik tablosunda yarışın.
+                                </p>
                             </div>
                         </div>
                     )}
@@ -156,7 +132,7 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                         Klasik test modu. Kelimelerin anlamlarını seçeneklerden seç. 5 farklı zorluk seviyesi var.
                                     </p>
                                     <span className="text-[10px] font-bold text-blue-500 bg-blue-50 dark:bg-blue-900/10 py-0.5 px-2 rounded">
-                                        Doğru: 20 XP
+                                        Doğru: {XP_GAINS.quiz_correct.normal} XP (Ortalama)
                                     </span>
                                 </div>
                             </div>
@@ -168,10 +144,10 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                 <div>
                                     <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">Düello</h4>
                                     <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
-                                        Arkadaşlarına veya herkese açık rakiplere meydan oku! Aynı kelime testini çözün, en yüksek puanı alan kazanır.
+                                        Arkadaşlarına veya herkese açık rakiplere meydan oku! En yüksek puanı alan kazanır.
                                     </p>
                                     <span className="text-[10px] font-bold text-orange-500 bg-orange-50 dark:bg-orange-900/10 py-0.5 px-2 rounded">
-                                        Zafer: +3 Düello Puanı
+                                        Zafer: 50 XP +3 Puan
                                     </span>
                                 </div>
                             </div>
@@ -186,7 +162,7 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                         İngilizce kelimeleri ve Türkçe karşılıklarını en kısa sürede eşleştir. Hafıza ve hızını test et!
                                     </p>
                                     <span className="text-[10px] font-bold text-green-500 bg-green-50 dark:bg-green-900/10 py-0.5 px-2 rounded">
-                                        5 XP / Eşleşme
+                                        +{XP_GAINS.matching_pair} XP / Eşleşme
                                     </span>
                                 </div>
                             </div>
@@ -201,7 +177,7 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                         Harfler arasına gizlenmiş kelimeleri bul. Dikkat ve gözlem yeteneğini konuştur.
                                     </p>
                                     <span className="text-[10px] font-bold text-cyan-500 bg-cyan-50 dark:bg-cyan-900/10 py-0.5 px-2 rounded">
-                                        10 XP / Kelime
+                                        +{XP_GAINS.wordsearch_word.medium} XP / Kelime (Ortalama)
                                     </span>
                                 </div>
                             </div>
@@ -216,7 +192,7 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                         Hayaletlerden kaç, doğru kelimenin olduğu kapıyı bul ve çıkışa ulaş. Heyecan dolu öğrenme!
                                     </p>
                                     <span className="text-[10px] font-bold text-red-500 bg-red-50 dark:bg-red-900/10 py-0.5 px-2 rounded">
-                                        50 XP / Seviye
+                                        +{XP_GAINS.maze_level} XP / Seviye
                                     </span>
                                 </div>
                             </div>
@@ -226,35 +202,7 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                     {/* SYSTEM TAB */}
                     {activeTab === 'system' && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-300">
-
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h4 className="flex items-center gap-2 text-slate-800 dark:text-white font-bold text-sm mb-3">
-                                    <Trophy size={16} className="text-yellow-500" /> XP ve Seviye Sistemi
-                                </h4>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">
-                                    Aktivitelerle XP kazan, seviye atla ve yeni özellikler aç!
-                                </p>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
-                                        <div className="text-xs font-bold text-slate-700 dark:text-slate-300">Quiz Doğru</div>
-                                        <div className="text-sm font-black text-indigo-600">20 XP</div>
-                                    </div>
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
-                                        <div className="text-xs font-bold text-slate-700 dark:text-slate-300">Ezberleme</div>
-                                        <div className="text-sm font-black text-green-600">10 XP</div>
-                                    </div>
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
-                                        <div className="text-xs font-bold text-slate-700 dark:text-slate-300">Hatasız Test</div>
-                                        <div className="text-sm font-black text-purple-600">100 XP</div>
-                                    </div>
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-lg p-2">
-                                        <div className="text-xs font-bold text-slate-700 dark:text-slate-300">Görevler</div>
-                                        <div className="text-sm font-black text-orange-600">100+ XP</div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-4 text-white shadow-lg">
+                             <div className="bg-gradient-to-r from-yellow-400 to-orange-500 rounded-2xl p-4 text-white shadow-lg">
                                 <h4 className="flex items-center gap-2 font-bold text-sm mb-2">
                                     <Zap size={16} /> XP Boost (2x)
                                 </h4>
@@ -268,34 +216,8 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                     <ListChecks size={16} className="text-green-500" /> Günlük Görevler
                                 </h4>
                                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
-                                    Her gün yeni görevler! Tamamla ve büyük XP ödülleri kazan:
+                                    Her gün 3 yeni görev! Tamamla ve büyük XP ödülleri kazan. 3 görevi de tamamlarsan <strong>ekstra +{XP_GAINS.daily_quest_completion_bonus} XP bonus</strong> kazanırsın!
                                 </p>
-                                <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-400">
-                                    <li className="flex gap-2"><span className="text-indigo-500">•</span> Kartları incele</li>
-                                    <li className="flex gap-2"><span className="text-indigo-500">•</span> Test çöz</li>
-                                    <li className="flex gap-2"><span className="text-indigo-500">•</span> Oyunları oyna</li>
-                                    <li className="flex gap-2"><span className="text-indigo-500">•</span> Düelloya katıl</li>
-                                </ul>
-                            </div>
-
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h4 className="flex items-center gap-2 text-slate-800 dark:text-white font-bold text-sm mb-2">
-                                    <Crown size={16} className="text-purple-500" /> Turnuvalar
-                                </h4>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
-                                    Büyük yarışmalara katıl, eleme turlarını geç ve şampiyon ol!
-                                </p>
-                                <div className="flex gap-2 text-[10px] font-bold">
-                                    <span className="bg-yellow-100 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-400 px-2 py-1 rounded">
-                                        🥇 1.000 XP
-                                    </span>
-                                    <span className="bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 px-2 py-1 rounded">
-                                        🥈 500 XP
-                                    </span>
-                                    <span className="bg-orange-100 dark:bg-orange-900/20 text-orange-700 dark:text-orange-400 px-2 py-1 rounded">
-                                        🥉 250 XP
-                                    </span>
-                                </div>
                             </div>
 
                             <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
@@ -303,34 +225,16 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                     <Medal size={16} className="text-blue-500" /> Liderlik Tablosu
                                 </h4>
                                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
-                                    Farklı kategorilerde yarış ve en iyiler arasına gir:
+                                    Farklı kategorilerde yarış ve en iyiler arasına gir. Haftalık sıralamalar her Pazar gecesi sıfırlanır ve yeni bir yarış başlar!
                                 </p>
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded p-2">
-                                        <div className="font-bold text-slate-700 dark:text-slate-300">Haftalık</div>
-                                        <div className="text-[10px] text-slate-500">Bu hafta sıfırdan başla</div>
-                                    </div>
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded p-2">
-                                        <div className="font-bold text-slate-700 dark:text-slate-300">Tüm Zamanlar</div>
-                                        <div className="text-[10px] text-slate-500">Toplam XP sıralaması</div>
-                                    </div>
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded p-2">
-                                        <div className="font-bold text-slate-700 dark:text-slate-300">Arkadaşlar</div>
-                                        <div className="text-[10px] text-slate-500">Sadece arkadaşların</div>
-                                    </div>
-                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded p-2">
-                                        <div className="font-bold text-slate-700 dark:text-slate-300">Özel Modlar</div>
-                                        <div className="text-[10px] text-slate-500">Quiz, Oyunlar, Düello</div>
-                                    </div>
-                                </div>
                             </div>
 
                             <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
                                 <h4 className="flex items-center gap-2 text-slate-800 dark:text-white font-bold text-sm mb-2">
-                                    <ShieldCheck size={16} className="text-emerald-500" /> Rozetler
+                                    <Crown size={16} className="text-purple-500" /> Turnuvalar
                                 </h4>
                                 <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                                    Belirli başarıları tamamlayarak rozetler kazan ve profilinde sergile. Her rozet özel bir başarının kanıtı!
+                                    Büyük yarışmalara katıl, eleme turlarını geç ve şampiyon ol! Şampiyonlar büyük XP ödülleri kazanır.
                                 </p>
                             </div>
 
@@ -339,23 +243,10 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                     <ShoppingBag size={16} className="text-pink-500" /> XP Market
                                 </h4>
                                 <p className="text-xs text-slate-600 dark:text-slate-400 mb-3 leading-relaxed">
-                                    Kazandığın XP'leri harcayarak yeni temalar, çerçeveler ve avatarlar satın al. Profilini özelleştir!
+                                    Kazandığın XP'leri harcayarak yeni temalar, çerçeveler ve avatarlar satın al. Profilini özelleştir! Seviye atladıkça yeni ürünlerin kilidi açılır.
                                 </p>
-                                <div className="flex gap-2 justify-center">
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-pink-500"><Palette size={14} /></div>
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-purple-500"><Layout size={14} /></div>
-                                    <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-blue-500"><User size={14} /></div>
-                                </div>
                             </div>
 
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h4 className="flex items-center gap-2 text-slate-800 dark:text-white font-bold text-sm mb-2">
-                                    <Users size={16} className="text-blue-500" /> Arkadaş Sistemi
-                                </h4>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                                    Profilinden "Arkadaş Kodu"nu paylaş. Arkadaşın seni eklediğinde, sen de onu otomatik olarak eklersin! Birlikte yarışın.
-                                </p>
-                            </div>
                         </div>
                     )}
                 </div>

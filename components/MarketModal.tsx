@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 import { X, ShoppingBag, Star, Palette, Sun, Moon, Droplets, Sunset, TreePine, Crown, Candy, Image, Gamepad2, Coffee, Rocket, Heart, Leaf, CloudSnow, MessageCircle, Flame, Lock, Zap, Shield } from 'lucide-react';
 import { getUserStats, getUserProfile, buyTheme, buyFrame, buyBackground, buyItem, getTheme, saveTheme, equipFrame, equipBackground } from '../services/userService';
@@ -108,7 +106,7 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
           id: 'streak_freeze', 
           name: 'Seri Dondurucu', 
           description: 'Bir gün girmeyi unutursan serin bozulmaz.', 
-          cost: 500, 
+          cost: 750, 
           type: 'powerup' as any, 
           value: 'streak_freeze', 
           icon: <Shield size={24} className="text-blue-500" />, 
@@ -116,9 +114,9 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
       },
       { 
           id: 'xp_boost', 
-          name: '2x XP (1 Saat)', 
-          description: '1 saat boyunca iki kat puan kazan.', 
-          cost: 250, 
+          name: '2x XP (30 Dk)', 
+          description: '30 dakika boyunca iki kat puan kazan.', 
+          cost: 500, 
           type: 'powerup' as any, 
           value: 'xp_boost', 
           icon: <Zap size={24} className="text-yellow-500" />, 
@@ -195,7 +193,7 @@ const MarketModal: React.FC<MarketModalProps> = ({ onClose, onThemeChange }) => 
             setStats(getUserStats());
             setProfile(getUserProfile());
             if (item.value === 'xp_boost') {
-                showAlert("Başarılı", "XP Boost aktif! 1 saat boyunca 2 kat puan kazanacaksın.", "success");
+                showAlert("Başarılı", "XP Boost aktif! 30 dakika boyunca 2 kat puan kazanacaksın.", "success");
                 onThemeChange();
             } else {
                 showAlert("Başarılı", "Satın alma işlemi tamamlandı!", "success");

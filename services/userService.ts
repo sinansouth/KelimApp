@@ -1,4 +1,3 @@
-
 import { Quest, Badge, GradeLevel, ThemeType } from '../types';
 import { BADGES, UNIT_ASSETS } from '../data/assets';
 import { getVocabulary } from './contentService';
@@ -82,6 +81,25 @@ export interface SRSData {
     nextReview: number;
 }
 
+// --- XP & Leveling Configuration ---
+export const XP_GAINS = {
+  flashcard_view: 2,
+  flashcard_memorize: 10,
+  quiz_correct: { relaxed: 10, easy: 15, normal: 20, hard: 25, impossible: 30 },
+  perfect_quiz_bonus: 100,
+  matching_pair: 5,
+  maze_level: 50,
+  wordsearch_word: { easy: 10, medium: 15, hard: 20 },
+  daily_quest_easy: 100,
+  daily_quest_medium: 150,
+  daily_quest_hard: 250,
+  daily_quest_completion_bonus: 150,
+};
+
+export const getXPForLevel = (level: number): number => Math.floor(Math.pow(level - 1, 2) * 100);
+export const getLevelForXP = (xp: number): number => Math.floor(Math.sqrt(xp / 100)) + 1;
+
+
 // --- TIME UTILITIES ---
 
 export const getTurkeyTime = (): Date => {
@@ -126,7 +144,7 @@ const DEFAULT_PROFILE: UserProfile = {
     purchasedFrames: ['frame_none'],
     purchasedBackgrounds: ['bg_default'],
     inventory: { streakFreezes: 0 },
-    isGuest: false,
+    isGuest: true, // FIX: Default to guest to prevent limbo "Online" state
     friendCode: '',
     isAdmin: false,
     updatedAt: 0
@@ -509,10 +527,8 @@ export const getSRSStatus = () => {
 // --- Stats Updates ---
 
 export const updateStats = (
-    action: 'xp' | 'perfect_quiz',
-    grade?: GradeLevel | null,
-    unitId?: string,
-    amount: number = 1
+    xpToAdd: number,
+    context?: { grade?: GradeLevel | null, unitId?: string, action?: string, quizSize?: number }
 ): Badge[] => {
     const stats = getUserStats();
     const todayStr = getTodayDateString();
@@ -544,23 +560,15 @@ export const updateStats = (
         }
         stats.lastStudyDate = todayStr;
     }
-
-    let xpGain = 0;
-    const multiplier = (stats.xpBoostEndTime > Date.now()) ? 2 : 1;
-
-    switch (action) {
-        case 'perfect_quiz':
-            stats.perfectQuizzes++;
-            xpGain = 100;
-            break;
-        case 'xp':
-            xpGain = amount;
-            break;
+    
+    if(context?.action === 'perfect_quiz') {
+        stats.perfectQuizzes++;
     }
 
-    stats.xp += xpGain * multiplier;
+    const multiplier = (stats.xpBoostEndTime > Date.now()) ? 2 : 1;
+    stats.xp += xpToAdd * multiplier;
 
-    const newLevel = Math.floor(Math.sqrt(stats.xp / 100)) + 1;
+    const newLevel = getLevelForXP(stats.xp);
     if (newLevel > stats.level) {
         stats.level = newLevel;
     }
@@ -570,7 +578,7 @@ export const updateStats = (
     const unlockedBadges: Badge[] = [];
     BADGES.forEach(badge => {
         if (!stats.badges.includes(badge.id)) {
-            if (badge.condition(stats, { grade, unitId, action })) {
+            if (badge.condition(stats, context)) {
                 stats.badges.push(badge.id);
                 unlockedBadges.push(badge);
             }
@@ -656,24 +664,21 @@ export const getDailyState = () => {
 
 const generateDailyQuests = (): Quest[] => {
     const easyQuests: { type: Quest['type'], target: number, reward: number, desc: string }[] = [
-        { type: 'view_cards', target: 10, reward: 100, desc: '10 Kelime Kartı İncele' },
-        { type: 'earn_xp', target: 100, reward: 100, desc: '100 XP Kazan' },
-        { type: 'study_time', target: 10, reward: 100, desc: '10 Dakika Çalış' }
+        { type: 'view_cards', target: 20, reward: XP_GAINS.daily_quest_easy, desc: '20 Kelime Kartı İncele' },
+        { type: 'earn_xp', target: 150, reward: XP_GAINS.daily_quest_easy, desc: '150 XP Kazan' },
+        { type: 'study_time', target: 10, reward: XP_GAINS.daily_quest_easy, desc: '10 Dakika Çalış' }
     ];
 
     const mediumQuests: { type: Quest['type'], target: number, reward: number, desc: string }[] = [
-        { type: 'finish_quiz', target: 2, reward: 150, desc: '2 Test Bitir' },
-        { type: 'correct_answers', target: 20, reward: 150, desc: '20 Doğru Cevap Ver' },
-        { type: 'play_matching', target: 1, reward: 120, desc: 'Eşleştirme Oyunu Oyna' },
-        { type: 'play_word_search', target: 100, reward: 120, desc: 'Bulmacada 100 Puan Al' }
+        { type: 'finish_quiz', target: 2, reward: XP_GAINS.daily_quest_medium, desc: '2 Test Bitir' },
+        { type: 'correct_answers', target: 25, reward: XP_GAINS.daily_quest_medium, desc: '25 Doğru Cevap Ver' },
+        { type: 'play_matching', target: 1, reward: XP_GAINS.daily_quest_medium, desc: 'Eşleştirme Oyunu Oyna' },
     ];
 
     const hardQuests: { type: Quest['type'], target: number, reward: number, desc: string }[] = [
-        { type: 'perfect_quiz', target: 1, reward: 250, desc: '1 Testi Hatasız Bitir' },
-        { type: 'win_duel', target: 1, reward: 300, desc: 'Bir Düello Kazan' },
-        { type: 'play_maze', target: 1, reward: 200, desc: 'Labirent Oyunu Oyna' },
-        { type: 'study_time', target: 30, reward: 300, desc: '30 Dakika Çalış' },
-        { type: 'earn_xp', target: 500, reward: 300, desc: '500 XP Kazan' }
+        { type: 'perfect_quiz', target: 1, reward: XP_GAINS.daily_quest_hard, desc: '1 Testi Hatasız Bitir' },
+        { type: 'win_duel', target: 1, reward: XP_GAINS.daily_quest_hard, desc: 'Bir Düello Kazan' },
+        { type: 'play_maze', target: 1, reward: XP_GAINS.daily_quest_hard, desc: 'Labirent Oyunu Oyna' },
     ];
 
     const selectedQuests: Quest[] = [];
@@ -720,22 +725,25 @@ const generateDailyQuests = (): Quest[] => {
 export const updateQuestProgress = (type: string, amount: number) => {
     const daily = getDailyState();
     let changed = false;
+    let questsCompletedBefore = daily.quests.filter((q: Quest) => q.isCompleted).length;
 
     daily.quests.forEach((q: Quest) => {
         if (!q.isCompleted && q.type === type) {
             q.current += amount;
-            // Cap current at target for visual consistency
             if (q.current >= q.target) {
                 q.current = q.target;
                 q.isCompleted = true;
-                const stats = getUserStats();
-                stats.xp += q.rewardXP;
-                stats.questsCompleted++;
-                saveUserStats(stats);
+                updateStats(q.rewardXP);
             }
             changed = true;
         }
     });
+
+    let questsCompletedAfter = daily.quests.filter((q: Quest) => q.isCompleted).length;
+
+    if (questsCompletedAfter === 3 && questsCompletedBefore < 3) {
+        updateStats(XP_GAINS.daily_quest_completion_bonus);
+    }
 
     if (changed) {
         localStorage.setItem(KEYS.DAILY, JSON.stringify(daily));
@@ -797,7 +805,7 @@ export const buyItem = (itemId: 'streak_freeze' | 'xp_boost', cost: number): boo
             profile.inventory.streakFreezes = (profile.inventory.streakFreezes || 0) + 1;
             saveUserProfile(profile);
         } else if (itemId === 'xp_boost') {
-            stats.xpBoostEndTime = Date.now() + (60 * 60 * 1000);
+            stats.xpBoostEndTime = Date.now() + (30 * 60 * 1000); // 30 minutes
         }
 
         saveUserStats(stats);
@@ -827,7 +835,7 @@ export const adminAddXP = (amount: number) => {
 export const adminSetLevel = (level: number) => {
     const stats = getUserStats();
     stats.level = level;
-    stats.xp = level * level * 100;
+    stats.xp = getXPForLevel(level);
     saveUserStats(stats);
 };
 
@@ -845,10 +853,6 @@ export const adminUnlockAllBadges = () => {
 
 export const adminUnlockAllAvatars = () => {
     adminSetLevel(500);
-};
-
-export const adminResetDailyQuests = () => {
-    localStorage.removeItem(KEYS.DAILY);
 };
 
 export const getRandomWordForGrade = async (grade: GradeLevel | string | null): Promise<import('../types').WordCard | null> => {
@@ -907,24 +911,6 @@ export const hasSeenTutorial = () => {
 
 export const markTutorialAsSeen = () => {
     localStorage.setItem(KEYS.TUTORIAL_SEEN, 'true');
-};
-
-export const resetAppProgress = (scope: { type: 'all' | 'grade' | 'unit', value?: string }) => {
-    if (scope.type === 'all') {
-        localStorage.clear();
-        window.location.reload();
-    } else if (scope.type === 'unit' && scope.value) {
-        const mem = getMemorizedSet();
-        const newMem = new Set<string>();
-        mem.forEach(id => { if (!id.startsWith(scope.value!)) newMem.add(id); });
-        localStorage.setItem(KEYS.MEMORIZED, JSON.stringify([...newMem]));
-
-        const srs = getSRSData();
-        Object.keys(srs).forEach(id => { if (id.startsWith(scope.value!)) delete srs[id]; });
-        saveSRSData(srs);
-
-        updateLastUpdatedTimestamp();
-    }
 };
 
 export const clearLocalUserData = () => {

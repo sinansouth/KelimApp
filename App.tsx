@@ -290,12 +290,27 @@ const App: React.FC = () => {
         setHistory(prev => [...prev, mode]);
         setMode(newMode);
     };
+    
+    const handleModalClose = () => {
+        const previousModal = activeModal;
+        setActiveModal(null);
+        setIsOnboardingGuest(false);
+
+        // After a brief moment to allow state to update
+        setTimeout(() => {
+            const profile = getUserProfile();
+            // If user canceled login/register or guest grade selection, and still no profile exists,
+            // send them back to the main choice screen.
+            if ((previousModal === 'auth' || previousModal === 'grade') && !profile.name) {
+                setShowWelcomeScreen(true);
+            }
+        }, 100);
+    };
 
     const goBack = useCallback(() => {
         if (viewProfileId) { setViewProfileId(null); return true; }
         if (activeModal) {
-            setActiveModal(null);
-            setIsOnboardingGuest(false);
+            handleModalClose();
             return true;
         }
         if (pendingQuizConfig) { setPendingQuizConfig(null); return true; }
@@ -693,7 +708,7 @@ const App: React.FC = () => {
         <div className="flex flex-col h-[100dvh] font-sans pt-safe pb-safe overflow-hidden transition-colors duration-300" style={{ backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-main)' }}>
             {showWelcomeScreen && (<WelcomeScreen onLogin={handleWelcomeLogin} onRegister={handleWelcomeRegister} onGuest={handleWelcomeGuest} />)}
             {newBadge && (<div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[110] w-full max-w-sm px-4 pointer-events-none"> <div className="bg-yellow-500 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500 border-2 border-yellow-300"> <div className="text-4xl animate-bounce"> {newBadge.image ? (<img src={newBadge.image} alt={newBadge.name} className="w-10 h-10 rounded-full object-cover" />) : (<span className="flex items-center justify-center w-10 h-10 text-3xl">{newBadge.icon}</span>)} </div> <div> <div className="text-xs font-bold text-yellow-100 uppercase tracking-wide mb-0.5">Yeni Rozet Kazanıldı!</div> <div className="font-black text-lg leading-tight">{newBadge.name}</div> </div> <Trophy className="ml-auto text-yellow-200" size={24} /> </div> </div>)}
-            {activeModal === 'auth' && <AuthModal onClose={() => setActiveModal(null)} onSuccess={() => { handleProfileUpdate(); setActiveModal(null); }} initialView={authInitialView} />}
+            {activeModal === 'auth' && <AuthModal onClose={handleModalClose} onSuccess={() => { handleProfileUpdate(); setActiveModal(null); }} initialView={authInitialView} />}
             {activeModal === 'settings' && (<SettingsModal onClose={() => setActiveModal(null)} onOpenFeedback={() => setActiveModal('feedback')} onOpenAdmin={() => setActiveModal('admin')} onRestartTutorial={() => { }} />)}
             {activeModal === 'feedback' && <FeedbackModal onClose={() => setActiveModal(null)} />}
             {activeModal === 'admin' && (<AdminModal onClose={() => setActiveModal(null)} onUpdate={() => { handleProfileUpdate(); }} />)}
@@ -701,7 +716,7 @@ const App: React.FC = () => {
             <InstallPromptModal />
             {activeModal === 'srs' && <SRSInfoModal onClose={() => setActiveModal(null)} />}
             {activeModal === 'market' && <MarketModal onClose={() => { setActiveModal(null); handleProfileUpdate(); }} onThemeChange={handleThemeChange} />}
-            {activeModal === 'grade' && (<GradeSelectionModal onClose={() => { setActiveModal(null); setIsOnboardingGuest(false); }} onSelect={handleGradeSelect} grades={availableGradesForReview} title={isOnboardingGuest ? 'Sınıfını Seç' : undefined} description={isOnboardingGuest ? 'Hangi seviyede İngilizce çalışmak istorsun?' : undefined} />)}
+            {activeModal === 'grade' && (<GradeSelectionModal onClose={handleModalClose} onSelect={handleGradeSelect} grades={availableGradesForReview} title={isOnboardingGuest ? 'Sınıfını Seç' : undefined} description={isOnboardingGuest ? 'Hangi seviyede İngilizce çalışmak istorsun?' : undefined} />)}
             {pendingQuizConfig && <QuizSetupModal onClose={handleManualBack} onStart={startQuizWithCount} totalWords={pendingQuizConfig.words.length} title={pendingQuizConfig.title} />}
             {celebration?.show && <Celebration message={celebration.message} type={celebration.type} onClose={() => setCelebration(null)} />}
             {activeModal === 'avatar' && <AvatarModal onClose={() => setActiveModal(null)} userStats={userStats || { flashcardsViewed: 0, quizCorrect: 0, quizWrong: 0, date: '', dailyGoal: 5, xp: 0, level: 1, streak: 0, lastStudyDate: null, badges: [], xpBoostEndTime: 0, lastGoalMetDate: null, viewedWordsToday: [], perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, duelWins: 0, duelPoints: 0, completedUnits: [], completedGrades: [], weekly: { weekId: '', quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, mazeHighScore: 0, wordSearchHighScore: 0 } }} onUpdate={() => { setHeaderProfile(getUserProfile()); if (handleProfileUpdate) handleProfileUpdate(); }} />}

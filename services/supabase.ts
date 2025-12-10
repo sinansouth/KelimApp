@@ -46,17 +46,28 @@ export const getCurrentUser = async () => {
     return data.user;
 };
 
-// FIX: Add and export the missing `updateCumulativeStats` function.
 // --- CUMULATIVE STATS (for weekly/all-time leaderboards) ---
-export const updateCumulativeStats = async (stat_name: string, increment_value: number) => {
+export const updateCumulativeStats = async (action_type: 'quiz_correct' | 'quiz_wrong' | 'card_view', amount: number) => {
     try {
         const { error } = await supabase.rpc('update_cumulative_stats', { 
-            p_stat_name: stat_name, 
-            p_increment_value: increment_value 
+            p_action_type: action_type, 
+            p_amount: amount 
         });
-        if (error) console.error(`Error updating cumulative stat ${stat_name}:`, error);
+        if (error) console.error(`Error updating cumulative stat ${action_type}:`, error);
     } catch (e) {
         console.error(`RPC call failed for update_cumulative_stats:`, e);
+    }
+};
+
+export const updateGameScore = async (game_type: 'matching' | 'maze' | 'wordSearch', new_score: number) => {
+    try {
+        const { error } = await supabase.rpc('update_game_score', { 
+            p_game_type: game_type, 
+            p_new_score: new_score 
+        });
+        if (error) console.error(`Error updating game score for ${game_type}:`, error);
+    } catch (e) {
+        console.error(`RPC call failed for update_game_score:`, e);
     }
 };
 
@@ -454,6 +465,45 @@ export const getUserData = async (uid: string) => {
 
 // --- ADMIN ACTIONS ---
 
+export const getSystemStats = async () => {
+    try {
+        const usersCount = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+        const tournamentsCount = await supabase.from('tournaments').select('*', { count: 'exact', head: true }).eq('status', 'active');
+        const challengesCount = await supabase.from('challenges').select('*', { count: 'exact', head: true });
+        const feedbackCount = await supabase.from('feedback').select('*', { count: 'exact', head: true });
+
+        return {
+            totalUsers: usersCount.count || 0,
+            activeTournaments: tournamentsCount.count || 0,
+            totalChallenges: challengesCount.count || 0,
+            totalFeedback: feedbackCount.count || 0
+        };
+    } catch (e) {
+        return { totalUsers: 0, activeTournaments: 0, totalChallenges: 0, totalFeedback: 0 };
+    }
+};
+
+export const getRecentUsers = async () => {
+    try {
+        const result = await supabase
+            .from('profiles')
+            .select('*')
+            .order('created_at', { ascending: false })
+            .limit(10);
+            
+        if (result.error) throw result.error;
+        return (result.data || []).map(transformProfileToUser);
+    } catch (e) {
+        console.error("Error fetching recent users", e);
+        return [];
+    }
+};
+
+export const updateUserRole = async (uid: string, role: 'admin' | 'user' | 'banned') => {
+    const { error } = await supabase.from('profiles').update({ role }).eq('id', uid);
+    if (error) throw error;
+};
+
 export const searchUser = async (queryText: string) => {
     try {
         let result = await withTimeout(supabase
@@ -489,7 +539,9 @@ const transformProfileToUser = (data: any) => {
             name: data.username,
             grade: data.grade,
             avatar: data.avatar,
+            role: data.role || 'user', // Store role string
             isAdmin: data.role === 'admin',
+            isBanned: data.role === 'banned',
             friendCode: data.friend_code,
             frame: data.inventory?.equipped_frame || 'frame_none',
             background: data.inventory?.equipped_background || 'bg_default',
@@ -498,7 +550,8 @@ const transformProfileToUser = (data: any) => {
             purchasedFrames: data.inventory?.frames || [],
             purchasedBackgrounds: data.inventory?.backgrounds || [],
             inventory: { streakFreezes: data.inventory?.streakFreezes || 0 },
-            isGuest: false
+            isGuest: false,
+            createdAt: data.created_at
         },
         stats: data.stats || {},
         srs_data: data.srs_data || {},
@@ -521,6 +574,25 @@ export const adminGiveXP = async (uid: string, amount: number) => {
 
 export const toggleAdminStatus = async (uid: string, status: boolean) => {
     await supabase.from('profiles').update({ role: status ? 'admin' : 'user' }).eq('id', uid);
+};
+
+// --- FEEDBACK SYSTEM (ADMIN) ---
+
+export const getAllFeedback = async () => {
+    try {
+        const result = await supabase
+            .from('feedback')
+            .select('*')
+            .order('created_at', { ascending: false });
+        return result.data || [];
+    } catch (e) {
+        return [];
+    }
+};
+
+export const deleteFeedback = async (id: number) => {
+    const { error } = await supabase.from('feedback').delete().eq('id', id);
+    if (error) throw error;
 };
 
 // --- ANNOUNCEMENTS ---
@@ -633,7 +705,7 @@ export const joinTournament = async (tournamentId: string) => {
 export const checkTournamentTimeouts = async (tournamentId: string): Promise<boolean> => {
     const { data, error } = await supabase.rpc('process_tournament_round', { p_tournament_id: tournamentId });
     if (error) throw error;
-    return data && data.includes("oluşturuldu");
+    return data && (data as string).includes("oluşturuldu");
 };
 
 export const submitTournamentScore = async (tournamentId: string, matchId: string, score: number, timeTaken: number) => {

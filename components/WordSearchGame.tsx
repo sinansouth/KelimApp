@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
 import { CheckCircle, RotateCcw, ArrowRight, HelpCircle, Search, Grid3X3, Home, Play } from 'lucide-react';
 import { playSound } from '../services/soundService';
 // FIX: Import `updateGameStats` to handle game-specific statistics.
-import { updateStats, updateQuestProgress, updateGameStats } from '../services/userService';
+import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS } from '../services/userService';
 import { syncLocalToCloud } from '../services/supabase';
 
 interface WordSearchGameProps {
@@ -253,9 +252,9 @@ const WordSearchGame: React.FC<WordSearchGameProps> = ({ words, onFinish, onBack
             setScore(prev => prev + points);
 
             // --- IMMEDIATE XP UPDATE START ---
-            // FIX: Changed action from 'quiz_correct' to 'xp' and set the correct XP amount.
-            updateStats('xp', grade, undefined, points);
-            updateQuestProgress('earn_xp', points);
+            const xpGained = XP_GAINS.wordsearch_word[difficulty];
+            updateStats(xpGained, { grade });
+            updateQuestProgress('earn_xp', xpGained);
             updateQuestProgress('play_word_search', points);
             
             syncLocalToCloud(); // Immediate sync
@@ -286,7 +285,8 @@ const WordSearchGame: React.FC<WordSearchGameProps> = ({ words, onFinish, onBack
             if (onCelebrate) onCelebrate('Tebrikler! Tüm kelimeleri buldun!', 'goal');
         }, 1000);
     };
-
+    
+    // FIX: Fix 'Cannot find name' error by defining highlightedCells.
     const highlightedCells = new Set<string>();
     if (selection.start && selection.end) {
         const cells = getCellsBetween(selection.start, selection.end);

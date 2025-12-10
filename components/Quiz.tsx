@@ -1,8 +1,7 @@
-
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { WordCard, Badge, GradeLevel, QuizDifficulty, Challenge } from '../types';
 import { CheckCircle, XCircle, Bookmark, Info, Clock, Swords, Copy, Trophy, HelpCircle, Zap, Divide, RotateCcw, Home } from 'lucide-react';
-import { updateStats, handleQuizResult, handleReviewResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress, getUserProfile, saveUserStats } from '../services/userService';
+import { updateStats, handleQuizResult, handleReviewResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress, getUserProfile, saveUserStats, XP_GAINS } from '../services/userService';
 import { playSound } from '../services/soundService';
 import { createChallenge, completeChallenge, syncLocalToCloud, submitTournamentScore, forfeitTournamentMatch, updateCumulativeStats } from '../services/supabase';
 import { getSmartDistractors } from '../services/contentService';
@@ -243,13 +242,14 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
     // Update stats on server and locally
     if (!challengeMode) {
+        const xpForCorrect = XP_GAINS.quiz_correct[difficulty] || 20;
         if (isCorrect) {
             updateCumulativeStats('quiz_correct', 1);
-            const newBadges = updateStats('xp', grade, wordId, 20);
+            const newBadges = updateStats(xpForCorrect, { grade, unitId: wordId });
             if (newBadges.length > 0 && onBadgeUnlock) newBadges.forEach(b => onBadgeUnlock(b));
         } else {
             updateCumulativeStats('quiz_wrong', 1);
-            updateStats('xp', grade, wordId, 1);
+            updateStats(1, { grade, unitId: wordId });
         }
     }
 
@@ -278,7 +278,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
         }
 
         if (isReviewMode) {
-            updateStats('xp', grade, wordId, 10);
+            updateStats(XP_GAINS.flashcard_memorize, { grade, unitId: wordId });
         }
         
     } else {
@@ -292,7 +292,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
         
         if (isReviewMode) {
              handleReviewResult(wordId, false); 
-             updateStats('xp', grade, wordId, 2);
+             updateStats(XP_GAINS.flashcard_view, { grade, unitId: wordId });
         } else {
              handleQuizResult(wordId, false);
 
@@ -368,7 +368,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
           updateQuestProgress('finish_quiz', 1);
           
           if (actualScore === questions.length) {
-              const newBadges = updateStats('perfect_quiz', grade);
+              const newBadges = updateStats(XP_GAINS.perfect_quiz_bonus, { grade, action: 'perfect_quiz', quizSize: words.length });
               if (newBadges.length > 0 && onBadgeUnlock) newBadges.forEach(b => onBadgeUnlock(b));
               updateQuestProgress('perfect_quiz', 1);
           }
