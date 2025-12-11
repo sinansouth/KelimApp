@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Trophy, Medal, Crown, Star, Target, BookOpen, Swords, Grid3X3, Gamepad2, Search, LogIn, Flame, WifiOff } from 'lucide-react';
-import { getLeaderboard, LeaderboardEntry, syncLocalToCloud, getAuthInstance } from '../services/supabase';
+import { getLeaderboard, syncLocalToCloud, getAuthInstance } from '../services/supabase';
+import { LeaderboardEntry } from '../types';
 import { getAvatars, getFrames, getBackgrounds } from '../services/contentService';
 import { THEME_COLORS } from '../data/assets';
 import UserProfileModal from './UserProfileModal';
@@ -115,7 +116,8 @@ const LeaderboardModal: React.FC<LeaderboardModalProps> = ({ onClose, currentUse
     {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onSuccess={onAuthSuccess} />}
 
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 duration-200"
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden flex flex-col h-[85vh] animate-in zoom-in-95 duration-200"
            style={{
                backgroundColor: modalThemeStyle.bgCard, 
                borderColor: modalThemeStyle.border,

@@ -1,4 +1,3 @@
-
 import { ReactNode } from 'react';
 
 export interface WordCard {
@@ -280,4 +279,22 @@ export interface Announcement {
   date: string;
   content: string;
   isNew?: boolean;
+}
+
+export interface LeaderboardEntry {
+  uid: string;
+  name: string;
+  grade: string;
+  xp: number;
+  level: number;
+  streak: number;
+  avatar: string;
+  frame: string;
+  background: string;
+  theme: string;
+  value: number;
+  duelWins?: number;
+  duelLosses?: number;
+  duelDraws?: number;
+  duelPoints?: number;
 }

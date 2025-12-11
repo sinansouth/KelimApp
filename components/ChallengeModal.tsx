@@ -224,7 +224,8 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
   if (isOffline) {
       return (
         <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col p-8 text-center">
+            <div className="absolute inset-0" onClick={onClose} />
+            <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col p-8 text-center">
                 <WifiOff size={48} className="text-slate-400 mx-auto mb-4" />
                 <h3 className="font-bold text-lg mb-2 text-slate-800 dark:text-white">İnternet Bağlantısı Yok</h3>
                 <p className="text-sm text-slate-500 mb-6">Düello ve turnuva modlarını kullanmak için lütfen internete bağlanın.</p>
@@ -236,7 +237,8 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
         
         <div className="bg-orange-500 p-5 text-center relative shrink-0">
             <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white">
@@ -425,209 +427,241 @@ const ChallengeModal: React.FC<ChallengeModalProps> = ({ onClose, onCreateChalle
                                      )
                                  ) : (
                                      <button 
-                                        onClick={() => { setSelectedTournament(t); setMode('tournament_view'); }}
-                                        className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm transition-colors"
+                                         onClick={() => { setSelectedTournament(t); setMode('tournament_view'); }}
+                                         className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold text-sm"
                                      >
                                          Turnuvayı Görüntüle
                                      </button>
                                  )}
                              </div>
-                         )})
-                     ) : (
-                         <div className="text-center py-10 text-slate-400">Aktif turnuva bulunamadı.</div>
-                     )}
-                     <button onClick={() => setMode('menu')} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl mt-2">Geri</button>
+                             )
+                         })
+                     ) : <div className="text-center py-8 text-slate-400">Aktif turnuva bulunamadı.</div>}
+                     <button onClick={() => setMode('menu')} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl mt-4">Geri</button>
                  </div>
-            ) : mode === 'tournament_view' && selectedTournament ? (
-                <TournamentTree 
-                    tournament={selectedTournament} 
-                    currentUserId={myUid || ''} 
-                    onPlayMatch={handlePlayTournamentMatch}
-                    onBack={() => setMode('tournaments')}
-                />
+            ) : mode === 'tournament_view' ? (
+                selectedTournament ? (
+                    <TournamentTree 
+                        tournament={selectedTournament} 
+                        currentUserId={myUid} 
+                        onPlayMatch={handlePlayTournamentMatch}
+                        onBack={() => { setSelectedTournament(null); setMode('tournaments'); }}
+                    />
+                ) : <div className="text-center py-8">Turnuva yüklenemedi.</div>
             ) : mode === 'history' ? (
-                 <div className="space-y-4">
-                    <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-bold text-slate-800 dark:text-white">Geçmiş Düellolar</h3>
-                        <button onClick={fetchHistory} className="text-xs text-indigo-500 font-bold hover:underline">Yenile</button>
-                    </div>
-
+                <div className="space-y-3">
+                    <h3 className="font-bold text-slate-800 dark:text-white mb-2">Geçmiş Maçların</h3>
                     {loading ? (
-                         <div className="text-center py-8 text-slate-400">Yükleniyor...</div>
+                        <div className="text-center py-8 text-slate-400">Yükleniyor...</div>
                     ) : historyList.length > 0 ? (
-                         <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
-                             {historyList.map(c => {
-                                 const isCreator = c.creatorId === myUid;
-                                 const opponentName = isCreator ? (c.opponentName || 'Rakip') : c.creatorName;
-                                 const myScore = isCreator ? c.creatorScore : c.opponentScore;
-                                 const oppScore = isCreator ? c.opponentScore : c.creatorScore;
-                                 
-                                 let resultColor = 'text-slate-500';
-                                 if (c.winnerId === 'tie') resultColor = 'text-yellow-500';
-                                 else if (c.winnerId === myUid) resultColor = 'text-green-500';
-                                 else if (c.winnerId && c.winnerId !== 'tie') resultColor = 'text-red-500';
-
-                                 return (
-                                     <div key={c.id} className="p-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 flex justify-between items-center">
-                                         <div>
-                                             <div className="text-[10px] text-slate-400 mb-1">
-                                                 {new Date(c.createdAt).toLocaleDateString()} • {c.grade === 'GENERAL' ? 'Genel' : `${c.grade}. Sınıf`}
-                                             </div>
-                                             <div className="font-bold text-sm text-slate-800 dark:text-white">vs {opponentName}</div>
-                                         </div>
-                                         <div className="text-right">
-                                             <div className={`font-black text-lg ${resultColor}`}>
-                                                 {myScore}% - {oppScore}%
-                                             </div>
-                                             <div className="text-[10px] text-slate-400 uppercase font-bold">
-                                                 {c.winnerId === 'tie' ? 'Berabere' : (c.winnerId === myUid ? 'Kazandın' : 'Kaybettin')}
-                                             </div>
-                                         </div>
-                                     </div>
-                                 )
-                             })}
-                         </div>
+                        <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar pr-1">
+                            {historyList.map(c => {
+                                const isCreator = c.creatorId === myUid;
+                                const myScore = isCreator ? c.creatorScore : c.opponentScore;
+                                const opponentScore = isCreator ? c.opponentScore : c.creatorScore;
+                                const opponentName = isCreator ? c.opponentName : c.creatorName;
+                                const result = myScore! > opponentScore! ? 'win' : myScore! < opponentScore! ? 'loss' : 'tie';
+                                
+                                return (
+                                    <div key={c.id} className={`p-3 rounded-xl border flex justify-between items-center ${result === 'win' ? 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800' : result === 'loss' ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800' : 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700'}`}>
+                                        <div>
+                                            <div className="font-bold text-sm text-slate-800 dark:text-white">vs {opponentName || 'Rakip'}</div>
+                                            <div className="text-[10px] text-slate-500">{formatDate(c.createdAt)}</div>
+                                        </div>
+                                        <div className="text-right">
+                                            <div className={`font-black text-sm ${result === 'win' ? 'text-green-600' : result === 'loss' ? 'text-red-600' : 'text-slate-600'}`}>
+                                                {result === 'win' ? 'KAZANDIN' : result === 'loss' ? 'KAYBETTİN' : 'BERABERE'}
+                                            </div>
+                                            <div className="text-xs font-bold text-slate-600 dark:text-slate-400">
+                                                {myScore}% - {opponentScore}%
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
                     ) : (
-                        <div className="text-center py-10 text-slate-400 text-sm">Henüz tamamlanmış düellon yok.</div>
+                        <div className="text-center py-6 text-slate-400 text-sm">Geçmiş maç bulunamadı.</div>
                     )}
                     <button onClick={() => setMode('menu')} className="w-full py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl mt-4">Geri</button>
-                 </div>
+                </div>
             ) : (
-                // CREATE MODE STEPS
-                <div className="space-y-4">
+                // CREATE MODE
+                <div className="space-y-6">
+                    {/* Step Indicator */}
+                    <div className="flex justify-center gap-2 mb-4">
+                        {[1, 2, 3].map(i => (
+                            <div key={i} className={`w-2 h-2 rounded-full transition-colors ${step >= i ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700'}`}></div>
+                        ))}
+                    </div>
+
                     {step === 1 && (
-                        <>
-                            <div className="flex items-center gap-2 mb-2">
-                                <GraduationCap className="text-indigo-500" size={20} />
-                                <h3 className="font-bold text-slate-800 dark:text-white">Sınıf Seç</h3>
+                        <div className="space-y-4 animate-in slide-in-from-right duration-300">
+                            <h3 className="text-center font-bold text-slate-800 dark:text-white">Seviye ve Ünite Seç</h3>
+                            
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Sınıf</label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {grades.map(g => (
+                                        <button
+                                            key={g}
+                                            onClick={() => { setSelectedGrade(g); setSelectedUnit(null); }}
+                                            className={`p-2 rounded-xl text-xs font-bold transition-all border-2 ${selectedGrade === g ? 'bg-indigo-100 border-indigo-500 text-indigo-700' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
+                                        >
+                                            {g}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                            <div className="grid grid-cols-4 gap-2">
-                                {grades.map(g => (
-                                    <button 
-                                        key={g}
-                                        onClick={() => { setSelectedGrade(g); setStep(2); }}
-                                        className="p-3 rounded-xl border hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-sm font-bold transition-all"
-                                        style={{borderColor: 'var(--color-border)', color: 'var(--color-text-main)'}}
-                                    >
-                                        {g}
-                                    </button>
-                                ))}
+
+                            {selectedGrade && (
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Ünite</label>
+                                    <div className="max-h-[200px] overflow-y-auto custom-scrollbar space-y-2 pr-1">
+                                        {UNIT_ASSETS[selectedGrade]?.map(u => (
+                                            <button
+                                                key={u.id}
+                                                onClick={() => setSelectedUnit(u)}
+                                                className={`w-full p-3 rounded-xl text-left text-sm font-bold transition-all border-2 ${selectedUnit?.id === u.id ? 'bg-indigo-100 border-indigo-500 text-indigo-700' : 'border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300'}`}
+                                            >
+                                                {u.unitNo} - {u.title}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                            
+                            <div className="flex gap-2 mt-4">
+                                <button onClick={() => setMode('menu')} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl">İptal</button>
+                                <button onClick={() => setStep(2)} disabled={!selectedUnit} className="flex-1 py-3 bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl">İleri</button>
                             </div>
-                            <button onClick={() => setMode('menu')} className="w-full mt-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl">Geri</button>
-                        </>
+                        </div>
                     )}
 
-                    {step === 2 && selectedGrade && (
-                        <>
-                            <div className="flex items-center gap-2 mb-2">
-                                <BookOpen className="text-indigo-500" size={20} />
-                                <h3 className="font-bold text-slate-800 dark:text-white">Ünite Seç ({selectedGrade}. Sınıf)</h3>
-                            </div>
-                            <div className="space-y-2 max-h-[300px] overflow-y-auto custom-scrollbar">
-                                {UNIT_ASSETS[selectedGrade]?.map(u => (
-                                    !u.id.endsWith('all') && u.id !== 'uAll' && (
-                                        <button 
-                                            key={u.id}
-                                            onClick={() => { setSelectedUnit(u); setStep(3); }}
-                                            className="w-full p-3 text-left rounded-xl border hover:border-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 text-sm font-medium transition-all truncate"
-                                            style={{borderColor: 'var(--color-border)', color: 'var(--color-text-main)'}}
+                    {step === 2 && (
+                        <div className="space-y-4 animate-in slide-in-from-right duration-300">
+                            <h3 className="text-center font-bold text-slate-800 dark:text-white">Zorluk ve Soru Sayısı</h3>
+                            
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Zorluk</label>
+                                <div className="space-y-2">
+                                    {difficultyOptions.map(opt => (
+                                        <button
+                                            key={opt.id}
+                                            onClick={() => setSelectedDifficulty(opt.id)}
+                                            className={`w-full p-3 rounded-xl text-left text-sm font-bold border-2 transition-all flex justify-between items-center ${selectedDifficulty === opt.id ? opt.color.replace('text-', 'border-').replace('bg-', 'bg-opacity-20 ') + ' ring-1' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
                                         >
-                                            <span className="font-bold mr-2">{u.unitNo}:</span> {u.title}
+                                            {opt.label}
+                                            {selectedDifficulty === opt.id && <Check size={16} />}
                                         </button>
-                                    )
-                                ))}
+                                    ))}
+                                </div>
                             </div>
-                            <button onClick={() => { setStep(1); setSelectedGrade(null); }} className="w-full mt-4 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl">Geri</button>
-                        </>
+
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Soru Sayısı</label>
+                                <div className="flex gap-2">
+                                    {countOptions.map(c => (
+                                        <button
+                                            key={c}
+                                            onClick={() => setSelectedCount(c)}
+                                            className={`flex-1 p-3 rounded-xl font-bold border-2 transition-all ${selectedCount === c ? 'bg-indigo-100 border-indigo-500 text-indigo-700' : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400'}`}
+                                        >
+                                            {c}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 mt-4">
+                                <button onClick={() => setStep(1)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl">Geri</button>
+                                <button onClick={() => setStep(3)} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl">İleri</button>
+                            </div>
+                        </div>
                     )}
 
                     {step === 3 && (
-                        <>
-                            <div className="space-y-6">
-                                {/* Challenge Type */}
-                                <div>
-                                     <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Düello Tipi</label>
-                                     <div className="grid grid-cols-3 gap-2">
-                                         <button onClick={() => setChallengeType('public')} className={`p-2 rounded-xl border-2 flex flex-col items-center gap-1 text-xs font-bold transition-all ${challengeType === 'public' ? 'border-green-500 bg-green-50 text-green-600' : 'border-slate-200 text-slate-500'}`}>
-                                             <Globe size={20} /> Herkese Açık
-                                         </button>
-                                         <button onClick={() => setChallengeType('friend')} className={`p-2 rounded-xl border-2 flex flex-col items-center gap-1 text-xs font-bold transition-all ${challengeType === 'friend' ? 'border-blue-500 bg-blue-50 text-blue-600' : 'border-slate-200 text-slate-500'}`}>
-                                             <UserPlus size={20} /> Arkadaşla
-                                         </button>
-                                         <button onClick={() => setChallengeType('private')} className={`p-2 rounded-xl border-2 flex flex-col items-center gap-1 text-xs font-bold transition-all ${challengeType === 'private' ? 'border-purple-500 bg-purple-50 text-purple-600' : 'border-slate-200 text-slate-500'}`}>
-                                             <Lock size={20} /> Gizli (Kod)
-                                         </button>
-                                     </div>
-                                </div>
-
-                                {/* Friend Selector (If Type is Friend) */}
-                                {challengeType === 'friend' && (
-                                    <div>
-                                        <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Arkadaş Seç</label>
-                                        {friends.length > 0 ? (
-                                            <select 
-                                                value={selectedFriendId}
-                                                onChange={(e) => setSelectedFriendId(e.target.value)}
-                                                className="w-full p-3 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl outline-none focus:border-indigo-500 text-sm font-bold"
-                                            >
-                                                <option value="">Bir arkadaş seç...</option>
-                                                {friends.map(f => (
-                                                    <option key={f.uid} value={f.uid}>{f.name}</option>
-                                                ))}
-                                            </select>
-                                        ) : (
-                                            <div className="text-xs text-red-500 text-center p-2 bg-red-50 rounded-lg">Henüz arkadaşın yok. Profilinden ekle.</div>
-                                        )}
-                                    </div>
-                                )}
-
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Zorluk (Süre)</label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {difficultyOptions.map(opt => (
-                                            <button
-                                                key={opt.id}
-                                                onClick={() => setSelectedDifficulty(opt.id)}
-                                                className={`px-3 py-2 rounded-lg text-xs font-bold border-2 transition-all ${selectedDifficulty === opt.id ? opt.color : 'border-slate-200 dark:border-slate-700 text-slate-500'}`}
-                                            >
-                                                {opt.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="text-xs font-bold text-slate-400 uppercase mb-2 block">Soru Sayısı</label>
-                                    <div className="flex gap-2">
-                                        {countOptions.map(cnt => (
-                                            <button
-                                                key={cnt}
-                                                onClick={() => setSelectedCount(cnt)}
-                                                className={`flex-1 py-2 rounded-lg text-sm font-bold border-2 transition-all ${selectedCount === cnt ? 'border-indigo-500 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/20' : 'border-slate-200 dark:border-slate-700 text-slate-500'}`}
-                                            >
-                                                {cnt}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="flex gap-3 mt-8">
-                                <button onClick={() => { setStep(2); setSelectedUnit(null); }} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl">Geri</button>
+                        <div className="space-y-6 animate-in slide-in-from-right duration-300">
+                            <h3 className="text-center font-bold text-slate-800 dark:text-white">Rakip Seçimi</h3>
+                            
+                            <div className="grid grid-cols-1 gap-3">
                                 <button 
-                                    onClick={handleCreateSubmit} 
-                                    disabled={challengeType === 'friend' && !selectedFriendId}
-                                    className="flex-[2] py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg flex items-center justify-center gap-2 transition-all active:scale-95"
+                                    onClick={() => { setChallengeType('public'); setSelectedFriendId(''); }}
+                                    className={`p-4 rounded-xl border-2 text-left flex items-center gap-3 transition-all ${challengeType === 'public' ? 'bg-blue-50 border-blue-500 text-blue-700' : 'border-slate-200 dark:border-slate-700'}`}
                                 >
-                                    <Check size={18} /> Oluştur
+                                    <div className="bg-blue-100 p-2 rounded-full"><Globe size={20} className="text-blue-600" /></div>
+                                    <div>
+                                        <div className="font-bold">Herkese Açık</div>
+                                        <div className="text-xs opacity-70">Herhangi biri katılabilir</div>
+                                    </div>
+                                    {challengeType === 'public' && <Check size={20} className="ml-auto text-blue-600" />}
+                                </button>
+
+                                <button 
+                                    onClick={() => setChallengeType('private')}
+                                    className={`p-4 rounded-xl border-2 text-left flex items-center gap-3 transition-all ${challengeType === 'private' ? 'bg-purple-50 border-purple-500 text-purple-700' : 'border-slate-200 dark:border-slate-700'}`}
+                                >
+                                    <div className="bg-purple-100 p-2 rounded-full"><Lock size={20} className="text-purple-600" /></div>
+                                    <div>
+                                        <div className="font-bold">Özel (Kod ile)</div>
+                                        <div className="text-xs opacity-70">Sadece kodu bilenler</div>
+                                    </div>
+                                    {challengeType === 'private' && <Check size={20} className="ml-auto text-purple-600" />}
+                                </button>
+
+                                <button 
+                                    onClick={() => setChallengeType('friend')}
+                                    className={`p-4 rounded-xl border-2 text-left flex items-center gap-3 transition-all ${challengeType === 'friend' ? 'bg-green-50 border-green-500 text-green-700' : 'border-slate-200 dark:border-slate-700'}`}
+                                >
+                                    <div className="bg-green-100 p-2 rounded-full"><Users size={20} className="text-green-600" /></div>
+                                    <div>
+                                        <div className="font-bold">Arkadaşa Meydan Oku</div>
+                                        <div className="text-xs opacity-70">Listeden bir arkadaş seç</div>
+                                    </div>
+                                    {challengeType === 'friend' && <Check size={20} className="ml-auto text-green-600" />}
                                 </button>
                             </div>
-                        </>
+
+                            {challengeType === 'friend' && (
+                                <div className="animate-in fade-in slide-in-from-top-2">
+                                    <label className="text-xs font-bold text-slate-500 uppercase ml-1 block mb-1">Arkadaş Seç</label>
+                                    {friends.length > 0 ? (
+                                        <div className="max-h-[150px] overflow-y-auto custom-scrollbar space-y-2 border border-slate-200 dark:border-slate-700 rounded-xl p-2">
+                                            {friends.map(f => (
+                                                <button 
+                                                    key={f.uid}
+                                                    onClick={() => setSelectedFriendId(f.uid)}
+                                                    className={`w-full p-2 rounded-lg text-left text-sm font-bold flex items-center justify-between ${selectedFriendId === f.uid ? 'bg-green-100 text-green-800' : 'hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                                                >
+                                                    {f.name}
+                                                    {selectedFriendId === f.uid && <Check size={16} />}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center p-4 text-sm text-slate-500 bg-slate-50 dark:bg-slate-800 rounded-xl border border-dashed border-slate-300 dark:border-slate-700">
+                                            Henüz arkadaşın yok. <br/>
+                                            <span className="text-xs">Profilinden arkadaş ekleyebilirsin.</span>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            <div className="flex gap-2 mt-4">
+                                <button onClick={() => setStep(2)} className="flex-1 py-3 bg-slate-100 dark:bg-slate-800 text-slate-500 font-bold rounded-xl">Geri</button>
+                                <button 
+                                    onClick={handleCreateSubmit}
+                                    disabled={challengeType === 'friend' && !selectedFriendId}
+                                    className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-xl shadow-lg shadow-orange-200 dark:shadow-none"
+                                >
+                                    Başla!
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </div>
             )}
         </div>
-
       </div>
     </div>
   );

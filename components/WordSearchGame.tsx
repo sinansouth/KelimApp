@@ -1,5 +1,4 @@
 
-
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
 import { CheckCircle, RotateCcw, ArrowRight, HelpCircle, Search, Grid3X3, Home, Play } from 'lucide-react';
@@ -342,7 +341,7 @@ const WordSearchGame: React.FC<WordSearchGameProps> = ({ words, onFinish, onBack
     }
 
     return (
-        <div className="flex flex-col h-full w-full max-w-lg mx-auto p-4 select-none overflow-hidden">
+        <div className="flex flex-col h-full w-full max-w-lg mx-auto p-4 select-none overflow-hidden" style={{ touchAction: 'none' }}>
             
             <div className="flex justify-between items-center mb-4 shrink-0">
                 <div className="flex items-center gap-3">

@@ -2,13 +2,13 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Save, Edit2, BarChart2, Trophy, Flame, Star, User, ShoppingBag, Target, CheckCircle, ChevronDown, ChevronUp, LogOut, Trash2, ShieldCheck, Ghost, LogIn, KeyRound, GraduationCap, Users, Copy, UserPlus, Swords, ChevronRight, X } from 'lucide-react';
 import { getUserProfile, getUserStats, saveUserProfile, getDailyState, UserProfile as IUserProfile, UserStats } from '../services/userService';
-import { GradeLevel, Badge, Quest } from '../types';
+import { GradeLevel, Badge, Quest, LeaderboardEntry } from '../types';
 import { StatsModal } from './StatsModal';
 import AvatarModal from './AvatarModal';
 import LeaderboardModal from './LeaderboardModal';
 import { getAvatars, getBadges, getFrames, getBackgrounds } from '../services/contentService';
 import { THEME_COLORS } from '../data/assets';
-import { getAuthInstance, logoutUser, checkUsernameExists, updateCloudUsername, syncLocalToCloud, deleteAccount, resetUserPassword, addFriend, getFriends, LeaderboardEntry } from '../services/supabase';
+import { getAuthInstance, logoutUser, checkUsernameExists, updateCloudUsername, syncLocalToCloud, deleteAccount, resetUserPassword, addFriend, getFriends } from '../services/supabase';
 import AuthModal from './AuthModal';
 import { AlertType } from './CustomAlert';
 import CustomSelect from './CustomSelect';
@@ -272,7 +272,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
     <>
     {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onSuccess={onAuthSuccess} />}
     
-    <div className="w-full max-w-2xl mx-auto p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-32">
+    <div className="w-full max-w-2xl mx-auto p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-4">
       
       {/* HEADER SECTION */}
       <div 
@@ -610,8 +610,9 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
       {/* Edit Mode Form (Overlay Modal) */}
       {isEditing && (
          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+             <div className="absolute inset-0" onClick={() => setIsEditing(false)} />
              <div 
-                className="w-full max-w-sm p-6 rounded-3xl border shadow-2xl animate-in zoom-in-95"
+                className="relative w-full max-w-sm p-6 rounded-3xl border shadow-2xl animate-in zoom-in-95"
                 style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}
              >
                 <div className="flex justify-between items-center mb-6">

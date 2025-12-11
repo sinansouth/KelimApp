@@ -1,18 +1,14 @@
 
-
-const CACHE_NAME = 'kelimapp-v8-offline-ready';
+const CACHE_NAME = 'kelimapp-v9-offline-ready';
 
 // Core assets that must be cached immediately
-// We are explicitly caching Tailwind, Fonts, and ALL Used Images so the app looks "native" immediately
 const PRECACHE_ASSETS = [
   './',
   './index.html',
   './manifest.json',
   'https://cdn.tailwindcss.com',
   'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Merriweather:wght@400;700&family=Courier+Prime:wght@400;700&family=Fredoka:wght@400;600&family=Orbitron:wght@400;700&family=Bangers&family=Playfair+Display:wght@400;700&family=Patrick+Hand&family=Creepster&family=Russo+One&display=swap',
-
-  // FIX: Updated mascot URLs from GIF to PNG to match the new assets used in the Mascot component.
-  // App Icons & Mascots
+  // App Icons & Mascots - Updated paths
   'https://8upload.com/image/24fff6d1ca0ec801/Gemini_Generated_Image_1ri1941ri1941ri1.png',
   'https://8upload.com/image/683d30980d832725/neutral.png',
   'https://8upload.com/image/c725cfc9f2eb36c7/happy.png',
@@ -20,7 +16,7 @@ const PRECACHE_ASSETS = [
   'https://8upload.com/image/f78213d42d2c769f/thinking.png'
 ];
 
-// Domains that we want to cache at runtime (CDN libraries, Images)
+// Domains that we want to cache at runtime
 const RUNTIME_CACHE_DOMAINS = [
   'aistudiocdn.com',
   'cdn-icons-png.flaticon.com',
@@ -33,8 +29,8 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
-        // Service Worker: Precaching assets
-        return cache.addAll(PRECACHE_ASSETS);
+        // Attempt to cache all, but do not fail installation if one fails (e.g. 404 image)
+        return Promise.allSettled(PRECACHE_ASSETS.map(url => cache.add(url)));
       })
       .then(() => self.skipWaiting())
   );
@@ -47,7 +43,6 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheWhitelist.indexOf(cacheName) === -1) {
-            // Service Worker: Deleting old cache
             return caches.delete(cacheName);
           }
         })
@@ -57,10 +52,11 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  if (event.request.method !== 'GET') return;
+
   const url = new URL(event.request.url);
 
   // Strategy for External CDNs (React, Lucide, Fonts, Images)
-  // Stale-While-Revalidate: Use cache if available, but update in background
   if (RUNTIME_CACHE_DOMAINS.some(domain => url.hostname.includes(domain))) {
     event.respondWith(
       caches.open(CACHE_NAME).then((cache) => {
@@ -71,7 +67,7 @@ self.addEventListener('fetch', (event) => {
             }
             return networkResponse;
           }).catch(() => {
-            // If offline and no cache, allow it to fail gracefully or return placeholder
+             // Network failed, nothing to do here if no cache
           });
           return cachedResponse || fetchPromise;
         });
@@ -80,25 +76,31 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Strategy for App Shell (Local files)
-  // Cache First, fall back to Network
+  // Strategy for App Shell & Local files
+  // Cache First, fall back to Network, update cache in background if network succeeds
   event.respondWith(
     caches.match(event.request).then((response) => {
       if (response) {
+        // Return cached response immediately, but try to update it in background
+        fetch(event.request).then((networkResponse) => {
+            if(networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+                caches.open(CACHE_NAME).then((cache) => {
+                    cache.put(event.request, networkResponse.clone());
+                });
+            }
+        }).catch(() => {}); // Ignore errors in background update
+        
         return response;
       }
+      
       return fetch(event.request).then((networkResponse) => {
-        // Check if valid response
         if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
           return networkResponse;
         }
-
-        // Cache new local files
         const responseToCache = networkResponse.clone();
         caches.open(CACHE_NAME).then((cache) => {
           cache.put(event.request, responseToCache);
         });
-
         return networkResponse;
       });
     })

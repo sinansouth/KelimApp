@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   BookOpen, Bookmark, Target, RefreshCw, ChevronRight, Clock as ClockIcon,
-  Globe, GraduationCap, Play, Star, BookType, CheckCircle, ListChecks, X, Grid3X3, Search, Gamepad2, MapPin, School, Sparkles, Zap, Lightbulb
+  Globe, GraduationCap, Play, Star, BookType, CheckCircle, ListChecks, X, Grid3X3, Search, Gamepad2, MapPin, School, Sparkles, Zap, Lightbulb, ArrowLeft
 } from 'lucide-react';
 import { getUserStats, getTotalDueCount, getMemorizedSet, getUserProfile } from '../services/userService';
 import { UnitDef, GradeLevel, StudyMode, CategoryType } from '../types';
@@ -142,7 +142,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             </div>
          </div>
 
-         <div className="space-y-2 w-full pb-32 overflow-y-auto px-1">
+         <div className="space-y-2 w-full pb-4 overflow-y-auto px-1">
             <button onClick={handleStudyModeClick} className="w-full p-3 border rounded-2xl flex items-center gap-4 transition-all group text-left shadow-sm hover:shadow-md active:scale-[0.98]" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
                <div className="w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shrink-0" style={{backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)'}}>
                   <BookOpen size={20} />
@@ -194,7 +194,8 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
          </div>
          {showStudyModes && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-                <div className="w-full max-w-sm rounded-3xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
+                <div className="absolute inset-0" onClick={() => setShowStudyModes(false)} />
+                <div className="relative w-full max-w-sm rounded-3xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
                     <div className="p-5 border-b flex justify-between items-center" style={{borderColor: 'var(--color-border)'}}>
                         <h3 className="font-black text-lg" style={{color: 'var(--color-text-main)'}}>Çalışma Modu Seç</h3>
                         <button onClick={() => setShowStudyModes(false)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors" style={{color: 'var(--color-text-muted)'}}>
@@ -236,7 +237,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   
   if (!selectedCategory) {
     return (
-      <div className="flex flex-col items-center h-full p-4 pt-4 animate-in fade-in duration-500 relative overflow-y-auto custom-scrollbar pb-24" style={{ background: 'radial-gradient(ellipse at bottom, rgba(var(--color-primary-rgb), 0.1), transparent 70%)' }}>
+      <div className="flex flex-col items-center h-full p-4 pt-4 animate-in fade-in duration-500 relative overflow-y-auto custom-scrollbar pb-4" style={{ background: 'radial-gradient(ellipse at bottom, rgba(var(--color-primary-rgb), 0.1), transparent 70%)' }}>
         
         <div className="w-full max-w-md space-y-2">
           
@@ -395,8 +396,6 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     );
   }
 
-  // ... (Rest of the component)
-  // Re-injecting grade selection and subsequent logic
   if (!selectedGrade) {
      let gradesToShow: GradeLevel[] = [];
     switch (selectedCategory) {
@@ -407,9 +406,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     }
 
     return (
-      <div className="flex flex-col items-center h-full p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
+      <div className="flex flex-col items-center h-full p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full relative">
         <h2 className="text-xl font-black mb-4 text-center mt-2" style={{color: 'var(--color-text-main)'}}>Seviye Seçin</h2>
-        <div className="space-y-2 w-full max-w-lg pb-32">
+        <div className="space-y-2 w-full max-w-lg pb-4">
           {gradesToShow.map((grade) => {
              const gradeVisual = GRADE_DATA[grade];
             return (
@@ -448,7 +447,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const stats = getUserStats();
   
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 pb-32 animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-full">
+    <div className="w-full max-w-6xl mx-auto p-4 pb-4 animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-full">
        <div className="flex items-center justify-between mb-4 px-1 shrink-0">
          <div>
             <h2 className="text-2xl font-black tracking-tight" style={{color: 'var(--color-primary)'}}>{selectedCategory === 'GENERAL_ENGLISH' ? selectedGrade : `${selectedGrade}. Sınıf`}</h2>
@@ -469,7 +468,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
          </div>
       </div>
       
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-1 pb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 px-1 pb-4">
         {units.map((unit) => {
             const memCount = getMemorizedCountForUnit(unit.id);
             const isSpecialUnit = unit.id.endsWith('all');

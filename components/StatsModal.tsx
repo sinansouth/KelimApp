@@ -1,10 +1,9 @@
 
-
 import React, { useState, useEffect } from 'react';
-import { X, Layers, CheckCircle, Bookmark, Filter, PieChart, BarChart3, Trophy, Lock, Target, Eye, Flame, Gamepad2, WholeWord, Search, Grid3X3, Keyboard, Brain, Swords, Clock, Activity, Medal } from 'lucide-react';
+import { X, Clock, Activity, Eye, Target, Swords, Grid3X3, Gamepad2, Search } from 'lucide-react';
 import { getUserStats, getSRSStatus, getMemorizedSet } from '../services/userService';
-import { GradeLevel, UnitDef, Badge, UserStats } from '../types';
-import { getBadges, getUnitAssets } from '../services/contentService';
+import { GradeLevel, UserStats } from '../types';
+import { getBadges } from '../services/contentService';
 
 interface StatsModalProps {
   onClose: () => void;
@@ -16,35 +15,28 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
   const [stats, setStats] = useState<UserStats | null>(null);
   const [srsStats, setSrsStats] = useState<{[key:number]: number}>({});
   
-  const [filterGrade, setFilterGrade] = useState<GradeLevel | 'ALL' | 'GENERAL'>(initialGrade);
-  const [filterUnit, setFilterUnit] = useState<string>('ALL');
-  
   const [memorizedCount, setMemorizedCount] = useState(0);
   const [bookmarksCount, setBookmarksCount] = useState(0);
   const [tooltipBadgeId, setTooltipBadgeId] = useState<string | null>(null);
 
   const BADGES = getBadges();
-  const UNIT_ASSETS = getUnitAssets();
 
   useEffect(() => {
+      // Fetch fresh stats every time modal opens
       setStats(getUserStats());
       setSrsStats(getSRSStatus());
-  }, []);
 
-  // Content Stats Calculation - Simplified to avoid lag
-  useEffect(() => {
-    const rawMemorizedSet = getMemorizedSet();
-    let rawBookmarksSet = new Set<string>();
-    try {
-      const storedBookmarks = localStorage.getItem('lgs_bookmarks');
-      if (storedBookmarks) {
-         rawBookmarksSet = new Set(JSON.parse(storedBookmarks));
-      }
-    } catch (e) {}
+      const rawMemorizedSet = getMemorizedSet();
+      let rawBookmarksSet = new Set<string>();
+      try {
+        const storedBookmarks = localStorage.getItem('lgs_bookmarks');
+        if (storedBookmarks) {
+           rawBookmarksSet = new Set(JSON.parse(storedBookmarks));
+        }
+      } catch (e) {}
 
-    // Simply counting set sizes for now to avoid iterating the massive vocabulary object
-    setMemorizedCount(rawMemorizedSet.size);
-    setBookmarksCount(rawBookmarksSet.size);
+      setMemorizedCount(rawMemorizedSet.size);
+      setBookmarksCount(rawBookmarksSet.size);
   }, []);
 
   const sortedBadges = React.useMemo(() => {
@@ -57,7 +49,7 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
            if (!aUnlocked && bUnlocked) return 1;  
            
            if (aUnlocked && bUnlocked) {
-               return stats.badges.indexOf(b.id) - stats.badges.indexOf(a.id);
+               return stats.badges.indexOf(b.id) - stats.badges.indexOf(a.id); // Newest first
            }
            return 0;
       });
@@ -81,7 +73,8 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
 
   return (
     <div className="fixed inset-0 z-[80] flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm p-0 sm:p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-2xl sm:rounded-3xl rounded-t-3xl shadow-2xl border overflow-hidden flex flex-col h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full max-w-2xl sm:rounded-3xl rounded-t-3xl shadow-2xl border overflow-hidden flex flex-col h-[90vh] sm:max-h-[85vh] animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-300"
            style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
         
         {/* Header */}
@@ -150,33 +143,48 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
                     </div>
 
                     {/* SRS Status */}
-                    <div className="p-5 rounded-3xl border" style={{backgroundColor: 'rgba(var(--color-bg-card-rgb), 0.5)', borderColor: 'var(--color-border)'}}>
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2 text-sm font-bold" style={{color: 'var(--color-text-main)'}}>
-                                <Layers size={18} className="text-indigo-500" /> Aralıklı Tekrar (SRS) Durumu
-                            </div>
-                            <span className="text-[10px] bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 px-2 py-0.5 rounded-full font-bold">Aktif Kelimeler</span>
+                    <div className="p-6 rounded-3xl border" style={{backgroundColor: 'rgba(var(--color-bg-card-rgb), 0.5)', borderColor: 'var(--color-border)'}}>
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-sm font-bold uppercase tracking-wider text-center w-full" style={{color: 'var(--color-text-main)'}}>
+                                SRS KUTULARI
+                            </h3>
                         </div>
-                        <div className="flex items-end justify-between gap-2 h-32 pt-4">
-                            {[1,2,3,4,5].map(box => {
-                                const count = srsStats[box] || 0;
-                                const max = Math.max(...(Object.values(srsStats) as number[]), 1);
-                                const height = Math.max((count / max) * 100, 10);
+                        
+                        <div className="flex items-end justify-center gap-3 h-48 pb-2">
+                            {[
+                                { id: 1, color: 'bg-green-500', borderColor: 'border-green-600', shadow: 'shadow-green-500/20' },
+                                { id: 2, color: 'bg-yellow-400', borderColor: 'border-yellow-500', shadow: 'shadow-yellow-500/20' },
+                                { id: 3, color: 'bg-orange-500', borderColor: 'border-orange-600', shadow: 'shadow-orange-500/20' },
+                                { id: 4, color: 'bg-red-500', borderColor: 'border-red-600', shadow: 'shadow-red-500/20' },
+                                { id: 5, color: 'bg-red-900', borderColor: 'border-red-950', shadow: 'shadow-red-900/20' }
+                            ].map(box => {
+                                const count = srsStats[box.id] || 0;
+                                const total = Object.values(srsStats).reduce((a,b)=>a+b, 0);
+                                
+                                // Daha dinamik bir hesaplama:
+                                // Eğer hiç kelime yoksa %15 (taban)
+                                // Maksimum yükseklik %100
+                                // Kutu içindeki kelime sayısının toplama oranı yerine
+                                // Kutu içindeki sayının "maksimum dolu olan kutuya" oranını alıp görselleştirelim.
+                                const maxInAnyBox = Math.max(...Object.values(srsStats), 1); 
+                                const percent = Math.max(15, Math.min(100, (count / maxInAnyBox) * 100));
                                 
                                 return (
-                                <div key={box} className="flex-1 flex flex-col items-center justify-end gap-2 group">
-                                    <div className="font-bold text-xs transition-all group-hover:-translate-y-1" style={{color: 'var(--color-text-main)'}}>{count}</div>
-                                    <div 
-                                        className={`w-full rounded-t-xl transition-all duration-500 ${box === 5 ? 'bg-green-500' : 'bg-indigo-400 opacity-70'}`} 
-                                        style={{ height: `${height}%` }}
-                                    ></div>
-                                    <div className="text-[10px] font-bold text-slate-400">Kutu {box}</div>
+                                <div key={box.id} className="flex flex-col items-center gap-2 flex-1 max-w-[60px] group">
+                                    <div className="relative w-full flex flex-col justify-end items-center h-full">
+                                        <div 
+                                            className={`w-full rounded-t-xl rounded-b-md border-x-2 border-t-2 border-b-4 ${box.borderColor} ${box.color} flex items-end justify-center shadow-lg ${box.shadow} transition-all duration-1000 ease-out group-hover:scale-105`}
+                                            style={{ height: `${percent}%`, minHeight: '30px' }}
+                                        >
+                                            <span className="font-black text-xs sm:text-sm text-white/90 drop-shadow-md mb-1.5">{count}</span>
+                                        </div>
+                                    </div>
+                                    <span className="font-bold text-xs bg-slate-200 dark:bg-slate-700 px-2 py-0.5 rounded-md" style={{color: 'var(--color-text-main)'}}>{box.id}</span>
                                 </div>
                             )})}
                         </div>
-                        <p className="text-[10px] text-center mt-4 opacity-60" style={{color: 'var(--color-text-muted)'}}>
-                            Kutu 5'e ulaşan kelimeler kalıcı hafızaya alınmış sayılır.
-                        </p>
+                        <div className="h-1.5 w-full bg-slate-300 dark:bg-slate-700 rounded-full mt-1"></div>
+                        <p className="text-center text-[10px] text-slate-400 mt-3 font-medium">Kutu numarası arttıkça kelime hafızanda daha kalıcı hale gelir.</p>
                     </div>
                     
                     {/* Quick Stats */}
@@ -193,12 +201,11 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
 
                 </div>
             )}
-
-            {/* LEARNING TAB */}
-            {activeTab === 'learning' && (
+            
+            {/* ... Other tabs preserved ... */}
+             {activeTab === 'learning' && (
                 <div className="space-y-6">
                     <div className="grid grid-cols-2 gap-4">
-                         {/* Views */}
                         <div className="p-4 sm:p-5 rounded-3xl border flex flex-col justify-between h-28 sm:h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
                              <div className="flex justify-between items-start">
                                 <span className="text-[10px] sm:text-xs font-bold uppercase text-blue-500">Bakılan Kart</span>
@@ -209,7 +216,6 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
                             </div>
                         </div>
 
-                        {/* Quiz Score */}
                         <div className="p-4 sm:p-5 rounded-3xl border flex flex-col justify-between h-28 sm:h-32" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
                              <div className="flex justify-between items-start">
                                 <span className="text-[10px] sm:text-xs font-bold uppercase text-violet-500">Quiz Başarısı</span>

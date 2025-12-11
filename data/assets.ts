@@ -352,7 +352,7 @@ export const AVATARS: Avatar[] = [
   { id: 'villain', icon: '🦹', image: 'https://8upload.com/image/d3f7dea0d38b8fd2/villain.png', name: 'Kötü Adam', unlockLevel: 38, bgGradient: 'from-green-700 to-purple-800', border: 'border-green-500' },
   { id: 'wizard', icon: '🧙‍♂️', image: 'https://8upload.com/image/1b805006c4134236/wizard.png', name: 'Büyücü', unlockLevel: 40, bgGradient: 'from-purple-600 to-indigo-800', border: 'border-purple-400' },
   { id: 'fairy', icon: '🧚', image: 'https://8upload.com/image/ffd854bdfa3eca5d/fairy.png', name: 'Peri', unlockLevel: 41, bgGradient: 'from-pink-300 to-green-300', border: 'border-white' },
-  { id: 'pirate', icon: '🏴‍☠️', name: 'Korsan', unlockLevel: 42, bgGradient: 'from-red-800 to-black', border: 'border-gray-400' },
+  { id: 'pirate', icon: '🏴‍☠️', image: 'https://8upload.com/image/5da163e53f893ee4/pirate.png', name: 'Korsan', unlockLevel: 42, bgGradient: 'from-red-800 to-black', border: 'border-gray-400' },
   { id: 'robot', icon: '🤖', image: 'https://8upload.com/image/51d1d90badb33139/robot.png', name: 'Robot', unlockLevel: 45, bgGradient: 'from-gray-300 to-slate-500', border: 'border-gray-200' },
   { id: 'alien', icon: '👽', image: 'https://8upload.com/image/feedb4b26526d602/alien.png', name: 'Uzaylı', unlockLevel: 50, bgGradient: 'from-green-400 to-emerald-600', border: 'border-green-200' },
   { id: 'ninja_master', icon: '🥷', image: 'https://8upload.com/image/cfffe57295f528de/ninja_master.png', name: 'Ninja Ustası', unlockLevel: 55, bgGradient: 'from-gray-800 to-black', border: 'border-red-600' },

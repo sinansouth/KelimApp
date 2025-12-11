@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Zap, Trophy, Unlock, Trash2, ShieldAlert, Search, User, Award, Megaphone, Users, Calendar, Save, Lock, Gift, Settings, Activity, Menu, Clock, CheckCircle, Eye, Target, Edit2, Info, Cloud, Upload, Plus, FileText, Check, Power, Database, Mail, Inbox, AlertTriangle, Lightbulb } from 'lucide-react';
 import { adminAddXP, adminSetLevel, adminUnlockAllItems, adminUnlockAllBadges, adminUnlockAllAvatars, getUserStats } from '../services/userService';
@@ -421,7 +422,8 @@ const AdminModal: React.FC<AdminModalProps> = ({ onClose, onUpdate }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-md p-0 md:p-4 animate-in fade-in duration-200">
-      <div className="w-full md:max-w-6xl h-full md:h-[90vh] bg-slate-900 text-white md:rounded-3xl shadow-2xl border-none md:border border-slate-700 flex flex-col md:flex-row overflow-hidden">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full md:max-w-6xl h-full md:h-[90vh] bg-slate-900 text-white md:rounded-3xl shadow-2xl border-none md:border border-slate-700 flex flex-col md:flex-row overflow-hidden">
         
         {/* Mobile Header */}
         <div className="md:hidden p-4 bg-slate-950 border-b border-slate-800 flex justify-between items-center shrink-0">

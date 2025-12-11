@@ -1,11 +1,11 @@
 
 import React from 'react';
-import { X, Home, User, Swords, ShoppingBag, Bell, Settings, CircleHelp, ExternalLink, ShieldCheck } from 'lucide-react';
+import { X, ShoppingBag, Bell, CircleHelp, ExternalLink, ShieldCheck, Trophy } from 'lucide-react';
 import { getUserProfile } from '../services/userService';
 
 interface MenuModalProps {
   onClose: () => void;
-  onNavigate: (target: 'home' | 'profile' | 'settings' | 'announcements' | 'market' | 'info' | 'challenge' | 'admin') => void;
+  onNavigate: (target: 'leaderboard' | 'announcements' | 'market' | 'info' | 'admin') => void;
   hasUnreadAnnouncements?: boolean;
 }
 
@@ -13,13 +13,10 @@ const MenuModal: React.FC<MenuModalProps> = ({ onClose, onNavigate, hasUnreadAnn
   const profile = getUserProfile();
 
   const menuItems = [
-    { id: 'home', label: 'Ana Sayfa', icon: <Home size={24} /> },
-    { id: 'profile', label: 'Profil', icon: <User size={24} /> },
-    { id: 'challenge', label: 'Meydan Oku', icon: <Swords size={24} /> },
+    { id: 'leaderboard', label: 'Lider Tablosu', icon: <Trophy size={24} /> },
     { id: 'market', label: 'Market', icon: <ShoppingBag size={24} /> },
     { id: 'announcements', label: 'Duyurular', icon: <Bell size={24} />, badge: hasUnreadAnnouncements },
     { id: 'info', label: 'Rehber', icon: <CircleHelp size={24} /> },
-    { id: 'settings', label: 'Ayarlar', icon: <Settings size={24} /> },
   ];
 
   if (profile.isAdmin) {

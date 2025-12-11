@@ -1,5 +1,4 @@
 
-
 import React, { useState } from 'react';
 import { X, Lock, Image, Smile, Palette } from 'lucide-react';
 import { saveUserProfile, getUserProfile, equipFrame, equipBackground } from '../services/userService';
@@ -46,8 +45,9 @@ const AvatarModal: React.FC<AvatarModalProps> = ({ onClose, userStats, onUpdate 
 
   return (
     <div className="fixed inset-0 z-[90] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      <div className="absolute inset-0" onClick={onClose} />
       <div 
-         className="w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 h-[80vh]"
+         className="relative w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden flex flex-col animate-in zoom-in-95 duration-200 h-[80vh]"
          style={{
              backgroundColor: 'var(--color-bg-card)', 
              borderColor: 'var(--color-border)'
