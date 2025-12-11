@@ -38,8 +38,7 @@ const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({ onBack }) => {
         </p>
       </div>
 
-      {/* Increased bottom padding (pb-40) to ensure the last card is visible above the fixed button */}
-      <div className="space-y-4 pb-40">
+      <div className="space-y-4 pb-20">
         {loading ? (
             <div className="flex justify-center py-10">
                 <Loader2 className="animate-spin" size={32} style={{color: 'var(--color-primary)'}} />
@@ -90,7 +89,7 @@ const AnnouncementsView: React.FC<AnnouncementsViewProps> = ({ onBack }) => {
       </div>
 
       {/* Back Button (Floating for mobile convenience) */}
-      <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-20">
+      <div className="fixed bottom-24 left-1/2 transform -translate-x-1/2 z-10">
           <button 
             onClick={onBack}
             className="flex items-center gap-2 px-6 py-3 rounded-full font-bold shadow-xl transition-transform active:scale-95"

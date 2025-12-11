@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { X, Trophy, Flame, Clock, ShieldCheck, Gamepad2, ChevronDown, ChevronUp, Target, Swords } from 'lucide-react';
 import { getPublicUserProfile } from '../services/supabase';
@@ -33,9 +34,8 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ userId, onClose }) 
 
     if (loading) {
         return (
-            <div className="fixed inset-0 z-[150] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white relative z-10"></div>
+            <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-white"></div>
             </div>
         );
     }
@@ -66,10 +66,9 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ userId, onClose }) 
     const displayedBadges = showAllBadges ? unlockedBadges : unlockedBadges.slice(0, 5);
 
     return (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 animate-in fade-in duration-200">
-            <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div
-                className={`relative w-full max-w-sm rounded-3xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]`}
+                className={`w-full max-w-sm rounded-3xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]`}
                 style={{
                     backgroundColor: userTheme.bgCard,
                     borderColor: userTheme.border,
@@ -77,26 +76,31 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ userId, onClose }) 
                 }}
             >
 
-                {/* Clean Header matching App Theme */}
-                <div className="flex items-center justify-end p-4 shrink-0">
-                    <button onClick={onClose} className="p-2 rounded-full hover:bg-black/10 transition-colors" style={{color: userTheme.textMuted}}>
-                        <X size={24} />
+                {/* Close Button */}
+                <div className="absolute top-4 right-4 z-50">
+                    <button onClick={onClose} className="p-2 bg-black/20 hover:bg-black/40 text-white rounded-full transition-colors">
+                        <X size={20} />
                     </button>
                 </div>
 
-                <div className="px-6 pb-6 flex flex-col items-center overflow-y-auto custom-scrollbar flex-1 w-full">
+                {/* Profile Header */}
+                <div className={`relative h-32 w-full overflow-hidden ${bgDef.style} shrink-0`}>
+                    <div className="absolute inset-0 bg-black/10"></div>
+                </div>
+
+                <div className="px-6 pb-6 -mt-16 flex flex-col items-center overflow-y-auto custom-scrollbar flex-1 w-full">
                     {/* Avatar */}
-                    <div className="relative w-32 h-32 flex items-center justify-center mb-4 shrink-0">
+                    <div className="relative w-28 h-28 flex items-center justify-center mb-3 shrink-0">
                         <div className={`absolute inset-0 w-full h-full rounded-full z-30 pointer-events-none ${frameDef.style}`}></div>
                         <div className={`absolute inset-0 w-full h-full rounded-full z-10 ${bgDef.style} border-4 border-white dark:border-slate-900`} style={{ borderColor: userTheme.bgCard }}></div>
-                        <div className="w-full h-full rounded-full overflow-hidden relative z-20 flex items-center justify-center text-6xl bg-transparent">
+                        <div className="w-full h-full rounded-full overflow-hidden relative z-20 flex items-center justify-center text-5xl bg-transparent">
                             {avatarDef.image ? <img src={avatarDef.image} alt={userData.name} className="w-full h-full object-cover scale-[1.01]" /> : <span>{avatarDef.icon}</span>}
                         </div>
                     </div>
 
-                    <h2 className="text-2xl font-black text-center mb-1" style={{ color: userTheme.textMain }}>{userData.name}</h2>
+                    <h2 className="text-2xl font-black text-center" style={{ color: userTheme.textMain }}>{userData.name}</h2>
 
-                    <div className="flex items-center gap-2 mb-6">
+                    <div className="flex items-center gap-2 mt-1 mb-4">
                         <span className="px-3 py-1 text-xs font-bold rounded-full" style={{ backgroundColor: secondaryBg, color: userTheme.primary }}>
                             Lvl {userData.level}
                         </span>

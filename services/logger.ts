@@ -1,13 +1,11 @@
-
 export const logger = {
     log: (...args: any[]) => {
-        // Safe check for development environment
-        const isDev = (typeof import.meta !== 'undefined' && (import.meta as any).env && (import.meta as any).env.DEV);
-        if (isDev) {
+        // FIX: Access Vite environment variable via a type cast to 'any' to resolve TypeScript error.
+        if ((import.meta as any).env.DEV) {
             console.log(...args);
         }
     },
     error: (...args: any[]) => {
-        console.error(...args); // Always show errors
+        console.error(...args); // Error'lar hep göster
     }
 };

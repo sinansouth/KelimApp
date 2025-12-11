@@ -27,11 +27,9 @@ import UserProfileModal from './components/UserProfileModal';
 import WelcomeScreen from './components/WelcomeScreen';
 import CustomAlert, { AlertType } from './components/CustomAlert';
 import MenuModal from './components/MenuModal';
-import LeaderboardModal from './components/LeaderboardModal';
-import DataConflictModal from './components/DataConflictModal';
 import { ChevronLeft, Zap, Swords, Trophy, AlertTriangle, RefreshCw, WifiOff, Menu as MenuIcon } from 'lucide-react';
-import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, saveSRSData, saveUserStats, overwriteLocalWithCloud, saveUserProfile } from './services/userService';
-import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData, ensureUserProfileExists } from './services/supabase';
+import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, saveSRSData, saveUserStats, overwriteLocalWithCloud } from './services/userService';
+import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData } from './services/supabase';
 import { getWordsForUnit, fetchAllWords, getVocabulary, fetchDynamicContent, getAnnouncements, getUnitAssets } from './services/contentService';
 import { requestNotificationPermission } from './services/notificationService';
 import { playSound } from './services/soundService';
@@ -52,7 +50,7 @@ const App: React.FC = () => {
     const [currentTheme, setCurrentTheme] = useState<ThemeType>('dark');
     const [userStats, setUserStats] = useState<UserStats>(getUserStats());
 
-    const [activeModal, setActiveModal] = useState<'settings' | 'srs' | 'market' | 'auth' | 'grade' | 'feedback' | 'admin' | 'avatar' | 'challenge' | 'menu' | 'leaderboard' | null>(null);
+    const [activeModal, setActiveModal] = useState<'settings' | 'srs' | 'market' | 'auth' | 'grade' | 'feedback' | 'admin' | 'avatar' | 'challenge' | 'menu' | null>(null);
     const [authInitialView, setAuthInitialView] = useState<'login' | 'register'>('login');
     const [showWelcomeScreen, setShowWelcomeScreen] = useState(false);
     const [maintenanceMode, setMaintenanceMode] = useState(false);
@@ -87,16 +85,6 @@ const App: React.FC = () => {
         targetFriendId?: string,
         tournamentMatchId?: string,
         tournamentName?: string
-    } | null>(null);
-
-    // Data Conflict State
-    const [conflictState, setConflictState] = useState<{
-        localXP: number;
-        cloudXP: number;
-        localLevel: number;
-        cloudLevel: number;
-        cloudData: any;
-        userId: string;
     } | null>(null);
 
     const lastQuizConfig = useRef<{ count: number, difficulty: QuizDifficulty, originalWords: WordCard[], allDistractors: WordCard[] } | null>(null);
@@ -144,23 +132,6 @@ const App: React.FC = () => {
         setSelectedGrade(grade);
         setActiveModal(null);
 
-        // Update profile grade if user selected one
-        const currentProfile = getUserProfile();
-        if (!currentProfile.grade || isOnboardingGuest) {
-            const newProfile = { ...currentProfile, grade: grade };
-            // If onboarding as guest, create profile properly
-            if(isOnboardingGuest) {
-                createGuestProfile(grade);
-            } else {
-                saveUserProfile(newProfile);
-                if (!currentProfile.isGuest) {
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if(user) syncLocalToCloud(user.id);
-                }
-            }
-            refreshGlobalState();
-        }
-
         // Set category based on grade
         if (['2', '3', '4'].includes(grade)) setSelectedCategory('PRIMARY_SCHOOL');
         else if (['5', '6', '7', '8'].includes(grade)) setSelectedCategory('MIDDLE_SCHOOL');
@@ -169,6 +140,8 @@ const App: React.FC = () => {
 
         if (isOnboardingGuest) {
             setIsOnboardingGuest(false);
+            createGuestProfile(grade);
+            refreshGlobalState();
             setMode(AppMode.HOME);
             return;
         }
@@ -201,13 +174,11 @@ const App: React.FC = () => {
                 if (dueGrades.length > 1) {
                     setAvailableGradesForReview(dueGrades);
                     setActiveModal('grade');
-                    window.history.pushState({ modal: 'grade' }, '', window.location.href);
                     setMode(AppMode.HOME);
                 } else if (dueGrades.length === 1) {
                     await startReviewForGrade(dueGrades[0] as GradeLevel);
                 } else {
                     setActiveModal('srs');
-                    window.history.pushState({ modal: 'srs' }, '', window.location.href);
                     setMode(AppMode.HOME);
                 }
                 return;
@@ -217,7 +188,6 @@ const App: React.FC = () => {
                 const allDueWords = await getDueWords();
                 if (allDueWords.length === 0) {
                     setActiveModal('srs');
-                    window.history.pushState({ modal: 'srs' }, '', window.location.href);
                     setMode(AppMode.HOME);
                     return;
                 }
@@ -373,8 +343,6 @@ const App: React.FC = () => {
         else if (['5', '6', '7', '8'].includes(g)) setSelectedCategory('MIDDLE_SCHOOL');
         else if (['9', '10', '11', '12'].includes(g)) setSelectedCategory('HIGH_SCHOOL');
         else if (['A1', 'A2', 'B1', 'B2', 'C1'].includes(g)) setSelectedCategory('GENERAL_ENGLISH');
-        
-        setSelectedGrade(g as GradeLevel);
     }, []);
 
     const applyTheme = (theme: ThemeType) => {
@@ -413,61 +381,6 @@ const App: React.FC = () => {
         root.style.setProperty('--color-bg-card-rgb', hexToRgb(currentThemeColors.bgCard));
         root.style.setProperty('--color-primary-rgb', hexToRgb(currentThemeColors.primary));
     }, [currentTheme]);
-
-    // Realtime Sync Subscription
-    useEffect(() => {
-        let channel: any = null;
-
-        const manageSubscription = async () => {
-            const { data: { user } } = await supabase.auth.getUser();
-            
-            // Clean up existing subscription
-            if (channel) {
-                supabase.removeChannel(channel);
-                channel = null;
-            }
-
-            if (user) {
-                // Subscribe to profile changes
-                channel = supabase
-                    .channel(`profile_changes_${user.id}`)
-                    .on(
-                        'postgres_changes',
-                        {
-                            event: 'UPDATE',
-                            schema: 'public',
-                            table: 'profiles',
-                            filter: `id=eq.${user.id}`,
-                        },
-                        async () => {
-                            // When a change is detected on the DB (from another device)
-                            // 1. Sync data down (this respects timestamps so it only pulls if cloud is newer)
-                            await syncLocalToCloud(user.id);
-                            
-                            // 2. Refresh UI with new local data
-                            refreshGlobalState();
-                            
-                            // 3. Re-apply theme in case it changed
-                            applyTheme(getAppSettings().theme);
-                        }
-                    )
-                    .subscribe();
-            }
-        };
-
-        // Initial setup
-        manageSubscription();
-
-        // Listen for auth changes to re-setup subscription
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-            manageSubscription();
-        });
-
-        return () => {
-            if (channel) supabase.removeChannel(channel);
-            subscription.unsubscribe();
-        };
-    }, []);
 
     const initializeApp = async () => {
         setIsAppLoading(true);
@@ -511,83 +424,24 @@ const App: React.FC = () => {
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
              const user = session?.user;
              if (!user) {
-                 // Check if local guest profile exists (has a name)
-                 // If no local profile name, show welcome screen
                  if (!localProfile.name) {
                      setShowWelcomeScreen(true);
                  }
              } else {
-                 // Ensure user profile exists (creates it from Google data if missing)
-                 await ensureUserProfileExists(user);
-
                  const userData = await getUserData(user.id);
                  if (userData && userData.profile.isAdmin) {
                      setMaintenanceMode(false);
                  }
                  
                  if (userData) {
-                     const localStats = getUserStats();
-                     const localProfile = getUserProfile();
-                     const cloudXP = userData.stats?.xp || 0;
-                     const localXP = localStats.xp || 0;
-                     
-                     // CHECK FOR DATA CONFLICT
-                     // If local profile is guest AND has progress (>10 XP) AND cloud has progress different from local
-                     // We should ask the user what to keep.
-                     // Exception: If cloud is basically empty (level 1, 0 xp), we auto-merge local to cloud.
-                     
-                     const isGuestWithProgress = localProfile.isGuest && localXP > 10;
-                     const cloudHasProgress = cloudXP > 0;
-                     
-                     if (isGuestWithProgress && cloudHasProgress && Math.abs(cloudXP - localXP) > 5) {
-                         // CONFLICT DETECTED - Show Modal
-                         setConflictState({
-                             localXP,
-                             cloudXP,
-                             localLevel: localStats.level,
-                             cloudLevel: userData.stats.level || 1,
-                             cloudData: userData,
-                             userId: user.id
-                         });
-                     } else if (isGuestWithProgress && !cloudHasProgress) {
-                         // AUTO MERGE: Local Guest -> Cloud New Account
-                         // 1. Update local profile with cloud identity but keep local props
-                         const mergedProfile = {
-                             ...localProfile,
-                             id: user.id,
-                             name: userData.profile.name || localProfile.name,
-                             email: userData.email,
-                             avatar: userData.profile.avatar || localProfile.avatar,
-                             isGuest: false,
-                             friendCode: userData.profile.friendCode || localProfile.friendCode
-                         };
-                         saveUserProfile(mergedProfile);
-                         
-                         // 2. Sync this state to cloud
-                         await syncLocalToCloud(user.id);
-                     } else {
-                         // NO CONFLICT or Cloud is master: Overwrite Local with Cloud
-                         overwriteLocalWithCloud({
-                             profile: userData.profile,
-                             stats: userData.stats,
-                             srs_data: userData.srs_data
-                         });
-                     }
+                     overwriteLocalWithCloud(userData);
                  }
 
-                 // Check if profile is complete (e.g., has grade)
-                 if (userData && !userData.profile.grade) {
-                     // If logged in but no grade, force grade selection
-                     setAvailableGradesForReview(['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 'A1', 'A2', 'B1', 'B2', 'C1']);
-                     setActiveModal('grade');
-                 }
-                 
                  checkForDuels();
                  localStorage.setItem('lgs_last_uid', user.id);
                  refreshGlobalState();
                  const updatedSettings = getAppSettings();
                  applyTheme(updatedSettings.theme);
-                 applyUserProfileGrade();
              }
         });
         
@@ -613,8 +467,7 @@ const App: React.FC = () => {
             const { data: { user } } = await supabase.auth.getUser();
             const localProfile = getUserProfile();
 
-            // FIXED: Do not force welcome screen if guest profile already exists (has name)
-            if (!user && !localProfile.name) {
+            if (!user && (!localProfile.name || localProfile.isGuest)) {
                 setShowWelcomeScreen(true);
             } else if (!hasSeenTutorial()) {
                 changeMode(AppMode.INFO);
@@ -627,43 +480,7 @@ const App: React.FC = () => {
         refreshGlobalState();
     }, [isAppLoading, loadingError, applyUserProfileGrade]);
 
-    // Conflict Resolution Handlers
-    const resolveConflict = async (choice: 'local' | 'cloud') => {
-        if (!conflictState) return;
-        
-        if (choice === 'local') {
-             // We want to KEEP local data and PUSH it to the cloud account
-             // First, update local profile with Cloud ID and Name/Email from the cloud auth
-             const currentLocalProfile = getUserProfile();
-             const newProfile = {
-                 ...currentLocalProfile,
-                 id: conflictState.userId, // Link local data to this user ID
-                 name: conflictState.cloudData.profile.name || currentLocalProfile.name,
-                 email: conflictState.cloudData.email,
-                 isGuest: false,
-                 friendCode: conflictState.cloudData.profile.friendCode || currentLocalProfile.friendCode
-             };
-             saveUserProfile(newProfile);
-             
-             // Now sync this local state to cloud (this pushes local to cloud because we updated the ID)
-             await syncLocalToCloud(conflictState.userId);
-             
-        } else {
-             // We want to KEEP cloud data, overwriting local
-             overwriteLocalWithCloud(conflictState.cloudData);
-        }
-        
-        setConflictState(null);
-        refreshGlobalState();
-        applyUserProfileGrade();
-        // Re-apply theme
-        applyTheme(getAppSettings().theme);
-    };
-
     const changeMode = (newMode: AppMode) => {
-        if (newMode !== AppMode.HOME) {
-            window.history.pushState({ mode: newMode }, '', window.location.href);
-        }
         setHistory(prev => [...prev, mode]);
         setMode(newMode);
     };
@@ -673,22 +490,9 @@ const App: React.FC = () => {
         setActiveModal(null);
         setIsOnboardingGuest(false);
 
-        // If closing grade modal and still no grade (force selection for logged in users without grade)
-        if (previousModal === 'grade') {
-             const p = getUserProfile();
-             if (!p.grade && !p.isGuest) {
-                 // Don't let them close it if they are logged in but have no grade
-                 // Re-open it or show alert
-                 showAlert("Sınıf Seçimi", "Lütfen devam etmek için bir sınıf seçin.", "warning", () => {
-                     setActiveModal('grade');
-                 });
-                 return;
-             }
-        }
-
         setTimeout(() => {
             const profile = getUserProfile();
-            if ((previousModal === 'auth') && !profile.name) {
+            if ((previousModal === 'auth' || previousModal === 'grade') && !profile.name) {
                 setShowWelcomeScreen(true);
             }
         }, 100);
@@ -731,23 +535,7 @@ const App: React.FC = () => {
         return false; // Reached root, let app exit or handle otherwise
     }, [activeModal, mode, history, pendingQuizConfig, selectedUnit, selectedGrade, selectedCategory, selectedStudyMode, viewProfileId]);
 
-    // Browser History Handler
-    useEffect(() => {
-        const handlePopState = (event: PopStateEvent) => {
-            // Check if we can handle the back navigation internally
-            const handled = goBack();
-            // If handled internally, we stay on the "page" in browser terms, but update React state
-            // If not handled (root), the browser might exit or do nothing
-        };
-
-        window.addEventListener('popstate', handlePopState);
-        return () => window.removeEventListener('popstate', handlePopState);
-    }, [goBack]);
-
-    const handleManualBack = () => { 
-        // Trigger browser back to sync with history stack
-        window.history.back(); 
-    };
+    const handleManualBack = () => { goBack(); };
 
     useEffect(() => {
         if (Capacitor.isNativePlatform()) {
@@ -803,50 +591,24 @@ const App: React.FC = () => {
 
     const handleOpenProfile = () => { changeMode(AppMode.PROFILE); setTopicTitle('Profilim'); refreshGlobalState(); };
     const handleOpenInfo = () => { changeMode(AppMode.INFO); setTopicTitle('İpuçları'); };
-    const handleOpenMarket = () => { setActiveModal('market'); window.history.pushState({ modal: 'market' }, '', window.location.href); };
+    const handleOpenMarket = () => { setActiveModal('market'); };
     const handleOpenAnnouncements = async () => { changeMode(AppMode.ANNOUNCEMENTS); setTopicTitle('Duyurular'); const announcements = await getAnnouncements(); if (announcements.length > 0) { setLastReadAnnouncementId(announcements[0].id); setHasUnreadAnnouncements(false); } };
-    const handleOpenSettings = () => { setActiveModal('settings'); window.history.pushState({ modal: 'settings' }, '', window.location.href); };
-    const handleOpenChallenge = () => { const profile = getUserProfile(); if (profile.isGuest) { showAlert("Misafir Modu", "Giriş yapın.", "warning", () => { setAuthInitialView('register'); setActiveModal('auth'); }); return; } setActiveModal('challenge'); window.history.pushState({ modal: 'challenge' }, '', window.location.href); };
-    const handleOpenMenu = () => { setActiveModal('menu'); window.history.pushState({ modal: 'menu' }, '', window.location.href); };
-    const handleOpenLeaderboard = () => { setActiveModal('leaderboard'); window.history.pushState({ modal: 'leaderboard' }, '', window.location.href); };
-    
+    const handleOpenSettings = () => { setActiveModal('settings'); };
+    const handleOpenChallenge = () => { const profile = getUserProfile(); if (profile.isGuest) { showAlert("Misafir Modu", "Giriş yapın.", "warning", () => { setAuthInitialView('register'); setActiveModal('auth'); }); return; } setActiveModal('challenge'); };
+    const handleOpenMenu = () => { setActiveModal('menu'); };
     const shuffleArray = <T,>(array: T[]): T[] => { const newArray = [...array]; for (let i = newArray.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[newArray[i], newArray[j]] = [newArray[j], newArray[i]]; } return newArray; };
     const startQuizWithCount = (count: number, difficulty: QuizDifficulty) => { if (!pendingQuizConfig) return; let quizWords = shuffleArray(pendingQuizConfig.words); if (count !== -1 && quizWords.length > count) { quizWords = quizWords.slice(0, count); } lastQuizConfig.current = { count, difficulty, originalWords: pendingQuizConfig.words, allDistractors: pendingQuizConfig.allDistractors }; setWords(quizWords); setAllUnitWords(pendingQuizConfig.allDistractors); setActiveQuizType(pendingQuizConfig.type); setActiveQuizDifficulty(difficulty); setTopicTitle(pendingQuizConfig.title); changeMode(AppMode.QUIZ); setPendingQuizConfig(null); };
     const handleQuizRestart = () => { if (lastQuizConfig.current) { const { count, difficulty, originalWords, allDistractors } = lastQuizConfig.current; let quizWords = shuffleArray(originalWords); if (count !== -1 && quizWords.length > count) { quizWords = quizWords.slice(0, count); } setWords(quizWords); setAllUnitWords(allDistractors); setActiveQuizDifficulty(difficulty); setMode(AppMode.LOADING); setTimeout(() => { setMode(AppMode.QUIZ); }, 50); } else { handleGoHome(); } };
-    const handleWelcomeLogin = () => { setShowWelcomeScreen(false); setAuthInitialView('login'); setActiveModal('auth'); window.history.pushState({ modal: 'auth' }, '', window.location.href); };
-    const handleWelcomeRegister = () => { setShowWelcomeScreen(false); setAuthInitialView('register'); setActiveModal('auth'); window.history.pushState({ modal: 'auth' }, '', window.location.href); };
-    const handleWelcomeGuest = () => { setShowWelcomeScreen(false); setIsOnboardingGuest(true); setAvailableGradesForReview(['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 'A1', 'A2', 'B1', 'B2', 'C1']); setActiveModal('grade'); window.history.pushState({ modal: 'grade' }, '', window.location.href); };
+    const handleWelcomeLogin = () => { setShowWelcomeScreen(false); setAuthInitialView('login'); setActiveModal('auth'); };
+    const handleWelcomeRegister = () => { setShowWelcomeScreen(false); setAuthInitialView('register'); setActiveModal('auth'); };
+    const handleWelcomeGuest = () => { setShowWelcomeScreen(false); setIsOnboardingGuest(true); setAvailableGradesForReview(['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 'A1', 'A2', 'B1', 'B2', 'C1']); setActiveModal('grade'); };
     const onSelectCategoryHandler = (cat: CategoryType | null) => { setSelectedCategory(cat); };
     const onSelectGradeHandler = (grade: GradeLevel | null) => { setSelectedGrade(grade); };
     const onSelectUnitHandler = (unit: UnitDef | null) => { setSelectedUnit(unit); };
     const showBackButton = (mode !== AppMode.HOME) || (selectedCategory !== null);
 
     if (loadingError) return <div className="p-8 text-center">Bağlantı Sorunu</div>;
-    
-    // Improved Loading Screen (Splash)
-    if (isAppLoading || maintenanceMode) {
-        return (
-            <div className="fixed inset-0 z-[200] bg-slate-900 flex flex-col items-center justify-center text-center">
-                <div className="relative mb-8">
-                     <div className="absolute inset-0 bg-indigo-500 blur-2xl opacity-20 rounded-full animate-pulse"></div>
-                     <div className="w-32 h-32 rounded-[2rem] flex items-center justify-center shadow-2xl relative bg-slate-800 border border-slate-700">
-                         <img 
-                            src="https://8upload.com/image/4864223e0a7b82f8/AppLogo.png" 
-                            alt="KelimApp" 
-                            className="w-full h-full object-cover rounded-[2rem]"
-                         />
-                     </div>
-                </div>
-                <h1 className="text-4xl font-black text-white mb-4 tracking-tight animate-pulse">
-                     Kelim<span className="text-indigo-500">App</span>
-                </h1>
-                <div className="flex flex-col items-center gap-2">
-                    <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-slate-400 text-sm font-medium">{maintenanceMode ? "Bakım Modu" : "Yükleniyor..."}</p>
-                </div>
-            </div>
-        );
-    }
+    if (isAppLoading || maintenanceMode) return <div className="p-8 text-center">{maintenanceMode ? "Bakım Modu" : "Yükleniyor..."}</div>;
 
     let content;
     switch (mode) {
@@ -857,7 +619,7 @@ const App: React.FC = () => {
         case AppMode.CUSTOM_PRACTICE: content = (<WordSelector words={allUnitWords} unitTitle={topicTitle.replace(' (Özel Çalışma)', '')} onStart={handleCustomPracticeStart} onBack={handleManualBack} />); break;
         case AppMode.GRAMMAR: if (selectedUnit) { content = <GrammarView unit={selectedUnit} onBack={handleManualBack} onHome={handleGoHome} />; } break;
         case AppMode.EMPTY_WARNING: content = <EmptyStateWarning type={emptyWarningType || 'bookmarks'} onStudy={() => { selectedUnit && handleStartModule('study', selectedUnit); }} onHome={handleGoHome} />; break;
-        case AppMode.PROFILE: content = (<Profile onBack={handleManualBack} onProfileUpdate={handleProfileUpdate} onOpenMarket={handleOpenMarket} onLoginRequest={(initialView) => { setAuthInitialView(initialView || 'login'); setActiveModal('auth'); window.history.pushState({ modal: 'auth' }, '', window.location.href); }} externalStats={userStats} showAlert={showAlert} onViewProfile={(id) => { setViewProfileId(id); window.history.pushState({ profile: id }, '', window.location.href); }} />); break;
+        case AppMode.PROFILE: content = (<Profile onBack={handleManualBack} onProfileUpdate={handleProfileUpdate} onOpenMarket={handleOpenMarket} onLoginRequest={(initialView) => { setAuthInitialView(initialView || 'login'); setActiveModal('auth'); }} externalStats={userStats} showAlert={showAlert} onViewProfile={(id) => setViewProfileId(id)} />); break;
         case AppMode.INFO: content = <InfoView onBack={handleManualBack} />; break;
         case AppMode.ANNOUNCEMENTS: content = <AnnouncementsView onBack={handleManualBack} />; break;
         case AppMode.MATCHING: content = (<MatchingGame words={words} onFinish={handleManualBack} onBack={handleManualBack} onHome={handleGoHome} onCelebrate={handleTriggerCelebration} onBadgeUnlock={handleBadgeUnlock} grade={selectedGrade} />); break;
@@ -871,42 +633,32 @@ const App: React.FC = () => {
             {showWelcomeScreen && (<WelcomeScreen onLogin={handleWelcomeLogin} onRegister={handleWelcomeRegister} onGuest={handleWelcomeGuest} />)}
             {newBadge && (<div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[110] w-full max-w-sm px-4 pointer-events-none"> <div className="bg-yellow-500 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500 border-2 border-yellow-300"> <div className="text-4xl animate-bounce"> {newBadge.image ? (<img src={newBadge.image} alt={newBadge.name} className="w-10 h-10 rounded-full object-cover" />) : (<span className="flex items-center justify-center w-10 h-10 text-3xl">{newBadge.icon}</span>)} </div> <div> <div className="text-xs font-bold text-yellow-100 uppercase tracking-wide mb-0.5">Yeni Rozet Kazanıldı!</div> <div className="font-black text-lg leading-tight">{newBadge.name}</div> </div> <Trophy className="ml-auto text-yellow-200" size={24} /> </div> </div>)}
             
-            {/* CONFLICT MODAL */}
-            {conflictState && (
-                <DataConflictModal 
-                    localXP={conflictState.localXP}
-                    cloudXP={conflictState.cloudXP}
-                    localLevel={conflictState.localLevel}
-                    cloudLevel={conflictState.cloudLevel}
-                    onChooseLocal={() => resolveConflict('local')}
-                    onChooseCloud={() => resolveConflict('cloud')}
-                />
-            )}
-
             {/* Modals */}
             {activeModal === 'menu' && <MenuModal onClose={() => setActiveModal(null)} onNavigate={(target) => { 
                 setActiveModal(null); 
-                if (target === 'leaderboard') handleOpenLeaderboard();
+                if (target === 'home') handleGoHome();
+                else if (target === 'profile') handleOpenProfile();
+                else if (target === 'settings') handleOpenSettings();
                 else if (target === 'announcements') handleOpenAnnouncements();
                 else if (target === 'market') handleOpenMarket();
                 else if (target === 'info') handleOpenInfo();
-                else if (target === 'admin') { setActiveModal('admin'); window.history.pushState({ modal: 'admin' }, '', window.location.href); }
+                else if (target === 'challenge') handleOpenChallenge();
+                else if (target === 'admin') setActiveModal('admin');
             }} hasUnreadAnnouncements={hasUnreadAnnouncements} />}
             
-            {activeModal === 'auth' && <AuthModal onClose={handleManualBack} onSuccess={() => { handleProfileUpdate(); handleManualBack(); }} initialView={authInitialView} />}
-            {activeModal === 'settings' && (<SettingsModal onClose={handleManualBack} onOpenFeedback={() => { setActiveModal('feedback'); window.history.pushState({ modal: 'feedback' }, '', window.location.href); }} onOpenAdmin={() => { setActiveModal('admin'); window.history.pushState({ modal: 'admin' }, '', window.location.href); }} onRestartTutorial={() => { }} />)}
-            {activeModal === 'feedback' && <FeedbackModal onClose={handleManualBack} />}
-            {activeModal === 'admin' && (<AdminModal onClose={handleManualBack} onUpdate={() => { handleProfileUpdate(); }} />)}
-            {activeModal === 'challenge' && (<ChallengeModal onClose={handleManualBack} onCreateChallenge={handleCreateChallenge} onJoinChallenge={handleJoinChallenge} />)}
+            {activeModal === 'auth' && <AuthModal onClose={handleModalClose} onSuccess={() => { handleProfileUpdate(); setActiveModal(null); }} initialView={authInitialView} />}
+            {activeModal === 'settings' && (<SettingsModal onClose={() => setActiveModal(null)} onOpenFeedback={() => setActiveModal('feedback')} onOpenAdmin={() => setActiveModal('admin')} onRestartTutorial={() => { }} />)}
+            {activeModal === 'feedback' && <FeedbackModal onClose={() => setActiveModal(null)} />}
+            {activeModal === 'admin' && (<AdminModal onClose={() => setActiveModal(null)} onUpdate={() => { handleProfileUpdate(); }} />)}
+            {activeModal === 'challenge' && (<ChallengeModal onClose={() => setActiveModal(null)} onCreateChallenge={handleCreateChallenge} onJoinChallenge={handleJoinChallenge} />)}
             <InstallPromptModal />
-            {activeModal === 'srs' && <SRSInfoModal onClose={handleManualBack} />}
-            {activeModal === 'market' && <MarketModal onClose={() => { handleManualBack(); handleProfileUpdate(); }} onThemeChange={handleThemeChange} />}
+            {activeModal === 'srs' && <SRSInfoModal onClose={() => setActiveModal(null)} />}
+            {activeModal === 'market' && <MarketModal onClose={() => { setActiveModal(null); handleProfileUpdate(); }} onThemeChange={handleThemeChange} />}
             {activeModal === 'grade' && (<GradeSelectionModal onClose={handleModalClose} onSelect={handleGradeSelect} grades={availableGradesForReview} title={isOnboardingGuest ? 'Sınıfını Seç' : undefined} description={isOnboardingGuest ? 'Hangi seviyede İngilizce çalışmak istorsun?' : undefined} />)}
-            {activeModal === 'leaderboard' && <LeaderboardModal onClose={handleManualBack} currentUserXP={userStats.xp} currentUserGrade={getUserProfile().grade} />}
             {pendingQuizConfig && <QuizSetupModal onClose={handleManualBack} onStart={startQuizWithCount} totalWords={pendingQuizConfig.words.length} title={pendingQuizConfig.title} />}
             {celebration?.show && <Celebration message={celebration.message} type={celebration.type} onClose={() => setCelebration(null)} />}
-            {activeModal === 'avatar' && <AvatarModal onClose={handleManualBack} userStats={userStats || { flashcardsViewed: 0, quizCorrect: 0, quizWrong: 0, date: '', dailyGoal: 5, xp: 0, level: 1, streak: 0, lastStudyDate: null, badges: [], xpBoostEndTime: 0, lastGoalMetDate: null, viewedWordsToday: [], perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, duelWins: 0, duelPoints: 0, duelLosses: 0, duelDraws: 0, matchingAllTimeBest: 0, mazeAllTimeBest: 0, wordSearchAllTimeBest: 0, completedUnits: [], completedGrades: [], weekly: { weekId: '', quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, mazeHighScore: 0, wordSearchHighScore: 0, duelPoints: 0, duelWins: 0, duelLosses: 0, duelDraws: 0 } }} onUpdate={() => { setHeaderProfile(getUserProfile()); if (handleProfileUpdate) handleProfileUpdate(); }} />}
-            {viewProfileId && (<UserProfileModal userId={viewProfileId} onClose={handleManualBack} />)}
+            {activeModal === 'avatar' && <AvatarModal onClose={() => setActiveModal(null)} userStats={userStats || { flashcardsViewed: 0, quizCorrect: 0, quizWrong: 0, date: '', dailyGoal: 5, xp: 0, level: 1, streak: 0, lastStudyDate: null, badges: [], xpBoostEndTime: 0, lastGoalMetDate: null, viewedWordsToday: [], perfectQuizzes: 0, questsCompleted: 0, totalTimeSpent: 0, duelWins: 0, duelPoints: 0, duelLosses: 0, duelDraws: 0, matchingAllTimeBest: 0, mazeAllTimeBest: 0, wordSearchAllTimeBest: 0, completedUnits: [], completedGrades: [], weekly: { weekId: '', quizCorrect: 0, quizWrong: 0, cardsViewed: 0, matchingBestTime: 0, mazeHighScore: 0, wordSearchHighScore: 0, duelPoints: 0, duelWins: 0, duelLosses: 0, duelDraws: 0 } }} onUpdate={() => { setHeaderProfile(getUserProfile()); if (handleProfileUpdate) handleProfileUpdate(); }} />}
+            {viewProfileId && (<UserProfileModal userId={viewProfileId} onClose={() => setViewProfileId(null)} />)}
             <CustomAlert visible={alertState.visible} title={alertState.title} message={alertState.message} type={alertState.type} onClose={() => setAlertState(prev => ({ ...prev, visible: false }))} onConfirm={alertState.onConfirm} />
             
             {/* TOP HEADER */}

@@ -1,11 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { X, LogIn, UserPlus, Lock, User, Check, GraduationCap, Ghost, Mail, HelpCircle, Globe } from 'lucide-react';
-import { loginUser, registerUser, resetUserPassword, getUserData, syncLocalToCloud, getAuthInstance, supabase } from '../services/supabase';
+import { X, LogIn, UserPlus, Lock, User, Check, GraduationCap, Ghost, Mail, HelpCircle } from 'lucide-react';
+import { loginUser, registerUser, resetUserPassword, getUserData, syncLocalToCloud, getAuthInstance } from '../services/supabase';
 import { createGuestProfile, getUserProfile, getUserStats, clearLocalUserData, overwriteLocalWithCloud, saveUserProfile } from '../services/userService';
 import CustomSelect from './CustomSelect';
 import DataConflictModal from './DataConflictModal';
-import { Capacitor } from '@capacitor/core';
 
 interface AuthModalProps {
   onClose: () => void;
@@ -121,24 +120,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, initialView =
     }
   };
   
-  const handleGoogleLogin = async () => {
-    try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          // Mobilde uygulama içine geri dönmek için deep link
-          redirectTo: Capacitor.isNativePlatform() 
-            ? 'com.sinanguney.kelimapp://login-callback' 
-            : window.location.origin
-        },
-      });
-      if (error) throw error;
-    } catch (err: any) {
-      console.error(err);
-      setError(err.message || "Google girişi başlatılamadı.");
-    }
-  };
-  
   const handleResolveConflict = async (choice: 'local' | 'cloud') => {
       if (!conflictData) return;
       
@@ -190,8 +171,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, initialView =
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden flex flex-col animate-in zoom-in-95 duration-200">
         
         <div className="relative bg-indigo-600 p-6 flex flex-col items-center text-center text-white shrink-0">
             <button onClick={onClose} className="absolute top-4 right-4 p-1 hover:bg-white/20 rounded-full transition-colors">
@@ -308,23 +288,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, initialView =
                         mode === 'login' ? 'Giriş Yap' : mode === 'register' ? 'Kayıt Ol' : 'Gönder'
                     )}
                 </button>
-
-                {(mode === 'login' || mode === 'register') && (
-                    <>
-                        <div className="relative py-2">
-                            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200 dark:border-slate-700"></div></div>
-                            <div className="relative flex justify-center text-xs uppercase"><span className="bg-white dark:bg-slate-900 px-2 text-slate-500 font-bold">veya</span></div>
-                        </div>
-
-                        <button
-                            type="button"
-                            disabled={true}
-                            className="w-full py-3.5 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 rounded-xl font-bold cursor-not-allowed flex items-center justify-center gap-2"
-                        >
-                            <Globe size={18} className="text-slate-400 dark:text-slate-500 grayscale" /> Google ile Giriş Yap (Bakımda)
-                        </button>
-                    </>
-                )}
 
             </form>
 

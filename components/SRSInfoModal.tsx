@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Brain, Calendar, CheckCircle, X, BookOpen } from 'lucide-react';
 
@@ -9,8 +8,7 @@ interface SRSInfoModalProps {
 const SRSInfoModal: React.FC<SRSInfoModalProps> = ({ onClose }) => {
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
+      <div className="w-full max-w-md rounded-3xl shadow-2xl border overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]" style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
         
         <div className="bg-indigo-600 p-6 relative shrink-0">
             <button onClick={onClose} className="absolute top-4 right-4 text-white/70 hover:text-white">

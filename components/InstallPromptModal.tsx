@@ -30,9 +30,8 @@ const InstallPromptModal: React.FC = () => {
   if (!show) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-end justify-center p-4 pb-safe">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm transition-opacity" onClick={() => setShow(false)} />
-      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden pointer-events-auto animate-in slide-in-from-bottom-10 duration-500 relative z-10">
+    <div className="fixed inset-0 z-[100] flex items-end justify-center pointer-events-none p-4 pb-safe">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-sm rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-700 overflow-hidden pointer-events-auto animate-in slide-in-from-bottom-10 duration-500 relative">
         
         <button 
             onClick={() => setShow(false)} 

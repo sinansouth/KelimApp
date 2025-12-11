@@ -29,8 +29,7 @@ const FeedbackModal: React.FC<FeedbackModalProps> = ({ onClose }) => {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-      <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
+      <div className="bg-white dark:bg-slate-900 w-full max-w-md rounded-3xl shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in zoom-in-95 duration-200">
         
         <div className="relative bg-indigo-600 p-5 flex items-center justify-between text-white">
             <h2 className="text-lg font-bold flex items-center gap-2">

@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect } from 'react';
-import { X, Volume2, VolumeX, MessageSquare, ShieldCheck, Trash2 } from 'lucide-react';
-import { AppSettings, getAppSettings, saveAppSettings, getUserProfile } from '../services/userService';
+import { X, Volume2, VolumeX, MessageSquare, Lock, Key, ShieldCheck } from 'lucide-react';
+import { AppSettings, getAppSettings, saveAppSettings, getUserProfile, saveUserProfile } from '../services/userService';
 import { APP_CONFIG } from '../config/appConfig';
-import { deleteAccount } from '../services/supabase';
+import { playSound } from '../services/soundService';
+import { syncLocalToCloud, getAuthInstance } from '../services/supabase';
 
 interface SettingsModalProps {
     onClose: () => void;
@@ -14,13 +14,14 @@ interface SettingsModalProps {
 
 const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, onOpenAdmin }) => {
     const [settings, setSettings] = useState<AppSettings>({ soundEnabled: true, theme: 'dark' });
+    const [showAdminInput, setShowAdminInput] = useState(false);
+    const [adminPassword, setAdminPassword] = useState('');
     const [isAdminUser, setIsAdminUser] = useState(false);
 
     useEffect(() => {
         setSettings(getAppSettings());
         const profile = getUserProfile();
-        // Check if user is admin based on profile data synced from DB
-        setIsAdminUser(profile.isAdmin === true);
+        setIsAdminUser(profile.isAdmin === true || String(profile.isAdmin) === 'true');
     }, []);
 
     const toggleSound = () => {
@@ -29,21 +30,38 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
         saveAppSettings(newSettings);
     };
 
-    const handleDeleteAccount = async () => {
-        if (window.confirm("Hesabını ve tüm verilerini kalıcı olarak silmek istediğine emin misin? Bu işlem geri alınamaz.")) {
-            try {
-                await deleteAccount();
-            } catch (e) {
-                alert("Hesap silinirken bir hata oluştu.");
+    const handleAdminLogin = async (e: React.FormEvent) => {
+        e.preventDefault();
+        // FIX: Access Vite environment variable via a type cast to 'any' to resolve TypeScript error.
+        if (adminPassword === (import.meta as any).env.VITE_ADMIN_PASSWORD) {
+            const currentProfile = getUserProfile();
+            const newProfile = { ...currentProfile, isAdmin: true };
+            saveUserProfile(newProfile);
+
+            setIsAdminUser(true);
+
+            const auth = getAuthInstance();
+            const currentUser = await auth.currentUser;
+            if (currentUser && !newProfile.isGuest) {
+                await syncLocalToCloud(currentUser.id);
             }
+
+            playSound('success');
+            onClose();
+            onOpenAdmin();
+
+            setAdminPassword('');
+            setShowAdminInput(false);
+        } else {
+            playSound('wrong');
+            alert("Hatalı şifre!");
         }
     };
 
     return (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="absolute inset-0" onClick={onClose} />
             <div 
-                className="relative w-full max-w-xs rounded-3xl shadow-2xl border overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
+                className="w-full max-w-xs rounded-3xl shadow-2xl border overflow-hidden flex flex-col animate-in zoom-in-95 duration-200"
                 style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}
             >
                 <div className="flex items-center justify-between p-5 border-b shrink-0" style={{borderColor: 'var(--color-border)'}}>
@@ -81,9 +99,9 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
                         </div>
                     </button>
 
-                    {/* Admin Panel Access - Only visible if user has admin role in DB */}
-                    {isAdminUser && (
-                        <button onClick={() => { onClose(); onOpenAdmin(); }} className="w-full p-3 rounded-2xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/10 flex items-center gap-3 text-left animate-in fade-in">
+                    {/* Admin Panel Access */}
+                    {isAdminUser ? (
+                        <button onClick={() => { onClose(); onOpenAdmin(); }} className="w-full p-3 rounded-2xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/10 flex items-center gap-3 text-left">
                             <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 text-red-600 flex items-center justify-center">
                                 <ShieldCheck size={20} />
                             </div>
@@ -92,13 +110,30 @@ const SettingsModal: React.FC<SettingsModalProps> = ({ onClose, onOpenFeedback, 
                                 <div className="text-[10px] text-red-400 dark:text-red-300">Sistem ayarları</div>
                             </div>
                         </button>
+                    ) : (
+                        <div className="pt-2">
+                            {showAdminInput ? (
+                                <form onSubmit={handleAdminLogin} className="flex gap-2">
+                                    <input 
+                                        type="password" 
+                                        value={adminPassword}
+                                        onChange={(e) => setAdminPassword(e.target.value)}
+                                        placeholder="Admin Şifresi"
+                                        className="flex-1 p-2 text-xs border rounded-lg outline-none focus:border-indigo-500"
+                                        style={{backgroundColor: 'var(--color-bg-main)', borderColor: 'var(--color-border)', color: 'var(--color-text-main)'}}
+                                        autoFocus
+                                    />
+                                    <button type="submit" className="p-2 bg-indigo-600 text-white rounded-lg">
+                                        <Key size={16} />
+                                    </button>
+                                </form>
+                            ) : (
+                                <button onClick={() => setShowAdminInput(true)} className="text-[10px] text-slate-400 hover:text-slate-600 flex items-center gap-1 mx-auto">
+                                    <Lock size={12} /> Yönetici Girişi
+                                </button>
+                            )}
+                        </div>
                     )}
-                </div>
-
-                <div className="px-5 pb-2">
-                     <button onClick={handleDeleteAccount} className="w-full p-3 rounded-2xl bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-900 flex items-center justify-center gap-2 text-xs font-bold transition-colors hover:bg-red-100 dark:hover:bg-red-900/30">
-                        <Trash2 size={16} /> Hesabımı Sil
-                    </button>
                 </div>
 
                 <div className="p-4 border-t text-center" style={{borderColor: 'var(--color-border)'}}>

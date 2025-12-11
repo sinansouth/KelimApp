@@ -1,8 +1,10 @@
 
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { WordCard, Badge, GradeLevel } from '../types';
-import { Ghost, Bot, CheckCircle, XCircle, ArrowRight, MapPin, RotateCcw } from 'lucide-react';
+import { Ghost, Bot, CheckCircle, XCircle, ArrowRight, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon, RotateCcw } from 'lucide-react';
 import { playSound } from '../services/soundService';
+// FIX: Import `updateGameStats` to handle game-specific statistics.
 import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS } from '../services/userService';
 import { getSmartDistractors } from '../services/contentService';
 import { syncLocalToCloud } from '../services/supabase';
@@ -19,10 +21,8 @@ interface MazeGameProps {
 // --- Constants ---
 const GRID_SIZE = 21; 
 const POOL_SIZE = 3;  
-const ENEMY_COUNT = 4;
-// TICK_RATE decreased to make player movement smoother/faster
-// Enemies will be throttled to move every N ticks to balance difficulty
-const TICK_RATE = 120; 
+const ENEMY_COUNT = 3;
+const TICK_RATE = 130; 
 
 type CellType = 'wall' | 'path' | 'pool';
 
@@ -70,7 +70,7 @@ const MazeGrid = React.memo(({ grid, doors }: { grid: CellType[][], doors: DoorA
                 if (door && x === door.x + 1 && y === door.y + 1) {
                     poolContent = (
                         <div className="absolute inset-0 flex items-center justify-center z-10 pointer-events-none overflow-visible w-[300%] h-[300%] -translate-x-1/3 -translate-y-1/3">
-                            <span className="text-[8px] sm:text-[10px] font-black text-white bg-black/70 px-1.5 py-0.5 rounded-lg text-center leading-tight shadow-sm backdrop-blur-[2px] border border-white/10 break-words max-w-full">
+                            <span className="text-[10px] sm:text-xs font-black text-white bg-black/60 px-2 py-1 rounded-lg text-center leading-tight shadow-sm backdrop-blur-[2px] border border-white/10 break-words max-w-full">
                                 {door.word}
                             </span>
                         </div>
@@ -78,10 +78,9 @@ const MazeGrid = React.memo(({ grid, doors }: { grid: CellType[][], doors: DoorA
                 }
             }
 
-            // Using slightly lighter wall color for better visibility against dark bg
-            const wallClass = 'bg-slate-600 border-[0.5px] border-slate-700/50'; 
-            const pathClass = 'bg-slate-900';
-            const poolClass = 'bg-indigo-900/40';
+            const wallClass = 'bg-slate-700'; 
+            const pathClass = 'bg-[#0f172a]';
+            const poolClass = 'bg-indigo-900/50';
 
             return (
                 <div key={`${x}-${y}`} className={`w-full h-full relative ${cell === 'wall' ? wallClass : cell === 'pool' ? poolClass : pathClass}`}>
@@ -102,11 +101,7 @@ const MazeGrid = React.memo(({ grid, doors }: { grid: CellType[][], doors: DoorA
 });
 
 const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrate, grade }) => {
-  // Initialize with walls to ensure grid renders immediately
-  const [grid, setGrid] = useState<CellType[][]>(
-      Array(GRID_SIZE).fill(null).map(() => Array(GRID_SIZE).fill('wall'))
-  );
-  
+  const [grid, setGrid] = useState<CellType[][]>([]);
   const [playerPos, setPlayerPos] = useState<Position>({ x: 10, y: 10 });
   
   const nextDirRef = useRef<Position>({ x: 0, y: 0 });
@@ -135,7 +130,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
   useEffect(() => { enemiesRef.current = enemies; }, [enemies]);
 
   const handleExit = () => {
-      syncLocalToCloud(); 
+      syncLocalToCloud(); // Sync before exiting
       onBack();
   };
 
@@ -180,7 +175,6 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
                 newGrid[startY + y][startX + x] = 'pool';
             }
         }
-        // Ensure entrance to pool
         if (newGrid[startY-1]?.[startX+1]) newGrid[startY-1][startX+1] = 'path';
         if (newGrid[startY+POOL_SIZE]?.[startX+1]) newGrid[startY+POOL_SIZE][startX+1] = 'path';
         if (newGrid[startY+1]?.[startX-1]) newGrid[startY+1][startX-1] = 'path';
@@ -196,11 +190,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
         for(let x = center - 1; x <= center + 1; x++) newGrid[y][x] = 'path';
     }
     
-    // Safety clearing center start
-    newGrid[center][center] = 'path';
-
     const midY = Math.floor(GRID_SIZE / 2);
-    // Portals (optional, for fun or just aesthetics)
     newGrid[midY][0] = 'path';
     newGrid[midY][GRID_SIZE-1] = 'path';
 
@@ -257,24 +247,18 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
     isMovingRef.current = false;
 
     const newEnemies: Enemy[] = [];
-    const colors = ['#ef4444', '#f97316', '#a855f7', '#ec4899'];
+    const colors = ['#ef4444', '#f97316', '#a855f7'];
     
     const spawnPoints = [
         {x: 5, y: 5},
         {x: GRID_SIZE-6, y: 5},
-        {x: 5, y: GRID_SIZE-6},
-        {x: GRID_SIZE-6, y: GRID_SIZE-6}
+        {x: 5, y: GRID_SIZE-6}
     ];
 
     for (let i = 0; i < ENEMY_COUNT; i++) {
-        let ex = spawnPoints[i % spawnPoints.length].x;
-        let ey = spawnPoints[i % spawnPoints.length].y;
-        
-        // Ensure spawn is valid
-        while(maze[ey][ex] === 'wall' || maze[ey][ex] === 'pool') { 
-            ex = (ex + 1) % (GRID_SIZE - 1);
-            if (ex === 0) ey = (ey + 1) % (GRID_SIZE - 1);
-        }
+        let ex = spawnPoints[i].x;
+        let ey = spawnPoints[i].y;
+        while(maze[ey][ex] === 'wall') { ex++; }
 
         newEnemies.push({
             id: i, 
@@ -300,8 +284,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
            const ny = pos.y + m.y;
            if (nx < 0 || nx >= GRID_SIZE) return true; 
            if (ny < 0 || ny >= GRID_SIZE) return false;
-           // Enemies cannot walk into walls or pools
-           return currentGrid[ny][nx] !== 'wall' && currentGrid[ny][nx] !== 'pool';
+           return currentGrid[ny][nx] !== 'wall';
        });
   };
 
@@ -323,15 +306,14 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
   const gameTick = () => {
       if (gameState !== 'playing') return;
       const maze = gridRef.current;
-      const oldPlayerPos = playerPosRef.current;
+      const currentPos = playerPosRef.current;
       
       let dir = currentDirRef.current;
       const next = nextDirRef.current;
-      
-      // Update Player Direction
+
       if (next.x !== 0 || next.y !== 0) {
-          const checkX = oldPlayerPos.x + next.x;
-          const checkY = oldPlayerPos.y + next.y;
+          const checkX = currentPos.x + next.x;
+          const checkY = currentPos.y + next.y;
           if (checkX >= 0 && checkX < GRID_SIZE && checkY >= 0 && checkY < GRID_SIZE && maze[checkY][checkX] !== 'wall') {
               dir = next;
               currentDirRef.current = next;
@@ -339,17 +321,13 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
           }
       }
 
-      // Move Player (Player moves every tick)
-      let newPlayerPos = { ...oldPlayerPos };
       if (dir.x !== 0 || dir.y !== 0) {
-          let newX = oldPlayerPos.x + dir.x;
-          let newY = oldPlayerPos.y + dir.y;
+          let newX = currentPos.x + dir.x;
+          let newY = currentPos.y + dir.y;
           if (newX < 0) newX = GRID_SIZE - 1; else if (newX >= GRID_SIZE) newX = 0;
 
           if (newX >= 0 && newX < GRID_SIZE && newY >= 0 && newY < GRID_SIZE && maze[newY][newX] !== 'wall') {
-              newPlayerPos = { x: newX, y: newY };
-              setPlayerPos(newPlayerPos);
-              
+              setPlayerPos({ x: newX, y: newY });
               const hitDoor = doorsRef.current.find(d => 
                   newX >= d.x && newX < d.x + POOL_SIZE &&
                   newY >= d.y && newY < d.y + POOL_SIZE
@@ -366,35 +344,17 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
       } else {
           isMovingRef.current = false;
       }
-      
-      // FIRST COLLISION CHECK (Player moves into Enemy)
-      if (checkCollisions(newPlayerPos, enemiesRef.current)) return;
 
-      // Move Enemies (Enemies move every 2nd tick -> Half speed of player)
       gameTickRef.current += 1;
-      let newEnemies = enemiesRef.current;
-
-      if (gameTickRef.current % 2 === 0) { // Move only on even ticks
-          newEnemies = moveEnemiesLogic(newPlayerPos);
-          setEnemies(newEnemies);
+      if (gameTickRef.current % 2 === 0) {
+          moveEnemies(playerPosRef.current);
       }
-      
-      // SECOND COLLISION CHECK (Enemy moves into Player)
-      if (checkCollisions(newPlayerPos, newEnemies)) return;
-      
-      // SWAP CHECK
-      const swapCollision = newEnemies.some((enemy, idx) => {
-          const oldEnemyPos = enemiesRef.current[idx].pos;
-          return (newPlayerPos.x === oldEnemyPos.x && newPlayerPos.y === oldEnemyPos.y) &&
-                 (enemy.pos.x === oldPlayerPos.x && enemy.pos.y === oldPlayerPos.y);
-      });
-      
-      if (swapCollision) handleEnemyHit();
+      checkCollisions();
   };
 
-  const moveEnemiesLogic = (targetPos: Position) => {
+  const moveEnemies = (targetPos: Position) => {
       const currentGrid = gridRef.current;
-      return enemiesRef.current.map(enemy => {
+      setEnemies(prev => prev.map(enemy => {
           let newState = enemy.state;
           let target = enemy.targetPos;
           let patience = enemy.patience;
@@ -414,7 +374,14 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
               newState = 'wandering'; target = null; patience = 0;
           }
 
-          const possibleMoves = getValidMoves(enemy.pos, currentGrid);
+          const possibleMoves = getValidMoves(enemy.pos, currentGrid).filter(m => {
+             const nx = enemy.pos.x + m.x;
+             const ny = enemy.pos.y + m.y;
+             if (nx < 0 || nx >= GRID_SIZE || ny < 0 || ny >= GRID_SIZE) return false;
+             const cell = currentGrid[ny][nx];
+             if (cell === 'pool') return false;
+             return true;
+          });
 
           if (possibleMoves.length === 0) return enemy;
 
@@ -429,7 +396,6 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
               });
               bestMove = possibleMoves[0];
           } else {
-              // Try not to reverse direction immediately
               const nonReverseMoves = possibleMoves.filter(m => !(m.x === -enemy.lastMove.x && m.y === -enemy.lastMove.y));
               if (nonReverseMoves.length > 0) {
                   bestMove = nonReverseMoves[Math.floor(Math.random() * nonReverseMoves.length)];
@@ -439,16 +405,13 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
           }
           
           return { ...enemy, pos: { x: enemy.pos.x + bestMove.x, y: enemy.pos.y + bestMove.y }, lastMove: bestMove, state: newState, targetPos: target, patience: patience };
-      });
+      }));
   };
 
-  const checkCollisions = (pPos: Position, currentEnemies: Enemy[]) => {
-      const collision = currentEnemies.some(e => Math.abs(e.pos.x - pPos.x) < 0.5 && Math.abs(e.pos.y - pPos.y) < 0.5);
-      if (collision) {
-          handleEnemyHit();
-          return true;
-      }
-      return false;
+  const checkCollisions = () => {
+      const pPos = playerPosRef.current;
+      const collision = enemiesRef.current.some(e => Math.abs(e.pos.x - pPos.x) < 1 && Math.abs(e.pos.y - pPos.y) < 1);
+      if (collision) handleEnemyHit();
   };
 
   useEffect(() => {
@@ -508,9 +471,8 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
   const handleEnemyHit = () => {
       stopGameLoop();
       playSound('wrong');
-      
       if (lives > 1) {
-          setHitMessage('Yakalandın! (Canın Azaldı)');
+          setHitMessage('Yakalandın!');
           setGameState('hit');
           setTimeout(() => {
               setLives(l => l - 1);
@@ -532,11 +494,9 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
   const handleDoorFail = () => {
       stopGameLoop();
       playSound('wrong');
-      // Score penalty for wrong door
-      setScore(s => Math.max(0, s - 25));
-      
-      setHitMessage('Yanlış Kelime! (-25 Puan)');
+      setHitMessage('Yanlış Kelime!');
       setGameState('hit');
+      setScore(s => Math.max(0, s - 10));
       setTimeout(() => {
           const center = Math.floor(GRID_SIZE / 2);
           setPlayerPos({ x: center, y: center });
@@ -554,13 +514,15 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
       const newScore = score + 50;
       setScore(newScore);
 
+      // --- IMMEDIATE XP UPDATE START (Centralized Value) ---
       const xpGained = XP_GAINS.maze_level;
       updateStats(xpGained, { grade });
       updateQuestProgress('earn_xp', xpGained);
       updateGameStats('maze', newScore);
       updateQuestProgress('play_maze', 1);
+      // --- IMMEDIATE XP UPDATE END ---
       
-      syncLocalToCloud(); 
+      syncLocalToCloud(); // Sync score
 
       setGameState('won');
       setTimeout(() => {
@@ -602,96 +564,90 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
   }
 
   return (
-    <div className="w-full h-full relative bg-[#0f172a] overflow-hidden flex flex-col font-sans" style={{ touchAction: 'none' }}>
-        
-        {/* HEADER */}
-        <div className="w-full px-4 pt-4 pb-2 flex justify-between items-center z-20 shrink-0">
-             {/* Left: Score & Lives */}
-             <div className="flex items-center gap-3">
-                <div className="flex items-center gap-2 bg-slate-800/80 p-2 px-3 rounded-xl backdrop-blur-sm border border-slate-700">
-                     <Bot size={20} className="text-indigo-400" />
-                     <span className="font-mono font-bold text-white text-lg">{score}</span>
-                </div>
-                <div className="flex items-center gap-1 bg-slate-800/80 p-2 px-3 rounded-xl backdrop-blur-sm border border-slate-700">
-                    {[...Array(3)].map((_, i) => (
-                        <div key={i} className={`w-2.5 h-2.5 rounded-full ${i < lives ? 'bg-red-500' : 'bg-slate-600'}`}></div>
-                    ))}
-                </div>
+    <div className="w-full h-full relative bg-[#0f172a] overflow-hidden flex flex-col items-center justify-center touch-none select-none">
+        {/* Game UI */}
+        <div className="absolute top-4 left-0 w-full px-6 flex justify-between items-center z-20 pointer-events-none">
+            <div className="flex items-center gap-2 bg-slate-800/80 p-2 rounded-xl backdrop-blur-sm border border-slate-700">
+                 <Bot size={20} className="text-indigo-400" />
+                 <span className="font-mono font-bold text-white text-lg">{score}</span>
             </div>
-
-            {/* Right: Exit */}
-            <button onClick={handleExit} className="p-2 bg-slate-800/80 rounded-xl text-slate-400 hover:text-white border border-slate-700 active:scale-95 transition-transform backdrop-blur-sm">
-                 <XCircle size={24} />
-            </button>
+            <div className="flex items-center gap-1 bg-slate-800/80 p-2 rounded-xl backdrop-blur-sm border border-slate-700">
+                {[...Array(3)].map((_, i) => (
+                    <div key={i} className={`w-3 h-3 rounded-full ${i < lives ? 'bg-red-500' : 'bg-slate-600'}`}></div>
+                ))}
+            </div>
         </div>
 
          {/* Hit Message Overlay */}
          {gameState === 'hit' && (
              <div className="absolute inset-0 z-50 flex items-center justify-center bg-red-500/20 backdrop-blur-[2px] animate-in fade-in duration-200">
-                 <div className="bg-red-600 text-white px-8 py-4 rounded-3xl font-black text-xl text-center shadow-2xl animate-bounce border-2 border-white/20">
+                 <div className="bg-red-600 text-white px-8 py-4 rounded-3xl font-black text-2xl shadow-2xl animate-bounce">
                      {hitMessage}
                  </div>
              </div>
          )}
         
-        {/* GAME AREA */}
-        {/* Using explicit viewport based sizing to guarantee visibility */}
-        <div className="flex-1 w-full flex items-center justify-center p-4 min-h-0 relative overflow-hidden">
-             <div 
-                className="relative shadow-2xl border-4 border-slate-800 bg-[#020617] rounded-xl overflow-hidden"
-                style={{
-                    width: 'min(90vw, 55vh)', 
-                    height: 'min(90vw, 55vh)',
-                    touchAction: 'none'
-                }}
-                onTouchStart={handleTouchStart}
-                onTouchEnd={handleTouchEnd}
-            >
-                <MazeGrid grid={grid} doors={doors} />
-                
-                {/* Player */}
-                <div 
-                    className="absolute w-[4.76%] h-[4.76%] bg-blue-500 rounded-full shadow-[0_0_10px_#3b82f6] z-10 transition-all duration-[120ms] ease-linear flex items-center justify-center"
-                    style={{
-                        left: `${playerPos.x * 4.76}%`,
-                        top: `${playerPos.y * 4.76}%`,
-                    }}
-                >
-                    <div className="w-[60%] h-[60%] bg-white rounded-full"></div>
-                </div>
-
-                {/* Enemies */}
-                {enemies.map(enemy => (
-                    <div 
-                        key={enemy.id}
-                        className="absolute w-[4.76%] h-[4.76%] z-10 transition-all duration-[120ms] ease-linear flex items-center justify-center"
-                        style={{
-                            left: `${enemy.pos.x * 4.76}%`,
-                            top: `${enemy.pos.y * 4.76}%`,
-                            color: enemy.color
-                        }}
-                    >
-                        <Ghost size={16} className="fill-current animate-pulse" />
-                    </div>
-                ))}
+        {/* Target Word Hint */}
+        <div className="absolute bottom-24 left-0 w-full px-6 flex justify-center z-20 pointer-events-none">
+            <div className="bg-indigo-600/90 text-white px-6 py-3 rounded-2xl font-bold shadow-lg backdrop-blur-sm border border-indigo-500/50 flex flex-col items-center">
+                <span className="text-[10px] uppercase tracking-widest text-indigo-200 mb-1">HEDEF</span>
+                <span className="text-xl">{currentWord?.english}</span>
+                <span className="text-xs text-indigo-300 font-normal">{currentWord?.turkish}</span>
             </div>
         </div>
 
-        {/* FOOTER - Target Word */}
-        <div className="w-full px-4 pb-8 pt-2 z-20 shrink-0 flex flex-col items-center">
-            {/* Hint */}
-            <div className="text-slate-500 text-xs font-bold uppercase tracking-widest mb-3 animate-pulse opacity-60">
-                Hareket etmek için ekranda kaydır
+        {/* Controls (Mobile) */}
+        <div className="absolute bottom-6 left-0 w-full px-6 z-30 flex justify-between items-end pointer-events-none">
+            <button onClick={handleExit} className="pointer-events-auto p-3 bg-slate-800/80 rounded-full text-slate-400 hover:text-white border border-slate-700">
+                 <XCircle size={24} />
+            </button>
+            
+            <div className="pointer-events-auto grid grid-cols-3 gap-1 bg-slate-800/50 p-2 rounded-full backdrop-blur-sm">
+                <div></div>
+                <button onPointerDown={(e) => { e.preventDefault(); handleInput(0, -1); }} className="w-12 h-12 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-all"><ChevronUp /></button>
+                <div></div>
+                <button onPointerDown={(e) => { e.preventDefault(); handleInput(-1, 0); }} className="w-12 h-12 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-all"><ChevronLeft /></button>
+                <div className="w-12 h-12 flex items-center justify-center text-slate-500"><Bot size={16} /></div>
+                <button onPointerDown={(e) => { e.preventDefault(); handleInput(1, 0); }} className="w-12 h-12 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-all"><ChevronRightIcon /></button>
+                <div></div>
+                <button onPointerDown={(e) => { e.preventDefault(); handleInput(0, 1); }} className="w-12 h-12 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-all"><ChevronDown /></button>
+                <div></div>
+            </div>
+        </div>
+
+        {/* Game Area */}
+        <div 
+            className="relative w-full max-w-md aspect-square bg-[#020617] rounded-xl overflow-hidden shadow-2xl border-4 border-slate-800"
+            onTouchStart={handleTouchStart}
+            onTouchEnd={handleTouchEnd}
+        >
+            <MazeGrid grid={grid} doors={doors} />
+            
+            {/* Player */}
+            <div 
+                className="absolute w-[4.76%] h-[4.76%] bg-blue-500 rounded-full shadow-[0_0_10px_#3b82f6] z-10 transition-all duration-100 ease-linear flex items-center justify-center"
+                style={{
+                    left: `${playerPos.x * 4.76}%`,
+                    top: `${playerPos.y * 4.76}%`,
+                }}
+            >
+                <div className="w-[60%] h-[60%] bg-white rounded-full"></div>
             </div>
 
-            <div className="bg-indigo-600 text-white px-6 py-3 rounded-2xl font-bold shadow-lg border-2 border-indigo-400/30 flex flex-col items-center w-full max-w-xs transition-all">
-                <span className="text-[10px] uppercase tracking-widest text-indigo-200 mb-1">HEDEF KELİME</span>
-                <span className="text-2xl leading-none mb-1">{currentWord?.english}</span>
-                {/* Show Example Sentence instead of Turkish */}
-                <span className="text-xs text-indigo-100 font-normal text-center italic leading-tight opacity-90">
-                    {currentWord?.exampleEng ? `"${currentWord.exampleEng}"` : ''}
-                </span>
-            </div>
+            {/* Enemies */}
+            {enemies.map(enemy => (
+                <div 
+                    key={enemy.id}
+                    className="absolute w-[4.76%] h-[4.76%] z-10 transition-all duration-[130ms] ease-linear flex items-center justify-center"
+                    style={{
+                        left: `${enemy.pos.x * 4.76}%`,
+                        top: `${enemy.pos.y * 4.76}%`,
+                        color: enemy.color
+                    }}
+                >
+                    <Ghost size={16} className="fill-current animate-pulse" />
+                </div>
+            ))}
         </div>
     </div>
   );
