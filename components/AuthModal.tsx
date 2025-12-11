@@ -318,10 +318,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, initialView =
 
                         <button
                             type="button"
-                            onClick={handleGoogleLogin}
-                            className="w-full py-3.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-white rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-700 transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+                            disabled={true}
+                            className="w-full py-3.5 bg-slate-100 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500 rounded-xl font-bold cursor-not-allowed flex items-center justify-center gap-2"
                         >
-                            <Globe size={18} className="text-blue-500" /> Google ile Giriş Yap
+                            <Globe size={18} className="text-slate-400 dark:text-slate-500 grayscale" /> Google ile Giriş Yap (Bakımda)
                         </button>
                     </>
                 )}

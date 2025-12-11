@@ -28,9 +28,10 @@ import WelcomeScreen from './components/WelcomeScreen';
 import CustomAlert, { AlertType } from './components/CustomAlert';
 import MenuModal from './components/MenuModal';
 import LeaderboardModal from './components/LeaderboardModal';
+import DataConflictModal from './components/DataConflictModal';
 import { ChevronLeft, Zap, Swords, Trophy, AlertTriangle, RefreshCw, WifiOff, Menu as MenuIcon } from 'lucide-react';
-import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, saveSRSData, saveUserStats, overwriteLocalWithCloud } from './services/userService';
-import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData } from './services/supabase';
+import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, saveSRSData, saveUserStats, overwriteLocalWithCloud, saveUserProfile } from './services/userService';
+import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData, ensureUserProfileExists } from './services/supabase';
 import { getWordsForUnit, fetchAllWords, getVocabulary, fetchDynamicContent, getAnnouncements, getUnitAssets } from './services/contentService';
 import { requestNotificationPermission } from './services/notificationService';
 import { playSound } from './services/soundService';
@@ -88,6 +89,16 @@ const App: React.FC = () => {
         tournamentName?: string
     } | null>(null);
 
+    // Data Conflict State
+    const [conflictState, setConflictState] = useState<{
+        localXP: number;
+        cloudXP: number;
+        localLevel: number;
+        cloudLevel: number;
+        cloudData: any;
+        userId: string;
+    } | null>(null);
+
     const lastQuizConfig = useRef<{ count: number, difficulty: QuizDifficulty, originalWords: WordCard[], allDistractors: WordCard[] } | null>(null);
     
     const [isSRSReview, setIsSRSReview] = useState(false);
@@ -133,6 +144,23 @@ const App: React.FC = () => {
         setSelectedGrade(grade);
         setActiveModal(null);
 
+        // Update profile grade if user selected one
+        const currentProfile = getUserProfile();
+        if (!currentProfile.grade || isOnboardingGuest) {
+            const newProfile = { ...currentProfile, grade: grade };
+            // If onboarding as guest, create profile properly
+            if(isOnboardingGuest) {
+                createGuestProfile(grade);
+            } else {
+                saveUserProfile(newProfile);
+                if (!currentProfile.isGuest) {
+                    const { data: { user } } = await supabase.auth.getUser();
+                    if(user) syncLocalToCloud(user.id);
+                }
+            }
+            refreshGlobalState();
+        }
+
         // Set category based on grade
         if (['2', '3', '4'].includes(grade)) setSelectedCategory('PRIMARY_SCHOOL');
         else if (['5', '6', '7', '8'].includes(grade)) setSelectedCategory('MIDDLE_SCHOOL');
@@ -141,8 +169,6 @@ const App: React.FC = () => {
 
         if (isOnboardingGuest) {
             setIsOnboardingGuest(false);
-            createGuestProfile(grade);
-            refreshGlobalState();
             setMode(AppMode.HOME);
             return;
         }
@@ -347,6 +373,8 @@ const App: React.FC = () => {
         else if (['5', '6', '7', '8'].includes(g)) setSelectedCategory('MIDDLE_SCHOOL');
         else if (['9', '10', '11', '12'].includes(g)) setSelectedCategory('HIGH_SCHOOL');
         else if (['A1', 'A2', 'B1', 'B2', 'C1'].includes(g)) setSelectedCategory('GENERAL_ENGLISH');
+        
+        setSelectedGrade(g as GradeLevel);
     }, []);
 
     const applyTheme = (theme: ThemeType) => {
@@ -489,21 +517,77 @@ const App: React.FC = () => {
                      setShowWelcomeScreen(true);
                  }
              } else {
+                 // Ensure user profile exists (creates it from Google data if missing)
+                 await ensureUserProfileExists(user);
+
                  const userData = await getUserData(user.id);
                  if (userData && userData.profile.isAdmin) {
                      setMaintenanceMode(false);
                  }
                  
-                 // If logged in, prioritize cloud data if appropriate, but sync logic handles timestamp
-                 if (user) {
-                     await syncLocalToCloud(user.id);
+                 if (userData) {
+                     const localStats = getUserStats();
+                     const localProfile = getUserProfile();
+                     const cloudXP = userData.stats?.xp || 0;
+                     const localXP = localStats.xp || 0;
+                     
+                     // CHECK FOR DATA CONFLICT
+                     // If local profile is guest AND has progress (>10 XP) AND cloud has progress different from local
+                     // We should ask the user what to keep.
+                     // Exception: If cloud is basically empty (level 1, 0 xp), we auto-merge local to cloud.
+                     
+                     const isGuestWithProgress = localProfile.isGuest && localXP > 10;
+                     const cloudHasProgress = cloudXP > 0;
+                     
+                     if (isGuestWithProgress && cloudHasProgress && Math.abs(cloudXP - localXP) > 5) {
+                         // CONFLICT DETECTED - Show Modal
+                         setConflictState({
+                             localXP,
+                             cloudXP,
+                             localLevel: localStats.level,
+                             cloudLevel: userData.stats.level || 1,
+                             cloudData: userData,
+                             userId: user.id
+                         });
+                     } else if (isGuestWithProgress && !cloudHasProgress) {
+                         // AUTO MERGE: Local Guest -> Cloud New Account
+                         // 1. Update local profile with cloud identity but keep local props
+                         const mergedProfile = {
+                             ...localProfile,
+                             id: user.id,
+                             name: userData.profile.name || localProfile.name,
+                             email: userData.email,
+                             avatar: userData.profile.avatar || localProfile.avatar,
+                             isGuest: false,
+                             friendCode: userData.profile.friendCode || localProfile.friendCode
+                         };
+                         saveUserProfile(mergedProfile);
+                         
+                         // 2. Sync this state to cloud
+                         await syncLocalToCloud(user.id);
+                     } else {
+                         // NO CONFLICT or Cloud is master: Overwrite Local with Cloud
+                         overwriteLocalWithCloud({
+                             profile: userData.profile,
+                             stats: userData.stats,
+                             srs_data: userData.srs_data
+                         });
+                     }
                  }
 
+                 // Check if profile is complete (e.g., has grade)
+                 if (userData && !userData.profile.grade) {
+                     // If logged in but no grade, force grade selection
+                     setAvailableGradesForReview(['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', 'A1', 'A2', 'B1', 'B2', 'C1']);
+                     setActiveModal('grade');
+                 }
+                 
                  checkForDuels();
                  localStorage.setItem('lgs_last_uid', user.id);
                  refreshGlobalState();
                  const updatedSettings = getAppSettings();
                  applyTheme(updatedSettings.theme);
+                 applyUserProfileGrade();
              }
         });
         
@@ -543,6 +627,39 @@ const App: React.FC = () => {
         refreshGlobalState();
     }, [isAppLoading, loadingError, applyUserProfileGrade]);
 
+    // Conflict Resolution Handlers
+    const resolveConflict = async (choice: 'local' | 'cloud') => {
+        if (!conflictState) return;
+        
+        if (choice === 'local') {
+             // We want to KEEP local data and PUSH it to the cloud account
+             // First, update local profile with Cloud ID and Name/Email from the cloud auth
+             const currentLocalProfile = getUserProfile();
+             const newProfile = {
+                 ...currentLocalProfile,
+                 id: conflictState.userId, // Link local data to this user ID
+                 name: conflictState.cloudData.profile.name || currentLocalProfile.name,
+                 email: conflictState.cloudData.email,
+                 isGuest: false,
+                 friendCode: conflictState.cloudData.profile.friendCode || currentLocalProfile.friendCode
+             };
+             saveUserProfile(newProfile);
+             
+             // Now sync this local state to cloud (this pushes local to cloud because we updated the ID)
+             await syncLocalToCloud(conflictState.userId);
+             
+        } else {
+             // We want to KEEP cloud data, overwriting local
+             overwriteLocalWithCloud(conflictState.cloudData);
+        }
+        
+        setConflictState(null);
+        refreshGlobalState();
+        applyUserProfileGrade();
+        // Re-apply theme
+        applyTheme(getAppSettings().theme);
+    };
+
     const changeMode = (newMode: AppMode) => {
         if (newMode !== AppMode.HOME) {
             window.history.pushState({ mode: newMode }, '', window.location.href);
@@ -556,9 +673,22 @@ const App: React.FC = () => {
         setActiveModal(null);
         setIsOnboardingGuest(false);
 
+        // If closing grade modal and still no grade (force selection for logged in users without grade)
+        if (previousModal === 'grade') {
+             const p = getUserProfile();
+             if (!p.grade && !p.isGuest) {
+                 // Don't let them close it if they are logged in but have no grade
+                 // Re-open it or show alert
+                 showAlert("Sınıf Seçimi", "Lütfen devam etmek için bir sınıf seçin.", "warning", () => {
+                     setActiveModal('grade');
+                 });
+                 return;
+             }
+        }
+
         setTimeout(() => {
             const profile = getUserProfile();
-            if ((previousModal === 'auth' || previousModal === 'grade') && !profile.name) {
+            if ((previousModal === 'auth') && !profile.name) {
                 setShowWelcomeScreen(true);
             }
         }, 100);
@@ -741,6 +871,18 @@ const App: React.FC = () => {
             {showWelcomeScreen && (<WelcomeScreen onLogin={handleWelcomeLogin} onRegister={handleWelcomeRegister} onGuest={handleWelcomeGuest} />)}
             {newBadge && (<div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[110] w-full max-w-sm px-4 pointer-events-none"> <div className="bg-yellow-500 text-white p-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500 border-2 border-yellow-300"> <div className="text-4xl animate-bounce"> {newBadge.image ? (<img src={newBadge.image} alt={newBadge.name} className="w-10 h-10 rounded-full object-cover" />) : (<span className="flex items-center justify-center w-10 h-10 text-3xl">{newBadge.icon}</span>)} </div> <div> <div className="text-xs font-bold text-yellow-100 uppercase tracking-wide mb-0.5">Yeni Rozet Kazanıldı!</div> <div className="font-black text-lg leading-tight">{newBadge.name}</div> </div> <Trophy className="ml-auto text-yellow-200" size={24} /> </div> </div>)}
             
+            {/* CONFLICT MODAL */}
+            {conflictState && (
+                <DataConflictModal 
+                    localXP={conflictState.localXP}
+                    cloudXP={conflictState.cloudXP}
+                    localLevel={conflictState.localLevel}
+                    cloudLevel={conflictState.cloudLevel}
+                    onChooseLocal={() => resolveConflict('local')}
+                    onChooseCloud={() => resolveConflict('cloud')}
+                />
+            )}
+
             {/* Modals */}
             {activeModal === 'menu' && <MenuModal onClose={() => setActiveModal(null)} onNavigate={(target) => { 
                 setActiveModal(null); 

@@ -159,14 +159,15 @@ export const StatsModal: React.FC<StatsModalProps> = ({ onClose, currentGrade: i
                                 { id: 5, color: 'bg-red-900', borderColor: 'border-red-950', shadow: 'shadow-red-900/20' }
                             ].map(box => {
                                 const count = srsStats[box.id] || 0;
-                                const total = Object.values(srsStats).reduce((a,b)=>a+b, 0);
+                                const srsValues = Object.values(srsStats) as number[];
+                                const total = srsValues.reduce((a,b)=>a+b, 0);
                                 
                                 // Daha dinamik bir hesaplama:
                                 // Eğer hiç kelime yoksa %15 (taban)
                                 // Maksimum yükseklik %100
                                 // Kutu içindeki kelime sayısının toplama oranı yerine
                                 // Kutu içindeki sayının "maksimum dolu olan kutuya" oranını alıp görselleştirelim.
-                                const maxInAnyBox = Math.max(...Object.values(srsStats), 1); 
+                                const maxInAnyBox = Math.max(...srsValues, 1); 
                                 const percent = Math.max(15, Math.min(100, (count / maxInAnyBox) * 100));
                                 
                                 return (

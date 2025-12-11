@@ -96,7 +96,50 @@ export const updateGameScore = async (game_type: 'matching' | 'maze' | 'wordSear
     }
 };
 
-// ... (getSystemContent, upsertSystemContent, getAllGrammar, upsertGrammar, getUnitData, saveUnitData, updateUnitWords, loginUser, registerUser, resetUserPassword, updateUserEmail, logoutUser, checkUsernameExists, updateCloudUsername, deleteAccount, syncLocalToCloud, getUserData, getSystemStats, getRecentUsers, updateUserRole, searchUser, transformProfileToUser, adminGiveXP, toggleAdminStatus, sendFeedback, getAllFeedback, deleteFeedback, createGlobalAnnouncement, deleteAnnouncement, updateAnnouncement, getGlobalAnnouncements, getGlobalSettings, updateGlobalSettings, getChallenge, getOpenChallenges, getPastChallenges, createChallenge, completeChallenge, transformChallengeData, getLeaderboard, getFriends, addFriend, getPublicUserProfile, getTournaments, createTournament, updateTournament, deleteTournament, updateTournamentStatus, joinTournament, checkTournamentTimeouts, submitTournamentScore functions remain same) ...
+// --- PROFILE MANAGEMENT ---
+
+// NEW FUNCTION: Ensures a profile exists for the user (Fix for Google Login missing profile)
+export const ensureUserProfileExists = async (user: any) => {
+    try {
+        const { data, error } = await supabase.from('profiles').select('id').eq('id', user.id).single();
+        
+        // If profile exists, do nothing
+        if (data && !error) return;
+
+        console.log("Profile not found for user, creating default profile...");
+
+        // Generate a random friend code
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        let friendCode = '';
+        for (let i = 0; i < 6; i++) friendCode += chars.charAt(Math.floor(Math.random() * chars.length));
+
+        // Create default profile using metadata from Auth provider (Google)
+        const defaultProfile = {
+            id: user.id,
+            username: user.user_metadata?.full_name || user.email?.split('@')[0] || 'Kullanıcı',
+            email: user.email,
+            avatar: user.user_metadata?.avatar_url || '🧑‍🎓',
+            grade: '', // Grade is empty initially, UI should prompt to select
+            role: 'user',
+            friend_code: friendCode,
+            stats: { level: 1, xp: 0, streak: 0, badges: [] },
+            inventory: { streakFreezes: 0, themes: ['light', 'dark'], frames: ['frame_none'], backgrounds: ['bg_default'] },
+            theme: 'dark',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+        };
+
+        const { error: insertError } = await supabase.from('profiles').insert(defaultProfile);
+        
+        if (insertError) {
+            console.error("Failed to create default profile:", insertError);
+        } else {
+            console.log("Default profile created successfully.");
+        }
+    } catch (e) {
+        console.error("Error ensuring profile existence:", e);
+    }
+};
 
 export const getSystemContent = async (key: string) => {
     try {
@@ -213,29 +256,59 @@ export const syncLocalToCloud = async (userId?: string) => {
         const userResponse = await supabase.auth.getUser();
         const uid = userId || userResponse.data.user?.id;
         if (!uid) return; 
+        
+        // Ensure profile exists before trying to sync!
+        if (userId) {
+             // We can't access `user` object here easily if not passed, but ensureUserProfileExists checks DB first anyway.
+             // Best to call this before sync in App.tsx
+        }
+
+        // IMPORTANT: Read fresh data from localStorage
         const localProfile = getUserProfile();
         const localStats = getUserStats();
         const localSRS = getSRSData();
+        
+        // If guest, do not sync TO cloud (App.tsx handles manual merge for guests on login)
         if (localProfile.isGuest) return;
+        
         let cloudData: any = null;
         try {
             const cloudResult = await withTimeout(supabase.from('profiles').select('stats, srs_data, inventory, avatar, grade, username, theme, updated_at').eq('id', uid).single(), 4000);
             if (cloudResult && !(cloudResult as any).error) cloudData = (cloudResult as any).data;
         } catch (e) {}
+        
         const localTimestamp = Math.max(localProfile.updatedAt || 0, localStats.updatedAt || 0);
         let cloudTimestamp = 0;
+        
         if (cloudData) {
              const statsTs = cloudData.stats?.updatedAt || 0;
              const profileTs = new Date(cloudData.updated_at || 0).getTime();
              cloudTimestamp = Math.max(statsTs, profileTs);
         }
+        
+        // If Cloud is newer, update Local
         if (cloudTimestamp > localTimestamp) {
             overwriteLocalWithCloud({ profile: { ...localProfile, name: cloudData.username, grade: cloudData.grade, avatar: cloudData.avatar, frame: cloudData.inventory?.equipped_frame, background: cloudData.inventory?.equipped_background, purchasedThemes: cloudData.inventory?.themes, purchasedFrames: cloudData.inventory?.frames, purchasedBackgrounds: cloudData.inventory?.backgrounds, inventory: { streakFreezes: cloudData.inventory?.streakFreezes || 0 }, theme: cloudData.theme, updatedAt: cloudTimestamp }, stats: cloudData.stats, srs_data: cloudData.srs_data });
             return;
         }
+        
+        // If Local is newer or Cloud is missing/old, update Cloud
         const inventoryData = { streakFreezes: localProfile.inventory.streakFreezes, themes: localProfile.purchasedThemes, frames: localProfile.purchasedFrames, backgrounds: localProfile.purchasedBackgrounds, equipped_frame: localProfile.frame, equipped_background: localProfile.background };
-        const updatePayload: any = { stats: localStats, inventory: inventoryData, srs_data: localSRS, avatar: localProfile.avatar, grade: localProfile.grade, username: localProfile.name, theme: getTheme(), updated_at: new Date().toISOString() };
+        
+        // Use updated local stats
+        const updatePayload: any = { 
+            stats: localStats, 
+            inventory: inventoryData, 
+            srs_data: localSRS, 
+            avatar: localProfile.avatar, 
+            grade: localProfile.grade, 
+            username: localProfile.name, 
+            theme: getTheme(), 
+            updated_at: new Date().toISOString() 
+        };
+        
         if (localProfile.isAdmin) updatePayload.role = 'admin';
+        
         await withTimeout(supabase.from('profiles').update(updatePayload).eq('id', uid), 6000);
     } catch (e: any) { console.warn("Sync failed:", e); }
 };
