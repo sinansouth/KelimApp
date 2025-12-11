@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { Save, Edit2, BarChart2, Trophy, Flame, Star, User, ShoppingBag, Target, CheckCircle, ChevronDown, ChevronUp, LogOut, Trash2, ShieldCheck, Ghost, LogIn, KeyRound, GraduationCap, Users, Copy, UserPlus, Swords, ChevronRight, X } from 'lucide-react';
-import { getUserProfile, getUserStats, saveUserProfile, getDailyState, UserProfile as IUserProfile, UserStats } from '../services/userService';
+import { getUserProfile, getUserStats, saveUserProfile, getDailyState, UserProfile as IUserProfile, UserStats, logoutUser, checkUsernameExists, updateCloudUsername, syncLocalToCloud, deleteAccount, resetUserPassword, addFriend } from '../services/userService';
 import { GradeLevel, Badge, Quest } from '../types';
 import { StatsModal } from './StatsModal';
 import AvatarModal from './AvatarModal';
 import LeaderboardModal from './LeaderboardModal';
 import { getAvatars, getBadges, getFrames, getBackgrounds } from '../services/contentService';
 import { THEME_COLORS } from '../data/assets';
-import { getAuthInstance, logoutUser, checkUsernameExists, updateCloudUsername, syncLocalToCloud, deleteAccount, resetUserPassword, addFriend, getFriends, LeaderboardEntry } from '../services/supabase';
+import { getAuthInstance, getFriends, LeaderboardEntry } from '../services/supabase';
 import AuthModal from './AuthModal';
 import { AlertType } from './CustomAlert';
 import CustomSelect from './CustomSelect';

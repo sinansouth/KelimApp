@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { WordCard, AppMode, Badge, ThemeType, UnitDef, GradeLevel, StudyMode, CategoryType, QuizDifficulty, Challenge, UserStats } from './types';
 import TopicSelector from './components/TopicSelector';
@@ -22,14 +23,14 @@ import AuthModal from './components/AuthModal';
 import FeedbackModal from './components/FeedbackModal';
 import AdminModal from './components/AdminModal';
 import InstallPromptModal from './components/InstallPromptModal';
-import ChallengeModal from './components/ChallengeModal';
+import { ChallengeModal } from './components/ChallengeModal';
 import UserProfileModal from './components/UserProfileModal';
 import WelcomeScreen from './components/WelcomeScreen';
 import CustomAlert, { AlertType } from './components/CustomAlert';
 import MenuModal from './components/MenuModal';
 import { ChevronLeft, Zap, Swords, Trophy, AlertTriangle, RefreshCw, WifiOff, Menu as MenuIcon } from 'lucide-react';
-import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, saveSRSData, saveUserStats, overwriteLocalWithCloud } from './services/userService';
-import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData } from './services/supabase';
+import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, saveSRSData, saveUserStats, overwriteLocalWithCloud, syncLocalToCloud, getUserData } from './services/userService';
+import { supabase, getOpenChallenges, getGlobalSettings } from './services/supabase';
 import { getWordsForUnit, fetchAllWords, getVocabulary, fetchDynamicContent, getAnnouncements, getUnitAssets } from './services/contentService';
 import { requestNotificationPermission } from './services/notificationService';
 import { playSound } from './services/soundService';
@@ -333,6 +334,9 @@ const App: React.FC = () => {
 
     useEffect(() => {
         requestNotificationPermission();
+        
+        // Push initial state to properly handle back button on load
+        window.history.replaceState({ appMode: 'HOME' }, '', window.location.pathname);
     }, []);
 
     const applyUserProfileGrade = useCallback(() => {
@@ -417,10 +421,13 @@ const App: React.FC = () => {
         }
     };
 
+    // Main useEffect for App Initialization & Realtime
     useEffect(() => {
         initializeApp();
 
         const localProfile = getUserProfile();
+        let realtimeChannel: any = null;
+
         const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
              const user = session?.user;
              if (!user) {
@@ -428,6 +435,11 @@ const App: React.FC = () => {
                      setShowWelcomeScreen(true);
                  }
              } else {
+                 // Initial sync on login/load
+                 try {
+                     await syncLocalToCloud(user.id);
+                 } catch(e) { console.error("Initial sync failed", e) }
+
                  const userData = await getUserData(user.id);
                  if (userData && userData.profile.isAdmin) {
                      setMaintenanceMode(false);
@@ -436,6 +448,30 @@ const App: React.FC = () => {
                  if (userData) {
                      overwriteLocalWithCloud(userData);
                  }
+
+                 // Setup Realtime Subscription for this user
+                 if (realtimeChannel) supabase.removeChannel(realtimeChannel);
+                 
+                 realtimeChannel = supabase.channel('public:profiles')
+                    .on('postgres_changes', { 
+                        event: 'UPDATE', 
+                        schema: 'public', 
+                        table: 'profiles', 
+                        filter: `id=eq.${user.id}` 
+                    }, (payload) => {
+                        // When an update comes from another device, force a pull
+                        console.log('Realtime update received from cloud:', payload);
+                        // Trigger sync logic - assume cloud is newer since we got an event
+                        // We fetch the full data again to ensure we have relations/structure correct
+                        getUserData(user.id).then(data => {
+                            if (data) {
+                                overwriteLocalWithCloud(data);
+                                refreshGlobalState();
+                                applyTheme(data.profile.theme || 'dark');
+                            }
+                        });
+                    })
+                    .subscribe();
 
                  checkForDuels();
                  localStorage.setItem('lgs_last_uid', user.id);
@@ -453,6 +489,7 @@ const App: React.FC = () => {
         
         return () => {
             authListener.subscription.unsubscribe();
+            if (realtimeChannel) supabase.removeChannel(realtimeChannel);
             window.removeEventListener('online', handleOnline);
         };
     }, []);
@@ -483,6 +520,8 @@ const App: React.FC = () => {
     const changeMode = (newMode: AppMode) => {
         setHistory(prev => [...prev, mode]);
         setMode(newMode);
+        // Push state for back button support to create a "trap"
+        window.history.pushState({ appMode: newMode }, '', window.location.pathname);
     };
     
     const handleModalClose = () => {
@@ -499,7 +538,7 @@ const App: React.FC = () => {
     };
 
     const goBack = useCallback(() => {
-        // Modal priority
+        // 1. Close Modal
         if (viewProfileId) { setViewProfileId(null); return true; }
         if (activeModal) {
             handleModalClose();
@@ -507,7 +546,7 @@ const App: React.FC = () => {
         }
         if (pendingQuizConfig) { setPendingQuizConfig(null); return true; }
 
-        // Mode History Navigation
+        // 2. Navigate History
         if (history.length > 0) {
             const newHistory = [...history];
             const previousMode = newHistory.pop();
@@ -520,23 +559,53 @@ const App: React.FC = () => {
             return true;
         }
 
-        // If no history but in a mode other than home, fallback to home
+        // 3. Fallback to Home if not there
         if (mode !== AppMode.HOME) {
             setMode(AppMode.HOME);
             return true;
         }
 
-        // Home screen navigation stack (Unit -> Grade -> Category)
+        // 4. Drill up within Home (Unit -> Grade -> Category)
         if (selectedUnit) { setSelectedUnit(null); return true; }
         if (selectedStudyMode) { setSelectedStudyMode(null); return true; }
         if (selectedGrade) { setSelectedGrade(null); return true; }
         if (selectedCategory) { setSelectedCategory(null); return true; }
 
-        return false; // Reached root, let app exit or handle otherwise
+        return false; // Reached absolute root
     }, [activeModal, mode, history, pendingQuizConfig, selectedUnit, selectedGrade, selectedCategory, selectedStudyMode, viewProfileId]);
 
-    const handleManualBack = () => { goBack(); };
+    const handleManualBack = () => { 
+        // For UI button press: just exec logic, don't touch history stack yet
+        // OR better: emulate browser back
+        window.history.back();
+    };
 
+    // Handle Browser Back Button (popstate)
+    useEffect(() => {
+        const handlePopState = (event: PopStateEvent) => {
+            event.preventDefault();
+            const handled = goBack();
+            
+            if (handled) {
+                // If we handled it internally, we want to stay on the page.
+                // Since popstate happened, we went back in history.
+                // We push state again to "trap" the user for the next back press.
+                window.history.pushState({ appMode: mode }, '', window.location.pathname);
+            } else {
+                // If not handled (at root), user might exit.
+                // But typically SPAs keep one entry.
+                // To allow exit on mobile, we can do nothing here (let browser/webview handle it).
+                // Or if we want to confirm exit:
+                // history.pushState(null, '', window.location.pathname);
+                // showExitConfirmation();
+            }
+        };
+
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, [goBack, mode]);
+
+    // Handle Native Android Back Button via Capacitor
     useEffect(() => {
         if (Capacitor.isNativePlatform()) {
             CapacitorApp.addListener('backButton', ({ canGoBack }) => {
@@ -584,6 +653,9 @@ const App: React.FC = () => {
 
     const handleGoHome = () => {
         setHistory([]); setMode(AppMode.HOME); setTopicTitle(''); setWords([]); setAllUnitWords([]); setSelectedUnit(null); setSelectedStudyMode(null); setSelectedGrade(null); setSelectedCategory(null); setIsSRSReview(false); setPendingQuizConfig(null); setActiveModal(null); setChallengeState(null); refreshGlobalState();
+        // Clear history stack
+        window.history.go(-(window.history.length - 1));
+        window.history.replaceState({ appMode: 'HOME' }, '', window.location.pathname);
     };
     
     const handleCreateChallenge = (config: any) => { setActiveModal(null); setMode(AppMode.LOADING); const setupChallengeQuiz = async () => { try { const unitWords = await getWordsForUnit(config.unit.id); if (unitWords.length < 4) { showAlert("Hata", "Yetersiz kelime.", "error"); setMode(AppMode.HOME); return; } const finalCount = Math.min(config.count, unitWords.length); const challengeWords = shuffleArray(unitWords).slice(0, finalCount); setWords(challengeWords); setAllUnitWords(unitWords); setTopicTitle(`Düello: ${config.unit.title}`); setActiveQuizDifficulty(config.difficulty); setChallengeState({ mode: 'create', unitId: config.unit.id, challengeType: config.type, targetFriendId: config.targetFriendId }); changeMode(AppMode.QUIZ); } catch (e) { setMode(AppMode.HOME); showAlert("Hata", "Hata oluştu.", "error"); } }; setupChallengeQuiz(); };

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Zap, Trophy, Unlock, Trash2, ShieldAlert, Search, User, Award, Megaphone, Users, Calendar, Save, Lock, Gift, Settings, Activity, Menu, Clock, CheckCircle, Eye, Target, Edit2, Info, Cloud, Upload, Plus, FileText, Check, Power, Database, Mail, Inbox, AlertTriangle, Lightbulb } from 'lucide-react';
 import { adminAddXP, adminSetLevel, adminUnlockAllItems, adminUnlockAllBadges, adminUnlockAllAvatars, getUserStats } from '../services/userService';
 import { playSound } from '../services/soundService';
-import { createTournament, updateTournament, searchUser, adminGiveXP, createGlobalAnnouncement, getTournaments, deleteTournament, updateTournamentStatus, checkTournamentTimeouts, saveUnitData, getUnitData, updateUnitWords, syncLocalToCloud, getGlobalAnnouncements, deleteAnnouncement, updateAnnouncement, getGlobalSettings, updateGlobalSettings, upsertSystemContent, upsertGrammar, getSystemStats, getRecentUsers, updateUserRole, getAllFeedback, deleteFeedback } from '../services/supabase';
+import { createTournament, updateTournament, searchUser, adminGiveXP, createGlobalAnnouncement, getTournaments, deleteTournament, updateTournamentStatus, checkTournamentTimeouts, saveUnitData, getUnitData, updateUnitWords, getGlobalAnnouncements, deleteAnnouncement, updateAnnouncement, getGlobalSettings, updateGlobalSettings, getSystemStats, getRecentUsers, updateUserRole, getAllFeedback, deleteFeedback } from '../services/supabase';
 import { getUnitAssets } from '../services/contentService';
 import { GradeLevel, QuizDifficulty, Tournament, WordCard, Announcement } from '../types';
 

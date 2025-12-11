@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, Trophy, Medal, Crown, Star, Target, BookOpen, Swords, Grid3X3, Gamepad2, Search, LogIn, Flame, WifiOff } from 'lucide-react';
-import { getLeaderboard, LeaderboardEntry, syncLocalToCloud, getAuthInstance } from '../services/supabase';
+import { getLeaderboard, LeaderboardEntry, getAuthInstance } from '../services/supabase';
+import { syncLocalToCloud, getUserProfile, getTheme } from '../services/userService';
 import { getAvatars, getFrames, getBackgrounds } from '../services/contentService';
 import { THEME_COLORS } from '../data/assets';
 import UserProfileModal from './UserProfileModal';
-import { getUserProfile, getTheme } from '../services/userService';
 import AuthModal from './AuthModal';
 
 interface LeaderboardModalProps {

@@ -1,9 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { X, Volume2, VolumeX, MessageSquare, Lock, Key, ShieldCheck } from 'lucide-react';
-import { AppSettings, getAppSettings, saveAppSettings, getUserProfile, saveUserProfile } from '../services/userService';
+import { AppSettings, getAppSettings, saveAppSettings, getUserProfile, saveUserProfile, syncLocalToCloud } from '../services/userService';
 import { APP_CONFIG } from '../config/appConfig';
 import { playSound } from '../services/soundService';
-import { syncLocalToCloud, getAuthInstance } from '../services/supabase';
+import { getAuthInstance } from '../services/supabase';
 
 interface SettingsModalProps {
     onClose: () => void;

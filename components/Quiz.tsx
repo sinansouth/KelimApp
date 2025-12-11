@@ -2,9 +2,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { WordCard, Badge, GradeLevel, QuizDifficulty, Challenge } from '../types';
 import { CheckCircle, XCircle, Bookmark, Info, Clock, Swords, Copy, Trophy, HelpCircle, Zap, Divide, RotateCcw, Home } from 'lucide-react';
-import { updateStats, handleQuizResult, handleReviewResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress, getUserProfile, saveUserStats, XP_GAINS } from '../services/userService';
+import { updateStats, handleQuizResult, handleReviewResult, addToMemorized, getMemorizedSet, removeFromMemorized, updateQuestProgress, getUserProfile, saveUserStats, XP_GAINS, syncLocalToCloud } from '../services/userService';
 import { playSound } from '../services/soundService';
-import { createChallenge, completeChallenge, syncLocalToCloud, submitTournamentScore, forfeitTournamentMatch, updateCumulativeStats } from '../services/supabase';
+import { createChallenge, completeChallenge, submitTournamentScore, forfeitTournamentMatch, updateCumulativeStats } from '../services/supabase';
 import { getSmartDistractors } from '../services/contentService';
 import Mascot from './Mascot';
 
@@ -387,10 +387,10 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
   // Determine Joker Visibility based on Question Count
   const totalQuestions = questions.length;
-  // Logic requested:
-  // < 25: Only 50%
-  // 25 - 49: 50% + Double
-  // 50+: All
+  // 10 Soruluk Test -> Sadece %50
+  // 25 Soruluk Test -> %50 ve Çift Hak
+  // 50+ Soruluk Test -> Tümü
+  const showFiftyJoker = true; // Always available for quizzes
   const showDoubleJoker = totalQuestions >= 25;
   const showAskJoker = totalQuestions >= 50;
 
@@ -470,9 +470,16 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
   return (
     <div className="flex flex-col h-full max-w-3xl mx-auto relative overflow-hidden">
         
-        {/* Top Bar - Improved spacing & gradient */}
-        <div className="flex justify-between items-center p-4 pb-2 shrink-0 z-20 bg-gradient-to-b from-[var(--color-bg-card)] to-transparent">
-             <div className="flex items-center gap-3">
+        {/* Top Bar - Solid Background to prevent overlap */}
+        <div 
+            className="flex justify-between items-center p-3 px-4 shrink-0 z-20 shadow-sm border-b"
+            style={{
+                backgroundColor: 'var(--color-bg-card)',
+                borderColor: 'var(--color-border)'
+            }}
+        >
+             <div className="flex items-center gap-4">
+                 {/* Timer */}
                  <div className="relative w-10 h-10 flex items-center justify-center">
                      <svg className="w-full h-full transform -rotate-90">
                          <circle cx="20" cy="20" r="16" stroke="currentColor" strokeWidth="4" fill="transparent" style={{color: 'var(--color-border)'}} />
@@ -480,6 +487,8 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
                      </svg>
                      <span className={`absolute font-bold text-xs ${timeLeft <= 5 ? 'text-red-500 animate-pulse' : ''}`} style={timeLeft > 5 ? {color: 'var(--color-text-main)'} : {}}>{timeLeft}</span>
                  </div>
+                 
+                 {/* Counter */}
                  <div className="flex flex-col">
                      <span className="text-[10px] font-bold uppercase tracking-wider" style={{color: 'var(--color-text-muted)'}}>Soru</span>
                      <span className="text-base font-black" style={{color: 'var(--color-text-main)'}}>{currentQuestionIndex + 1} <span className="text-xs" style={{color: 'var(--color-text-muted)'}}>/ {questions.length}</span></span>
@@ -490,28 +499,28 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
                   <div className="px-3 py-1.5 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-xl font-bold text-xs flex items-center gap-1">
                       <CheckCircle size={14} /> {score}
                   </div>
-                  <button onClick={handleExit} className="p-2 rounded-xl transition-colors hover:text-red-500" style={{backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-muted)'}}>
+                  <button onClick={handleExit} className="p-2 rounded-xl transition-colors hover:text-red-500" style={{backgroundColor: 'var(--color-bg-main)', color: 'var(--color-text-muted)'}}>
                       <XCircle size={20} />
                   </button>
              </div>
         </div>
 
-        {/* Scrollable Middle Area - Handles small screens */}
+        {/* Scrollable Middle Area - Added py-6 to ensure spacing from header */}
         <div className="flex-1 overflow-y-auto custom-scrollbar px-4">
-             <div className="flex flex-col items-center justify-center min-h-full py-2">
+             <div className="flex flex-col items-center justify-center min-h-full py-6">
                  
                  {/* Mascot - Reduced size */}
-                 <div className="w-full mb-2 mt-2 flex justify-center shrink-0">
+                 <div className="w-full mb-4 flex justify-center shrink-0">
                      <Mascot mood={mascotMood} message={mascotMessage} size={70} />
                  </div>
 
                  {/* Question Text */}
-                 <div className="w-full text-center mb-4 relative z-10 shrink-0">
-                     <h2 className="text-xl sm:text-3xl font-black mb-1 tracking-tight drop-shadow-sm px-2 break-words" style={{color: 'var(--color-text-main)'}}>
+                 <div className="w-full text-center mb-6 relative z-10 shrink-0">
+                     <h2 className="text-2xl sm:text-5xl font-black mb-2 tracking-tight drop-shadow-sm px-2 break-words leading-tight" style={{color: 'var(--color-text-main)'}}>
                          {currentQ.word}
                      </h2>
                      {currentQ.explanation && (
-                         <div className="inline-block px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide" style={{backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-muted)'}}>
+                         <div className="inline-block px-3 py-1 rounded-lg text-[10px] sm:text-xs font-bold uppercase tracking-wide border" style={{backgroundColor: 'var(--color-bg-card)', color: 'var(--color-text-muted)', borderColor: 'var(--color-border)'}}>
                              {currentQ.explanation}
                          </div>
                      )}
@@ -533,7 +542,7 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
                  </div>
 
                  {/* Options */}
-                 <div className="grid grid-cols-1 gap-2 w-full max-w-2xl relative z-10 pb-4">
+                 <div className="grid grid-cols-1 gap-3 w-full max-w-2xl relative z-10 pb-4">
                      {currentQ.options.map((opt, idx) => {
                          const isSelected = selectedOption === idx;
                          const isHidden = hiddenOptions.includes(idx);
@@ -561,18 +570,18 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
                              }
                          }
 
-                         if (isHidden) return <div key={idx} className="h-[50px] sm:h-[60px]"></div>;
+                         if (isHidden) return <div key={idx} className="h-[60px]"></div>;
 
                          return (
                              <button
                                 key={idx}
                                 onClick={() => handleOptionClick(idx)}
                                 disabled={isAnswered && !isDoubleChanceActive}
-                                className={`relative p-3 sm:p-4 rounded-xl font-bold text-sm sm:text-base transition-all duration-200 shadow-sm ${btnClass} ${!isAnswered ? 'active:scale-95' : ''} flex items-center justify-center min-h-[50px] sm:min-h-[60px]`}
+                                className={`relative p-4 rounded-xl font-bold text-base sm:text-lg transition-all duration-200 shadow-sm ${btnClass} ${!isAnswered ? 'active:scale-95' : ''} flex items-center justify-center min-h-[60px]`}
                                 style={btnStyle}
                              >
                                  {opt.text}
-                                 {isAnswered && opt.isCorrect && <CheckCircle className="absolute right-3 top-1/2 -translate-y-1/2" size={18} />}
+                                 {isAnswered && opt.isCorrect && <CheckCircle className="absolute right-4 top-1/2 -translate-y-1/2" size={20} />}
                              </button>
                          );
                      })}
@@ -580,38 +589,44 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
              </div>
         </div>
 
-        {/* Jokers - Fixed at bottom, separated from scroll view */}
+        {/* Jokers - Fixed at bottom, separated from scroll view with solid background */}
         {!challengeMode && (
-            <div className="p-4 pb-safe shrink-0 z-30 bg-gradient-to-t from-[var(--color-bg-card)] via-[var(--color-bg-card)] to-transparent">
-                 <div className="flex justify-center gap-3 sm:gap-4">
-                     {/* 50/50 Joker */}
+            <div 
+                className="p-4 pb-safe shrink-0 z-30 border-t"
+                style={{
+                    backgroundColor: 'var(--color-bg-card)',
+                    borderColor: 'var(--color-border)'
+                }}
+            >
+                 <div className="flex justify-center gap-4">
+                     {/* 50/50 Joker - Always Visible */}
                      <button 
                         onClick={handleFiftyFifty} 
                         disabled={jokersUsed.fifty || isAnswered}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[60px] sm:min-w-[70px] ${jokersUsed.fifty ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 active:scale-95'}`}
+                        className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[70px] ${jokersUsed.fifty ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 active:scale-95'}`}
                      >
                          <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center font-black shadow-sm text-xs">50%</div>
                          <span className="text-[9px] font-bold uppercase">Yarı</span>
                      </button>
 
-                     {/* Double Chance */}
+                     {/* Double Chance - >= 25 Questions */}
                      {showDoubleJoker && (
                          <button 
                             onClick={handleDoubleChance} 
                             disabled={jokersUsed.double || isAnswered}
-                            className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[60px] sm:min-w-[70px] ${jokersUsed.double ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 active:scale-95'}`}
+                            className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[70px] ${jokersUsed.double ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 active:scale-95'}`}
                          >
                              <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm"><Zap size={14} className="fill-current" /></div>
                              <span className="text-[9px] font-bold uppercase">Çift</span>
                          </button>
                      )}
 
-                     {/* Ask Teacher */}
+                     {/* Ask Teacher - >= 50 Questions */}
                      {showAskJoker && (
                          <button 
                             onClick={handleAskTeacher} 
                             disabled={jokersUsed.ask || isAnswered}
-                            className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[60px] sm:min-w-[70px] ${jokersUsed.ask ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400 active:scale-95'}`}
+                            className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[70px] ${jokersUsed.ask ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400 active:scale-95'}`}
                          >
                              <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm"><HelpCircle size={14} /></div>
                              <span className="text-[9px] font-bold uppercase">Hoca</span>

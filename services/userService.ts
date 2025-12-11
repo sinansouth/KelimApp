@@ -2,6 +2,7 @@
 import { Quest, Badge, GradeLevel, ThemeType } from '../types';
 import { BADGES, UNIT_ASSETS } from '../data/assets';
 import { getVocabulary } from './contentService';
+import { supabase, withTimeout } from './supabase';
 
 export interface UserProfile {
     name: string;
@@ -18,6 +19,7 @@ export interface UserProfile {
     isGuest?: boolean;
     friendCode?: string;
     isAdmin?: boolean;
+    isBanned?: boolean; // Added isBanned
     updatedAt?: number; // Cloud sync için
 }
 
@@ -119,12 +121,6 @@ export const XP_GAINS = {
   duel_loss: 10
 };
 
-// Level Formula: Quadratic curve. 
-// XP = 100 * (Level^2)
-// Level = Sqrt(XP / 100)
-// Lvl 1 = 100 XP
-// Lvl 10 = 10,000 XP
-// Lvl 50 = 250,000 XP
 export const getXPForLevel = (level: number): number => Math.floor(Math.pow(level, 2) * 100);
 
 export const getLevelForXP = (xp: number): number => Math.floor(Math.sqrt(Math.max(0, xp) / 100));
@@ -181,15 +177,11 @@ const DEFAULT_PROFILE: UserProfile = {
 };
 
 // Calculates Week ID based on Turkey Time (UTC+3) - ISO 8601 standard
-// New week starts on Monday.
 export const getWeekId = () => {
     const date = getTurkeyTime();
     date.setHours(0, 0, 0, 0);
-    // Thursday in current week decides the year.
     date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
-    // January 4 is always in week 1.
     const week1 = new Date(date.getFullYear(), 0, 4);
-    // Adjust to Thursday in week 1 and count number of weeks from date to week1.
     return `${date.getFullYear()}-W${(1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7)).toString().padStart(2, '0')}`;
 };
 
@@ -256,6 +248,349 @@ const KEYS = {
     TUTORIAL_SEEN: 'lgs_tutorial_seen'
 };
 
+// --- AUTH & SYNC (Moved from supabase.ts to break circular dependency) ---
+
+export const loginUser = async (loginInput: string, pass: string, remember: boolean) => {
+    let email = loginInput;
+
+    if (!loginInput.includes('@')) {
+        const result = await withTimeout(supabase
+            .from('profiles')
+            .select('email')
+            .eq('username', loginInput)
+            .single(), 4000);
+            
+        const data = (result as any)?.data;
+        const error = (result as any)?.error;
+
+        if (error || !data) {
+            throw new Error("Kullanıcı adı bulunamadı.");
+        }
+        email = data.email;
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({
+        email: email,
+        password: pass,
+    });
+
+    if (error) throw error;
+};
+
+export const registerUser = async (name: string, email: string, pass: string, grade: string) => {
+    const result = await withTimeout(supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', name)
+        .single(), 4000);
+        
+    const existingUser = (result as any)?.data;
+
+    if (existingUser) {
+        throw new Error("Bu kullanıcı adı zaten alınmış.");
+    }
+
+    const localProfile = getUserProfile();
+    const localStats = getUserStats();
+
+    let friendCode = localProfile.friendCode;
+    if (!friendCode) {
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+        friendCode = '';
+        for (let i = 0; i < 6; i++) friendCode += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+
+    const metadata = {
+        name: name,
+        grade: grade,
+        friend_code: friendCode
+    };
+
+    const { data, error } = await supabase.auth.signUp({
+        email,
+        password: pass,
+        options: {
+            data: metadata
+        }
+    });
+
+    if (error) throw error;
+
+    if (data.user) {
+        const srsData = getSRSData();
+
+        const inventoryData = {
+            streakFreezes: localProfile.inventory.streakFreezes,
+            themes: localProfile.purchasedThemes,
+            frames: localProfile.purchasedFrames,
+            backgrounds: localProfile.purchasedBackgrounds,
+            equipped_frame: localProfile.frame,
+            equipped_background: localProfile.background
+        };
+
+        const statsData = {
+            ...localStats,
+            lastUsernameChange: Date.now()
+        };
+
+        const { error: updateError } = await supabase
+            .from('profiles')
+            .update({
+                username: name,
+                grade: grade,
+                friend_code: friendCode,
+                avatar: localProfile.avatar,
+                stats: statsData,
+                srs_data: srsData,
+                inventory: inventoryData,
+                role: 'user',
+                theme: getTheme(),
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', data.user.id);
+
+        if (updateError) console.error("Migration error:", updateError);
+
+        const newLocalProfile = {
+            ...localProfile,
+            name: name,
+            grade: grade,
+            isGuest: false,
+            friendCode: friendCode
+        };
+        saveUserProfile(newLocalProfile);
+    }
+};
+
+export const logoutUser = async () => {
+    await supabase.auth.signOut();
+    clearLocalUserData();
+    window.location.reload();
+};
+
+export const resetUserPassword = async (email: string) => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin,
+    });
+    if (error) throw error;
+};
+
+export const updateCloudUsername = async (uid: string, newName: string) => {
+    const { error } = await supabase
+        .from('profiles')
+        .update({ username: newName })
+        .eq('id', uid);
+
+    if (error) throw error;
+};
+
+export const deleteAccount = async () => {
+    await supabase.auth.signOut();
+    clearLocalUserData();
+    window.location.reload();
+};
+
+export const checkUsernameExists = async (username: string): Promise<boolean> => {
+    const result = await withTimeout(supabase
+        .from('profiles')
+        .select('username')
+        .eq('username', username)
+        .single(), 4000);
+        
+    return !!(result as any)?.data;
+};
+
+export const syncLocalToCloud = async (userId?: string) => {
+    try {
+        const userResponse = await supabase.auth.getUser();
+        const uid = userId || userResponse.data.user?.id;
+        if (!uid) return; 
+
+        // 1. Yerel verileri al
+        const localProfile = getUserProfile();
+        const localStats = getUserStats();
+        const localSRS = getSRSData();
+
+        if (localProfile.isGuest) return;
+
+        // 2. Buluttaki verileri al (Timestamp kontrolü için)
+        let cloudData: any = null;
+        try {
+            const cloudResult = await withTimeout(supabase
+                .from('profiles')
+                .select('stats, srs_data, inventory, avatar, grade, username, theme, updated_at')
+                .eq('id', uid)
+                .single(), 4000);
+            
+            if (cloudResult && !(cloudResult as any).error) {
+                cloudData = (cloudResult as any).data;
+            }
+        } catch (e) {
+            console.warn("Could not fetch cloud data for sync comparison, attempting push only.");
+        }
+
+        // 3. Karşılaştırma ve Karar Verme
+        const localTimestamp = Math.max(localProfile.updatedAt || 0, localStats.updatedAt || 0);
+        
+        let cloudTimestamp = 0;
+        if (cloudData) {
+             const statsTs = cloudData.stats?.updatedAt || 0;
+             const profileTs = new Date(cloudData.updated_at || 0).getTime();
+             cloudTimestamp = Math.max(statsTs, profileTs);
+        }
+
+        // Eğer bulut daha yeniyse -> İndir ve Yereli Güncelle
+        if (cloudTimestamp > localTimestamp) {
+            console.log("Cloud is newer. Pulling data...", cloudTimestamp, ">", localTimestamp);
+            overwriteLocalWithCloud({
+                profile: {
+                    ...localProfile,
+                    name: cloudData.username,
+                    grade: cloudData.grade,
+                    avatar: cloudData.avatar,
+                    frame: cloudData.inventory?.equipped_frame,
+                    background: cloudData.inventory?.equipped_background,
+                    purchasedThemes: cloudData.inventory?.themes,
+                    purchasedFrames: cloudData.inventory?.frames,
+                    purchasedBackgrounds: cloudData.inventory?.backgrounds,
+                    inventory: { streakFreezes: cloudData.inventory?.streakFreezes || 0 },
+                    theme: cloudData.theme,
+                    updatedAt: cloudTimestamp
+                },
+                stats: cloudData.stats,
+                srs_data: cloudData.srs_data
+            });
+            return; // Çık, çünkü veri indirdik.
+        }
+
+        // Eğer yerel daha yeniyse veya eşitse -> Buluta Yükle
+        console.log("Local is newer or equal. Pushing data...", localTimestamp, ">=", cloudTimestamp);
+
+        const inventoryData = {
+            streakFreezes: localProfile.inventory.streakFreezes,
+            themes: localProfile.purchasedThemes,
+            frames: localProfile.purchasedFrames,
+            backgrounds: localProfile.purchasedBackgrounds,
+            equipped_frame: localProfile.frame,
+            equipped_background: localProfile.background
+        };
+
+        const updatePayload: any = {
+            stats: localStats,
+            inventory: inventoryData,
+            srs_data: localSRS,
+            avatar: localProfile.avatar,
+            grade: localProfile.grade,
+            username: localProfile.name,
+            theme: getTheme(),
+            updated_at: new Date().toISOString()
+        };
+
+        if (localProfile.isAdmin) {
+            updatePayload.role = 'admin';
+        }
+
+        await withTimeout(supabase
+            .from('profiles')
+            .update(updatePayload)
+            .eq('id', uid), 6000);
+
+    } catch (e: any) {
+        console.warn("Sync failed:", e);
+    }
+};
+
+interface CloudData {
+    profile?: UserProfile;
+    stats?: UserStats;
+    srs_data?: Record<string, SRSData>;
+}
+
+export const overwriteLocalWithCloud = (cloudData: CloudData) => {
+    if (cloudData.profile) {
+        saveUserProfile(cloudData.profile);
+        if (cloudData.profile.theme) {
+            const settings = getAppSettings();
+            settings.theme = cloudData.profile.theme;
+            saveAppSettings(settings);
+        }
+    }
+    if (cloudData.stats) saveUserStats(cloudData.stats);
+    
+    if (cloudData.srs_data && Object.keys(cloudData.srs_data).length > 0) {
+        saveSRSData(cloudData.srs_data);
+    }
+    
+    updateLastUpdatedTimestamp();
+};
+
+export const addFriend = async (userId: string, friendCode: string) => {
+    const { data: friend, error: searchError } = await supabase
+        .from('profiles')
+        .select('id, username')
+        .eq('friend_code', friendCode)
+        .single();
+
+    if (searchError || !friend) throw new Error("Kullanıcı bulunamadı.");
+    if (friend.id === userId) throw new Error("Kendini ekleyemezsin.");
+
+    const { data: existing } = await supabase
+        .from('friends')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('friend_id', friend.id)
+        .single();
+
+    if (existing) throw new Error("Zaten arkadaşsınız.");
+
+    const { error: insertError } = await supabase
+        .from('friends')
+        .insert([{ user_id: userId, friend_id: friend.id }]);
+
+    if (insertError) throw insertError;
+    return friend.username;
+};
+
+export const getUserData = async (uid: string) => {
+    try {
+        const result = await withTimeout(supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', uid)
+            .single(), 4000);
+
+        if (!result || (result as any).error) return null;
+        const data = (result as any).data;
+        
+        return {
+            uid: data.id,
+            email: data.email,
+            profile: {
+                name: data.username,
+                grade: data.grade,
+                avatar: data.avatar,
+                role: data.role || 'user', 
+                isAdmin: data.role === 'admin',
+                isBanned: data.role === 'banned',
+                friendCode: data.friend_code,
+                frame: data.inventory?.equipped_frame || 'frame_none',
+                background: data.inventory?.equipped_background || 'bg_default',
+                theme: data.theme || 'dark',
+                purchasedThemes: data.inventory?.themes || [],
+                purchasedFrames: data.inventory?.frames || [],
+                purchasedBackgrounds: data.inventory?.backgrounds || [],
+                inventory: { streakFreezes: data.inventory?.streakFreezes || 0 },
+                isGuest: false,
+                createdAt: data.created_at
+            },
+            stats: data.stats || {},
+            srs_data: data.srs_data || {}
+        };
+    } catch (e) {
+        return null;
+    }
+};
+
 // --- Profile ---
 
 export const getUserProfile = (): UserProfile => {
@@ -273,7 +608,6 @@ export const getUserProfile = (): UserProfile => {
 
 export const saveUserProfile = (profile: UserProfile, sync: boolean = false) => {
     if (!profile.friendCode) profile.friendCode = generateFriendCode();
-    // Otomatik timestamp güncelle
     profile.updatedAt = Date.now();
     
     localStorage.setItem(KEYS.PROFILE, JSON.stringify(profile));
@@ -318,16 +652,13 @@ export const getUserStats = (): UserStats => {
             stats.viewedWordsToday = [];
         }
 
-        // Weekly Reset Logic based on Turkey Time
         const currentWeek = getWeekId();
         if (stats.weekly?.weekId !== currentWeek) {
-            // New week, reset weekly stats
             stats.weekly = {
                 ...DEFAULT_WEEKLY_STATS,
                 weekId: currentWeek
             };
         } else {
-            // Ensure any missing fields are present in existing week
             stats.weekly = { ...DEFAULT_WEEKLY_STATS, ...stats.weekly };
         }
 
@@ -336,7 +667,6 @@ export const getUserStats = (): UserStats => {
 };
 
 export const saveUserStats = (stats: UserStats) => {
-    // Otomatik timestamp güncelle
     stats.updatedAt = Date.now();
     localStorage.setItem(KEYS.STATS, JSON.stringify(stats));
     updateLastUpdatedTimestamp();
@@ -466,7 +796,6 @@ export const handleReviewResult = (wordId: string, success: boolean) => {
 };
 
 export const handleQuizResult = (wordId: string, success: boolean) => {
-    // Optional: hook to update SRS on quiz result if desired
 };
 
 export const getDueWords = async (filterUnitIds?: string[]): Promise<import('../types').WordCard[]> => {
@@ -955,28 +1284,4 @@ export const clearLocalUserData = () => {
     const settings = getAppSettings();
     settings.theme = 'dark';
     saveAppSettings(settings);
-};
-
-interface CloudData {
-    profile?: UserProfile;
-    stats?: UserStats;
-    srs_data?: Record<string, SRSData>;
-}
-
-export const overwriteLocalWithCloud = (cloudData: CloudData) => {
-    if (cloudData.profile) {
-        saveUserProfile(cloudData.profile);
-        if (cloudData.profile.theme) {
-            const settings = getAppSettings();
-            settings.theme = cloudData.profile.theme;
-            saveAppSettings(settings);
-        }
-    }
-    if (cloudData.stats) saveUserStats(cloudData.stats);
-    
-    if (cloudData.srs_data && Object.keys(cloudData.srs_data).length > 0) {
-        saveSRSData(cloudData.srs_data);
-    }
-    
-    updateLastUpdatedTimestamp();
 };

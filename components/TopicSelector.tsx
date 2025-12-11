@@ -236,18 +236,18 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   
   if (!selectedCategory) {
     return (
-      <div className="flex flex-col items-center h-full p-4 pt-4 animate-in fade-in duration-500 relative overflow-y-auto custom-scrollbar pb-32" style={{ background: 'radial-gradient(ellipse at bottom, rgba(var(--color-primary-rgb), 0.1), transparent 70%)' }}>
+      <div className="flex flex-col items-center h-full p-4 pt-4 animate-in fade-in duration-500 relative overflow-y-auto custom-scrollbar pb-24" style={{ background: 'radial-gradient(ellipse at bottom, rgba(var(--color-primary-rgb), 0.1), transparent 70%)' }}>
         
         <div className="w-full max-w-md space-y-2">
           
-          {/* MASCOT & TIPS SECTION (Fixed) */}
+          {/* MASCOT & TIPS SECTION */}
           <div className="flex items-end gap-3 w-full max-w-sm mx-auto mb-2 px-2">
               <div className="shrink-0 -mb-2">
                   <Mascot mood="neutral" size={100} />
               </div>
               <div className="flex-1 p-5 rounded-3xl rounded-bl-none shadow-md border relative animate-in fade-in slide-in-from-left-2 duration-500 mb-4 flex items-center min-h-[5.5rem]"
                    style={{backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)'}}>
-                  {/* Tip Content - Fixed multiline text */}
+                  {/* Tip Content */}
                   <p className="text-sm font-semibold leading-relaxed" style={{color: 'var(--color-text-main)'}}>
                       {tip}
                   </p>
@@ -260,9 +260,9 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
               </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-2 mt-16">
+          <div className="grid grid-cols-1 gap-4 mt-24">
             {/* Daily Review & Last Activity */}
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 gap-4">
                 {/* Son Kaldığın Yer */}
                 {lastActivity && (
                   <button 
@@ -319,8 +319,8 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                 </button>
             </div>
 
-            {/* Categories Grid - UPDATED TO USE THEME COLORS */}
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
+            {/* Categories Grid */}
+            <div className="grid grid-cols-2 gap-4 pt-1">
                 <button 
                   onClick={() => onSelectCategory('PRIMARY_SCHOOL')}
                   className="p-3 rounded-2xl border transition-all active:scale-95 shadow-sm group flex flex-col items-center justify-center text-center"

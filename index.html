@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="tr">
   <head>
@@ -25,11 +26,10 @@
               sans: ['var(--font-theme)', 'Inter', 'sans-serif'],
             },
             animation: {
-              'spin-slow': 'spin 4s linear infinite',
+              'spin-slow': 'spin-slow 4s linear infinite',
               'bounce-subtle': 'bounce 2s infinite',
               'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
               'shimmer': 'shimmer 2s linear infinite',
-              'border-spin': 'border-spin 4s linear infinite',
               'rainbow': 'rainbow 2s linear infinite',
               'neon-pulse': 'neon-pulse 2s ease-in-out infinite alternate',
               'glowing': 'glowing 10s linear infinite',
@@ -37,12 +37,13 @@
               'glitch': 'glitch 1s linear infinite',
             },
             keyframes: {
+              'spin-slow': {
+                '0%': { transform: 'rotate(0deg)' },
+                '100%': { transform: 'rotate(360deg)' },
+              },
               shimmer: {
                 '0%': { backgroundPosition: '-200% 0' },
                 '100%': { backgroundPosition: '200% 0' }
-              },
-              'border-spin': {
-                '100%': { transform: 'rotate(360deg)' }
               },
               rainbow: {
                 '0%': { backgroundPosition: '0% 50%' },
@@ -71,7 +72,6 @@
         }
       }
     </script>
-    <!-- Fonts: Inter, Merriweather, Courier Prime, Fredoka, Orbitron, Playfair Display, Patrick Hand, Russo One -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Merriweather:wght@400;700&family=Courier+Prime:wght@400;700&family=Fredoka:wght@400;600&family=Orbitron:wght@400;700&family=Playfair+Display:wght@400;700&family=Patrick+Hand&family=Russo+One&display=swap" rel="stylesheet">
     
     <style>
@@ -87,22 +87,26 @@
         user-select: none;
       }
       
-      /* --- Enhanced Frames CSS (CSS Mask Technique) --- */
+      @keyframes spin-slow {
+        from { transform: rotate(0deg); }
+        to { transform: rotate(360deg); }
+      }
+      
+      .animate-spin-slow {
+        animation: spin-slow 4s linear infinite;
+      }
+      
+      /* --- Enhanced Frames CSS --- */
       
       /* Rainbow Frame */
       .frame-rainbow {
         position: relative;
         z-index: 0;
         border-radius: 50%;
-        /* Creates the spinning gradient */
         background: conic-gradient(red, orange, yellow, lime, cyan, blue, magenta, red);
         animation: spin-slow 4s linear infinite;
-        
-        /* This masks the center to make it transparent, showing the avatar */
         -webkit-mask: radial-gradient(transparent 64%, black 65%);
         mask: radial-gradient(transparent 64%, black 65%);
-        
-        /* Ensure it takes up space */
         width: 100%;
         height: 100%;
       }
@@ -113,12 +117,9 @@
         border-radius: 50%;
         background: conic-gradient(#ff0000, #00ff00, #0000ff, #ff0000);
         animation: spin-slow 2s linear infinite;
-        
-        /* Masking center */
         -webkit-mask: radial-gradient(transparent 62%, black 63%);
         mask: radial-gradient(transparent 62%, black 63%);
-        
-        box-shadow: 0 0 15px rgba(0, 255, 0, 0.5); /* Glow effect is handled by parent or container mostly */
+        box-shadow: 0 0 15px rgba(0, 255, 0, 0.5);
         width: 100%;
         height: 100%;
       }
@@ -164,7 +165,6 @@
         50% { transform: translateY(-5px); }
       }
 
-      /* Splash Screen */
       #splash-screen {
         position: fixed;
         top: 0;
@@ -223,6 +223,7 @@
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
     "react": "https://aistudiocdn.com/react@^19.2.1",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
     "@supabase/supabase-js": "https://aistudiocdn.com/@supabase/supabase-js@^2.87.1",
     "vite": "https://aistudiocdn.com/vite@^7.2.7",
@@ -236,7 +237,22 @@
 <link rel="stylesheet" href="/index.css">
 </head>
   <body>
+    <div id="splash-screen">
+      <img id="splash-logo" src="https://8upload.com/image/4864223e0a7b82f8/AppLogo.png" alt="Logo" />
+      <div style="color: #fff; font-family: sans-serif; font-weight: bold; font-size: 1.2rem;">KelimApp</div>
+    </div>
     <div id="root"></div>
+    <script>
+      window.onload = function() {
+        setTimeout(() => {
+          const splash = document.getElementById('splash-screen');
+          if (splash) {
+            splash.style.opacity = '0';
+            setTimeout(() => splash.remove(), 500);
+          }
+        }, 1500);
+      };
+    </script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

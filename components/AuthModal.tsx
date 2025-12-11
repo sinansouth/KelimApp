@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { X, LogIn, UserPlus, Lock, User, Check, GraduationCap, Ghost, Mail, HelpCircle } from 'lucide-react';
-import { loginUser, registerUser, resetUserPassword, getUserData, syncLocalToCloud, getAuthInstance } from '../services/supabase';
-import { createGuestProfile, getUserProfile, getUserStats, clearLocalUserData, overwriteLocalWithCloud, saveUserProfile } from '../services/userService';
+import { getAuthInstance } from '../services/supabase';
+import { createGuestProfile, getUserProfile, getUserStats, clearLocalUserData, overwriteLocalWithCloud, saveUserProfile, loginUser, registerUser, resetUserPassword, syncLocalToCloud, getUserData } from '../services/userService';
 import CustomSelect from './CustomSelect';
 import DataConflictModal from './DataConflictModal';
 
@@ -128,8 +128,6 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, initialView =
       try {
           if (choice === 'local') {
                // Push local data to cloud
-               // We need to update the profile with the logged in user's ID but keep stats
-               // Just calling syncLocalToCloud should work as it takes local and pushes to current authenticated user
                await syncLocalToCloud(conflictData.user.id);
                
                // Also update local profile to not be guest anymore

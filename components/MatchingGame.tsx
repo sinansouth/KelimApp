@@ -5,9 +5,8 @@ import { WordCard, Badge, GradeLevel } from '../types';
 import { Shuffle, RotateCcw, CheckCircle, HelpCircle, Grid3X3 } from 'lucide-react';
 import { playSound } from '../services/soundService';
 // FIX: Import `updateGameStats` to handle game-specific statistics.
-import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS } from '../services/userService';
+import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS, syncLocalToCloud } from '../services/userService';
 import { getSmartDistractors } from '../services/contentService'; 
-import { syncLocalToCloud } from '../services/supabase';
 
 interface MatchingGameProps {
   words: WordCard[];
