@@ -30,7 +30,7 @@ import MenuModal from './components/MenuModal';
 import { ChevronLeft, Zap, Swords, Trophy, AlertTriangle, RefreshCw, WifiOff, Menu as MenuIcon } from 'lucide-react';
 import SplashScreen from './components/SplashScreen';
 import { getUserProfile, getTheme, getAppSettings, getMemorizedSet, getDueWords, saveLastActivity, getLastReadAnnouncementId, setLastReadAnnouncementId, checkDataVersion, getDueGrades, getUserStats, updateTimeSpent, createGuestProfile, hasSeenTutorial, markTutorialAsSeen, saveSRSData, saveUserStats, overwriteLocalWithCloud, saveUserProfile } from './services/userService';
-import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData } from './services/supabase';
+import { supabase, syncLocalToCloud, getOpenChallenges, getGlobalSettings, getUserData, logoutUser } from './services/supabase';
 import { getWordsForUnit, fetchAllWords, getVocabulary, fetchDynamicContent, getAnnouncements, getUnitAssets } from './services/contentService';
 import { requestNotificationPermission } from './services/notificationService';
 import { playSound } from './services/soundService';
@@ -39,8 +39,6 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import MatchingGame from './components/MatchingGame';
 import MazeGame from './components/MazeGame';
-import WordSearchGame from './components/WordSearchGame';
-
 const useDebounce = (effect: () => void, delay: number, deps: any[]) => {
     const callback = useCallback(effect, deps);
 
@@ -245,15 +243,7 @@ const App: React.FC = () => {
                     setWords(unitWords);
                     changeMode(AppMode.MAZE);
                     break;
-                case 'wordSearch':
-                    if (unitWords.length < 5) {
-                        showAlert("Yetersiz Kelime", "Kelime bulmaca için en az 5 kelime gereklidir.", "warning");
-                        setMode(AppMode.HOME);
-                        return;
-                    }
-                    setWords(unitWords);
-                    changeMode(AppMode.WORD_SEARCH);
-                    break;
+
                 case 'grammar':
                     changeMode(AppMode.GRAMMAR);
                     break;
@@ -444,6 +434,14 @@ const App: React.FC = () => {
                 }
             } else {
                 const userData = await getUserData(user.id);
+
+                // Removed aggressive logout check as it was causing false positives
+                // if (!userData && navigator.onLine) {
+                //     console.warn("User profile not found in cloud (possibly deleted). Logging out.");
+                //     await logoutUser();
+                //     return;
+                // }
+
                 // Check if we are currently a guest with progress
                 const localProfile = getUserProfile();
                 const localStats = getUserStats();
@@ -744,7 +742,6 @@ const App: React.FC = () => {
         case AppMode.ANNOUNCEMENTS: content = <AnnouncementsView onBack={handleManualBack} />; break;
         case AppMode.MATCHING: content = (<MatchingGame words={words} onFinish={handleManualBack} onBack={handleManualBack} onHome={handleGoHome} onCelebrate={handleTriggerCelebration} onBadgeUnlock={handleBadgeUnlock} grade={selectedGrade} />); break;
         case AppMode.MAZE: content = (<MazeGame words={words} onFinish={handleManualBack} onBack={handleManualBack} onHome={handleGoHome} onCelebrate={handleTriggerCelebration} grade={selectedGrade} />); break;
-        case AppMode.WORD_SEARCH: content = (<WordSearchGame words={words} onFinish={() => handleStartModule('wordSearch', selectedUnit!)} onBack={handleManualBack} onHome={handleGoHome} onCelebrate={handleTriggerCelebration} grade={selectedGrade} />); break;
         case AppMode.ERROR: content = <div className="text-center p-10 text-red-500">Bir hata oluştu.</div>; break;
     }
 
@@ -766,7 +763,7 @@ const App: React.FC = () => {
                 else if (target === 'admin') setActiveModal('admin');
             }} hasUnreadAnnouncements={hasUnreadAnnouncements} />}
 
-            {activeModal === 'auth' && <AuthModal onClose={handleModalClose} onSuccess={() => { handleProfileUpdate(); setActiveModal(null); }} initialView={authInitialView} />}
+            {activeModal === 'auth' && <AuthModal onClose={handleModalClose} onSuccess={handleAuthSuccess} initialView={authInitialView} />}
             {activeModal === 'settings' && (<SettingsModal onClose={() => setActiveModal(null)} onOpenFeedback={() => setActiveModal('feedback')} onOpenAdmin={() => setActiveModal('admin')} onRestartTutorial={() => { }} />)}
             {activeModal === 'feedback' && <FeedbackModal onClose={() => setActiveModal(null)} />}
             {activeModal === 'admin' && (<AdminModal onClose={() => setActiveModal(null)} onUpdate={() => { handleProfileUpdate(); }} />)}

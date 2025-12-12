@@ -214,12 +214,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                   </div>
                   <span className="font-bold text-sm" style={{ color: 'var(--color-text-main)' }}>Eşleştirme</span>
                 </button>
-                <button onClick={() => handleModeSelect('wordSearch')} className="p-4 rounded-2xl border-2 hover:border-blue-500 transition-all group flex flex-col items-center gap-2" style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}>
-                  <div className="w-12 h-12 rounded-full shadow-sm flex items-center justify-center text-blue-500 group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--color-bg-main)' }}>
-                    <Search size={24} />
-                  </div>
-                  <span className="font-bold text-sm" style={{ color: 'var(--color-text-main)' }}>Bulmaca</span>
-                </button>
+
                 <button onClick={() => handleModeSelect('maze')} className="p-4 rounded-2xl border-2 hover:border-red-500 transition-all group flex flex-col items-center gap-2" style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}>
                   <div className="w-12 h-12 rounded-full shadow-sm flex items-center justify-center text-red-500 group-hover:scale-110 transition-transform" style={{ backgroundColor: 'var(--color-bg-main)' }}>
                     <Gamepad2 size={24} />
@@ -448,7 +443,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const stats = getUserStats();
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 pb-24 animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-full">
+    <div className="w-full max-w-6xl mx-auto p-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-full">
       <div className="flex items-center justify-between mb-4 px-1 shrink-0">
         <div>
           <h2 className="text-2xl font-black tracking-tight" style={{ color: 'var(--color-primary)' }}>{selectedCategory === 'GENERAL_ENGLISH' ? selectedGrade : `${selectedGrade}. Sınıf`}</h2>

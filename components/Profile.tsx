@@ -272,7 +272,7 @@ const Profile: React.FC<ProfileProps> = ({ onBack, onProfileUpdate, onOpenMarket
         <>
             {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} onSuccess={onAuthSuccess} />}
 
-            <div className="w-full max-w-2xl mx-auto p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-24">
+            <div className="w-full max-w-2xl mx-auto p-4 sm:p-6 animate-in fade-in slide-in-from-bottom-4 duration-300 pb-10">
 
                 {/* HEADER SECTION */}
                 <div

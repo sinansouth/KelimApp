@@ -74,33 +74,39 @@ const AuthModal: React.FC<AuthModalProps> = ({ onClose, onSuccess, initialView =
                 const user = await auth.currentUser;
 
                 if (user) {
-                    const cloudData = await getUserData(user.id);
-                    const localStats = getUserStats();
+                    try {
+                        const cloudData = await getUserData(user.id);
+                        const localStats = getUserStats();
 
-                    // If local data exists and is significant (e.g. gained XP as guest)
-                    // and differs from cloud, ask user.
-                    // Simplified check: If local XP > 0 and different from cloud XP
-                    const localXP = localStats.xp;
-                    const cloudXP = cloudData?.stats?.xp || 0;
+                        // If local data exists and is significant (e.g. gained XP as guest)
+                        // and differs from cloud, ask user.
+                        // Simplified check: If local XP > 0 and different from cloud XP
+                        const localXP = localStats.xp;
+                        const cloudXP = cloudData?.stats?.xp || 0;
 
-                    const isGuestProfile = getUserProfile().isGuest;
+                        const isGuestProfile = getUserProfile().isGuest;
 
-                    if (isGuestProfile && localXP > 0 && Math.abs(localXP - cloudXP) > 10) {
-                        // Conflict!
-                        setConflictData({
-                            local: { xp: localXP, level: localStats.level },
-                            cloud: { xp: cloudXP, level: cloudData?.stats?.level || 1 },
-                            fullCloudData: cloudData,
-                            user: user
-                        });
-                        setLoading(false);
-                        return;
-                    } else {
-                        // No significant conflict, just overwrite local with cloud to be safe
-                        // OR if cloud is empty, sync local to cloud (handled in App.tsx generally)
-                        if (cloudData) {
-                            overwriteLocalWithCloud(cloudData);
+                        if (isGuestProfile && localXP > 0 && Math.abs(localXP - cloudXP) > 10) {
+                            // Conflict!
+                            setConflictData({
+                                local: { xp: localXP, level: localStats.level },
+                                cloud: { xp: cloudXP, level: cloudData?.stats?.level || 1 },
+                                fullCloudData: cloudData,
+                                user: user
+                            });
+                            setLoading(false);
+                            return;
+                        } else {
+                            // No significant conflict, just overwrite local with cloud to be safe
+                            // OR if cloud is empty, sync local to cloud (handled in App.tsx generally)
+                            if (cloudData) {
+                                overwriteLocalWithCloud(cloudData);
+                            }
+                            onSuccess();
                         }
+                    } catch (syncError) {
+                        console.error("Sync error during login:", syncError);
+                        // Even if sync fails, let the user in
                         onSuccess();
                     }
                 } else {

@@ -213,10 +213,7 @@ const UserProfileModal: React.FC<UserProfileModalProps> = ({ userId, onClose }) 
                                 <span className="text-xs font-bold">Labirent</span>
                                 <span className="text-sm font-black text-red-500">{userData.mazeHighScore || 0} P</span>
                             </div>
-                            <div className="flex justify-between items-center p-3 rounded-xl border" style={{ backgroundColor: secondaryBg, borderColor: borderColor }}>
-                                <span className="text-xs font-bold">Bulmaca</span>
-                                <span className="text-sm font-black text-blue-500">{userData.wordSearchHighScore || 0} P</span>
-                            </div>
+
                         </div>
                     </div>
 

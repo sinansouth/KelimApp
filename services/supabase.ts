@@ -53,44 +53,7 @@ export const getCurrentUser = async () => {
     return data.user;
 };
 
-// --- CUMULATIVE STATS (for weekly/all-time leaderboards) ---
-export const updateCumulativeStats = async (action_type: 'quiz_correct' | 'quiz_wrong' | 'card_view', amount: number) => {
-    // Check if user is logged in
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
 
-    try {
-        const { error } = await supabase.rpc('update_cumulative_stats', {
-            p_action_type: action_type,
-            p_amount: amount
-        });
-
-        if (error) {
-            console.error(`Error updating cumulative stat ${action_type}:`, error.message || error);
-        }
-    } catch (e) {
-        console.error(`RPC call failed for update_cumulative_stats:`, e);
-    }
-};
-
-export const updateGameScore = async (game_type: 'matching' | 'maze' | 'wordSearch', new_score: number) => {
-    // Check if user is logged in
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return;
-
-    try {
-        const { error } = await supabase.rpc('update_game_score', {
-            p_game_type: game_type,
-            p_new_score: new_score
-        });
-
-        if (error) {
-            console.error(`Error updating game score for ${game_type}:`, error.message || error);
-        }
-    } catch (e) {
-        console.error(`RPC call failed for update_game_score:`, e);
-    }
-};
 
 export interface LeaderboardEntry {
     uid: string;
@@ -360,9 +323,26 @@ export const updateUserEmail = async (newEmail: string) => {
 };
 
 export const logoutUser = async () => {
-    await supabase.auth.signOut();
-    clearLocalUserData();
-    window.location.reload();
+    try {
+        // Attempt generous timeout signout
+        const { error } = await Promise.race([
+            supabase.auth.signOut(),
+            new Promise<{ error: { message: string } }>((resolve) => setTimeout(() => resolve({ error: { message: "Timeout" } }), 3000))
+        ]);
+        if (error) console.warn("Sign out warning:", error);
+    } catch (e) {
+        console.warn("Sign out failed:", e);
+    } finally {
+        // Find and remove Supabase tokens specifically
+        Object.keys(localStorage).forEach(key => {
+            if (key.startsWith('sb-') && key.endsWith('-auth-token')) {
+                localStorage.removeItem(key);
+            }
+        });
+
+        clearLocalUserData();
+        window.location.reload();
+    }
 };
 
 export const checkUsernameExists = async (username: string): Promise<boolean> => {
@@ -816,7 +796,8 @@ export const createChallenge = async (
     difficulty: string,
     wordCount: number,
     type: string,
-    targetFriendId?: string
+    targetFriendId?: string,
+    grade?: string // Added grade
 ) => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Not authenticated");
@@ -828,6 +809,7 @@ export const createChallenge = async (
         word_indices: wordIndices,
         unit_id: unitId,
         difficulty,
+        grade, // Save grade
         word_count: wordCount,
         type,
         status: 'waiting',
@@ -849,36 +831,35 @@ export const createChallenge = async (
 };
 
 export const completeChallenge = async (challengeId: string, playerName: string, score: number) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("Not authenticated");
+    // Use the Secure RPC function to handle validation, status update, and rewards atomically
+    const { error } = await supabase.rpc('complete_challenge_v2', {
+        p_challenge_id: challengeId,
+        p_opponent_name: playerName,
+        p_opponent_score: score
+    });
 
-    const { data: challenge, error: fetchError } = await supabase
-        .from('challenges')
-        .select('*')
-        .eq('id', challengeId)
-        .single();
+    if (error) {
+        console.error("Duel completion error:", error);
+        throw error;
+    }
+};
 
-    if (fetchError || !challenge) throw new Error("Challenge not found");
-    if (challenge.status !== 'waiting') throw new Error("Challenge already completed");
+export const getChallengeHistory = async (userId: string) => {
+    try {
+        const { data, error } = await supabase
+            .from('challenges')
+            .select('*')
+            .eq('status', 'completed')
+            .or(`creator_id.eq.${userId},opponent_id.eq.${userId}`)
+            .order('created_at', { ascending: false })
+            .limit(20);
 
-    let winnerId = 'tie';
-    if (challenge.creator_score > score) winnerId = challenge.creator_id;
-    else if (score > challenge.creator_score) winnerId = user.id;
-
-    const updateData = {
-        opponent_id: user.id,
-        opponent_name: playerName,
-        opponent_score: score,
-        winner_id: winnerId,
-        status: 'completed'
-    };
-
-    const { error } = await supabase
-        .from('challenges')
-        .update(updateData)
-        .eq('id', challengeId);
-
-    if (error) throw error;
+        if (error) throw error;
+        return (data || []).map(transformChallengeData);
+    } catch (e) {
+        console.error("Error fetching challenge history:", e);
+        return [];
+    }
 };
 
 const transformChallengeData = (data: any): Challenge => {
@@ -891,7 +872,7 @@ const transformChallengeData = (data: any): Challenge => {
         wordIndices: data.word_indices,
         unitId: data.unit_id,
         unitName: data.unit_name,
-        difficulty: data.difficulty,
+        difficulty: data.difficulty || 'normal', // Default since not in DB
         wordCount: data.word_count,
         targetFriendId: data.target_friend_id,
         opponentId: data.opponent_id,
@@ -989,25 +970,37 @@ export const addFriend = async (userId: string, friendCode: string) => {
         .from('profiles')
         .select('id, username')
         .eq('friend_code', friendCode)
-        .single();
+        .single(); // This single() is fine because unique friend_code expected
 
     if (searchError || !friend) throw new Error("Kullanıcı bulunamadı.");
     if (friend.id === userId) throw new Error("Kendini ekleyemezsin.");
 
+    // FIX: Handling "row not found" safely without checking .single() which throws error
     const { data: existing } = await supabase
         .from('friends')
-        .select('*')
+        .select('id')
         .eq('user_id', userId)
         .eq('friend_id', friend.id)
-        .single();
+        .maybeSingle();
 
     if (existing) throw new Error("Zaten arkadaşsınız.");
 
-    const { error: insertError } = await supabase
-        .from('friends')
-        .insert([{ user_id: userId, friend_id: friend.id }]);
+    // Insert mutual friendship using the secure RPC function
+    // This avoids RLS errors because the function runs with admin privileges (SECURITY DEFINER)
+    const { error: rpcError } = await supabase.rpc('add_mutual_friend', {
+        friend_uuid: friend.id
+    });
 
-    if (insertError) throw insertError;
+    if (rpcError) {
+        // Fallback: If RPC doesn't exist (user didn't run SQL), try simple insert (one-way)
+        console.warn("RPC failed, falling back to simple insert:", rpcError);
+        const { error: insertError } = await supabase
+            .from('friends')
+            .insert([{ user_id: userId, friend_id: friend.id }]);
+
+        if (insertError) throw insertError;
+    }
+
     return friend.username;
 };
 

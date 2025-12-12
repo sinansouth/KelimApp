@@ -48,7 +48,7 @@ export interface UserStats {
     // Lifetime Game High Scores
     matchingAllTimeBest: number;
     mazeAllTimeBest: number;
-    wordSearchAllTimeBest: number;
+
 
     completedUnits: string[];
     completedGrades: string[];
@@ -61,7 +61,7 @@ export interface UserStats {
         cardsViewed: number;
         matchingBestTime: number; // Actually Score
         mazeHighScore: number;
-        wordSearchHighScore: number;
+
 
         duelPoints: number;
         duelWins: number;
@@ -101,11 +101,7 @@ export const XP_GAINS = {
     // Games
     matching_pair: 15,          // Was 8
     maze_level: 100,            // Was 50
-    wordsearch_word: {
-        easy: 15,
-        medium: 25,
-        hard: 40
-    },
+
 
     // Quests
     daily_quest_easy: 250,
@@ -196,7 +192,7 @@ const DEFAULT_WEEKLY_STATS = {
     cardsViewed: 0,
     matchingBestTime: 0,
     mazeHighScore: 0,
-    wordSearchHighScore: 0,
+
     duelPoints: 0,
     duelWins: 0,
     duelLosses: 0,
@@ -226,7 +222,7 @@ const DEFAULT_STATS: UserStats = {
     duelPoints: 0,
     matchingAllTimeBest: 0,
     mazeAllTimeBest: 0,
-    wordSearchAllTimeBest: 0,
+
     completedUnits: [],
     completedGrades: [],
     weekly: DEFAULT_WEEKLY_STATS,
@@ -566,7 +562,7 @@ export const getSRSStatus = () => {
 // --- Stats Updates ---
 
 export const updateGameStats = (
-    game: 'matching' | 'maze' | 'wordSearch',
+    game: 'matching' | 'maze',
     score: number
 ) => {
     const stats = getUserStats();
@@ -580,11 +576,21 @@ export const updateGameStats = (
             stats.weekly.mazeHighScore = Math.max(stats.weekly.mazeHighScore || 0, score);
             stats.mazeAllTimeBest = Math.max(stats.mazeAllTimeBest || 0, score);
             break;
-        case 'wordSearch':
-            stats.weekly.wordSearchHighScore = Math.max(stats.weekly.wordSearchHighScore || 0, score);
-            stats.wordSearchAllTimeBest = Math.max(stats.wordSearchAllTimeBest || 0, score);
-            break;
+
     }
+
+    saveUserStats(stats);
+};
+
+
+export const updateQuizStats = (correct: number, wrong: number) => {
+    const stats = getUserStats();
+
+    stats.quizCorrect += correct;
+    stats.quizWrong += wrong;
+
+    stats.weekly.quizCorrect += correct;
+    stats.weekly.quizWrong += wrong;
 
     saveUserStats(stats);
 };
@@ -624,8 +630,24 @@ export const updateStats = (
         stats.lastStudyDate = todayStr;
     }
 
+
     if (context?.action === 'perfect_quiz') {
         stats.perfectQuizzes++;
+    }
+
+
+
+    // Increment Counters based on Action (or context)
+    // We infer action from xpToAdd or context params
+    if (xpToAdd === XP_GAINS.flashcard_view) {
+        stats.flashcardsViewed++;
+        stats.weekly.cardsViewed++;
+    }
+    else if (context?.action === 'quiz_result') {
+        // Expect context to have correct/wrong counts if we update stats here
+        // But updateStats is primarily for XP.
+        // Better to have separate explicit calls or params.
+        // See below for new function updateQuizStats
     }
 
     // Base Multiplier (XP Boost Item)

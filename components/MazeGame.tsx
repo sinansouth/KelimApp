@@ -252,13 +252,35 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
         const spawnPoints = [
             { x: 5, y: 5 },
             { x: GRID_SIZE - 6, y: 5 },
-            { x: 5, y: GRID_SIZE - 6 }
+            { x: 5, y: GRID_SIZE - 6 },
+            { x: GRID_SIZE - 6, y: GRID_SIZE - 6 }
         ];
 
         for (let i = 0; i < ENEMY_COUNT; i++) {
             let ex = spawnPoints[i].x;
             let ey = spawnPoints[i].y;
-            while (maze[ey][ex] === 'wall') { ex++; }
+            let attempts = 0;
+            while (maze[ey][ex] === 'wall' && ex < GRID_SIZE - 2 && attempts < 20) {
+                ex++;
+                attempts++;
+            }
+            // Fallback if still wall
+            if (maze[ey][ex] === 'wall') {
+                // Try finding any empty spot nearby
+                const neighbors = [
+                    { x: ex + 1, y: ey }, { x: ex - 1, y: ey },
+                    { x: ex, y: ey + 1 }, { x: ex, y: ey - 1 }
+                ];
+                const valid = neighbors.find(n => n.x > 0 && n.x < GRID_SIZE - 1 && n.y > 0 && n.y < GRID_SIZE - 1 && maze[n.y][n.x] !== 'wall');
+                if (valid) {
+                    ex = valid.x;
+                    ey = valid.y;
+                } else {
+                    // Search simplified
+                    ex = center;
+                    ey = center;
+                }
+            }
 
             newEnemies.push({
                 id: i,
@@ -474,6 +496,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
         if (lives > 1) {
             setHitMessage('Yakalandın!');
             setGameState('hit');
+            // FIX: Only decrease life, do not decrease score.
             setTimeout(() => {
                 setLives(l => l - 1);
                 const center = Math.floor(GRID_SIZE / 2);
@@ -483,7 +506,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
                 nextDirRef.current = { x: 0, y: 0 };
                 setGameState('playing');
                 setHitMessage('');
-            }, 1500);
+            }, 1000); // Reduced delay for smoother replay
         } else {
             setGameState('lost');
             updateGameStats('maze', score);
@@ -494,9 +517,9 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
     const handleDoorFail = () => {
         stopGameLoop();
         playSound('wrong');
-        setHitMessage('Yanlış Kelime!');
+        setHitMessage('Yanlış Kelime! (-25 Puan)'); // Updated message
         setGameState('hit');
-        setScore(s => Math.max(0, s - 10));
+        setScore(s => Math.max(0, s - 25)); // FIX: Reduce score by 25 instead of 10
         setTimeout(() => {
             const center = Math.floor(GRID_SIZE / 2);
             setPlayerPos({ x: center, y: center });
@@ -588,7 +611,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
             )}
 
             {/* Target Word Hint */}
-            <div className="absolute bottom-24 left-0 w-full px-6 flex justify-center z-20 pointer-events-none">
+            <div className="absolute bottom-4 left-0 w-full px-6 flex justify-center z-20 pointer-events-none">
                 <div className="bg-indigo-600/90 text-white px-6 py-3 rounded-2xl font-bold shadow-lg backdrop-blur-sm border border-indigo-500/50 flex flex-col items-center">
                     <span className="text-[10px] uppercase tracking-widest text-indigo-200 mb-1">HEDEF</span>
                     <span className="text-xl">{currentWord?.english}</span>
@@ -596,23 +619,11 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
                 </div>
             </div>
 
-            {/* Controls (Mobile) */}
-            <div className="absolute bottom-6 left-0 w-full px-6 z-30 flex justify-between items-end pointer-events-none">
-                <button onClick={handleExit} className="pointer-events-auto p-3 bg-slate-800/80 rounded-full text-slate-400 hover:text-white border border-slate-700">
-                    <XCircle size={24} />
+            {/* Controls (Mobile) - REMOVED as per request */}
+            <div className="absolute top-4 right-4 z-30">
+                <button onClick={handleExit} className="pointer-events-auto p-3 bg-red-500/80 rounded-full text-white hover:bg-red-600 border border-red-400 shadow-lg active:scale-90 transition-all">
+                    <XCircle size={28} />
                 </button>
-
-                <div className="pointer-events-auto grid grid-cols-3 gap-1 bg-slate-800/50 p-2 rounded-full backdrop-blur-sm">
-                    <div></div>
-                    <button onPointerDown={(e) => { e.preventDefault(); handleInput(0, -1); }} className="w-12 h-12 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-all"><ChevronUp /></button>
-                    <div></div>
-                    <button onPointerDown={(e) => { e.preventDefault(); handleInput(-1, 0); }} className="w-12 h-12 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-all"><ChevronLeft /></button>
-                    <div className="w-12 h-12 flex items-center justify-center text-slate-500"><Bot size={16} /></div>
-                    <button onPointerDown={(e) => { e.preventDefault(); handleInput(1, 0); }} className="w-12 h-12 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-all"><ChevronRightIcon /></button>
-                    <div></div>
-                    <button onPointerDown={(e) => { e.preventDefault(); handleInput(0, 1); }} className="w-12 h-12 bg-slate-700 hover:bg-indigo-600 rounded-full flex items-center justify-center text-white active:scale-90 transition-all"><ChevronDown /></button>
-                    <div></div>
-                </div>
             </div>
 
             {/* Game Area */}
@@ -638,7 +649,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
                 {enemies.map(enemy => (
                     <div
                         key={enemy.id}
-                        className="absolute w-[4.76%] h-[4.76%] z-10 transition-all duration-[100ms] ease-linear flex items-center justify-center"
+                        className="absolute w-[4.76%] h-[4.76%] z-10 transition-all duration-[200ms] ease-linear flex items-center justify-center"
                         style={{
                             left: `${enemy.pos.x * 4.76}%`,
                             top: `${enemy.pos.y * 4.76}%`,

@@ -16,7 +16,7 @@ export enum AppMode {
   FLASHCARDS = 'FLASHCARDS',
   MATCHING = 'MATCHING',
   MAZE = 'MAZE',
-  WORD_SEARCH = 'WORD_SEARCH',
+
   QUIZ = 'QUIZ',
   GRAMMAR = 'GRAMMAR',
   ERROR = 'ERROR',
@@ -154,8 +154,8 @@ export interface Challenge {
   creatorScore: number;
   wordIndices: number[];
   unitId: string;
-  unitName?: string; 
-  grade?: string; 
+  unitName?: string;
+  grade?: string;
   difficulty: QuizDifficulty;
   wordCount: number;
   targetFriendId?: string;
@@ -181,14 +181,14 @@ export interface Tournament {
   unitId: string;
   unitName: string;
   status: 'registration' | 'active' | 'completed';
-  registrationStartDate: number; 
-  registrationEndDate: number; 
-  startDate: number; 
+  registrationStartDate: number;
+  registrationEndDate: number;
+  startDate: number;
   endDate: number;
-  roundDuration: number; 
+  roundDuration: number;
   participants: string[];
   matches: TournamentMatch[];
-  currentRound: number; 
+  currentRound: number;
   championId?: string;
   maxParticipants: number;
   minLevel: number;
@@ -201,14 +201,14 @@ export interface Tournament {
 
 export interface TournamentMatch {
   id: string;
-  round: number; 
+  round: number;
   player1Id?: string;
   player1Name?: string;
   player2Id?: string;
   player2Name?: string;
 
   score1_leg1?: number;
-  time1_leg1?: number; 
+  time1_leg1?: number;
   score2_leg1?: number;
   time2_leg1?: number;
 
@@ -219,59 +219,59 @@ export interface TournamentMatch {
 
   winnerId?: string;
   status: 'waiting' | 'leg1_active' | 'leg2_active' | 'completed';
-  updatedAt?: number; 
+  updatedAt?: number;
 }
 
 export interface UserStats {
-    xp: number;
-    level: number;
-    streak: number;
-    lastStudyDate: string | null;
-    badges: string[];
-    flashcardsViewed: number;
+  xp: number;
+  level: number;
+  streak: number;
+  lastStudyDate: string | null;
+  badges: string[];
+  flashcardsViewed: number;
+  quizCorrect: number;
+  quizWrong: number;
+  dailyGoal: number;
+  date: string;
+  xpBoostEndTime: number;
+  lastGoalMetDate: string | null;
+  viewedWordsToday: string[];
+  perfectQuizzes: number;
+  questsCompleted: number;
+  totalTimeSpent: number;
+
+  // Lifetime Duel Stats
+  duelWins: number;
+  duelLosses: number;
+  duelDraws: number;
+  duelPoints: number; // Lifetime total points
+
+  // Lifetime Game High Scores
+  matchingAllTimeBest: number;
+  mazeAllTimeBest: number;
+  wordSearchAllTimeBest: number;
+
+  completedUnits: string[];
+  completedGrades: string[];
+
+  // Weekly Competitive Stats (Resets every Sunday night)
+  weekly: {
+    weekId: string;
     quizCorrect: number;
     quizWrong: number;
-    dailyGoal: number;
-    date: string;
-    xpBoostEndTime: number;
-    lastGoalMetDate: string | null;
-    viewedWordsToday: string[];
-    perfectQuizzes: number;
-    questsCompleted: number;
-    totalTimeSpent: number;
-    
-    // Lifetime Duel Stats
+    cardsViewed: number;
+    matchingBestTime: number; // Represents Score now
+    mazeHighScore: number;
+    wordSearchHighScore: number;
+
+    // Weekly Duel Stats
+    duelPoints: number;
     duelWins: number;
     duelLosses: number;
     duelDraws: number;
-    duelPoints: number; // Lifetime total points
-
-    // Lifetime Game High Scores
-    matchingAllTimeBest: number;
-    mazeAllTimeBest: number;
-    wordSearchAllTimeBest: number;
-
-    completedUnits: string[];
-    completedGrades: string[];
-    
-    // Weekly Competitive Stats (Resets every Sunday night)
-    weekly: {
-        weekId: string;
-        quizCorrect: number;
-        quizWrong: number;
-        cardsViewed: number;
-        matchingBestTime: number; // Represents Score now
-        mazeHighScore: number;
-        wordSearchHighScore: number;
-        
-        // Weekly Duel Stats
-        duelPoints: number;
-        duelWins: number;
-        duelLosses: number;
-        duelDraws: number;
-    };
-    lastActivity?: { grade: string; unitId: string };
-    updatedAt?: number; // Cloud sync timestamp
+  };
+  lastActivity?: { grade: string; unitId: string };
+  updatedAt?: number; // Cloud sync timestamp
 }
 
 export interface Announcement {
