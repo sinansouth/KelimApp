@@ -1,4 +1,3 @@
-
 import { Quest, Badge, GradeLevel, ThemeType } from '../types';
 import { BADGES, UNIT_ASSETS, FRAMES, BACKGROUNDS } from '../data/assets';
 import { getVocabulary } from './contentService';
@@ -290,7 +289,7 @@ export const saveUserProfile = (profile: UserProfile, sync: boolean = false) => 
 };
 
 export const createGuestProfile = (grade?: string) => {
-    // This function creates a fresh profile. 
+    // This function creates a fresh profile.
     // Even though "Guest" is removed, it's used to initialize new users after grade selection.
     const profile = { ...DEFAULT_PROFILE, grade: grade || '' }; // No default A1
     profile.updatedAt = Date.now();
@@ -315,13 +314,13 @@ export const getUserStats = (): UserStats => {
         if (!stored) return DEFAULT_STATS;
         try {
             const stats = JSON.parse(stored);
-    
+
             const today = getTodayDateString();
             if (stats.date !== today) {
                 stats.date = today;
                 stats.viewedWordsToday = [];
             }
-    
+
             // Weekly Reset Logic based on Turkey Time
             const currentWeek = getWeekId();
             if (stats.weekly?.weekId !== currentWeek) {
@@ -334,7 +333,7 @@ export const getUserStats = (): UserStats => {
                 // Ensure any missing fields are present in existing week
                 stats.weekly = { ...DEFAULT_WEEKLY_STATS, ...stats.weekly };
             }
-    
+
             return { ...DEFAULT_STATS, ...stats };
         } catch (e) {
             console.error("Failed to parse user stats:", e);
@@ -448,7 +447,7 @@ export const getSRSData = (): Record<string, SRSData> => {
             }
             return {};
         }
-    
+
         try {
             return JSON.parse(stored);
         } catch (e) {
@@ -497,7 +496,50 @@ export const handleReviewResult = (wordId: string, success: boolean) => {
 };
 
 export const handleQuizResult = (wordId: string, success: boolean) => {
-    // Optional: hook to update SRS on quiz result if desired
+    // Add word to SRS when quiz answer is correct
+    console.log(`[SRS DEBUG] handleQuizResult called - wordId: ${wordId}, success: ${success}`);
+    if (success) {
+        const data = getSRSData();
+        const now = Date.now();
+        if (!data[wordId]) {
+            data[wordId] = { box: 1, nextReview: now + (24 * 60 * 60 * 1000) };
+            saveSRSData(data);
+            console.log(`[SRS DEBUG] Added word to SRS from quiz: ${wordId}`);
+        } else {
+            // If already in SRS, update it
+            let entry = data[wordId];
+            entry.box = Math.min(entry.box + 1, 5);
+            const intervals = [0, 1, 3, 7, 14, 30];
+            const daysToAdd = intervals[entry.box];
+            entry.nextReview = now + (daysToAdd * 24 * 60 * 60 * 1000);
+            data[wordId] = entry;
+            saveSRSData(data);
+            console.log(`[SRS DEBUG] Updated SRS entry from quiz: ${wordId}, box: ${entry.box}`);
+        }
+    }
+};
+
+// Add SRS functions for game modes
+export const handleGameWordCompletion = (wordId: string) => {
+    // Add word to SRS when completed in games (matching, maze, etc.)
+    console.log(`[SRS DEBUG] handleGameWordCompletion called - wordId: ${wordId}`);
+    const data = getSRSData();
+    const now = Date.now();
+    if (!data[wordId]) {
+        data[wordId] = { box: 1, nextReview: now + (24 * 60 * 60 * 1000) };
+        saveSRSData(data);
+        console.log(`[SRS DEBUG] Added word to SRS from game: ${wordId}`);
+    } else {
+        // If already in SRS, update it
+        let entry = data[wordId];
+        entry.box = Math.min(entry.box + 1, 5);
+        const intervals = [0, 1, 3, 7, 14, 30];
+        const daysToAdd = intervals[entry.box];
+        entry.nextReview = now + (daysToAdd * 24 * 60 * 60 * 1000);
+        data[wordId] = entry;
+        saveSRSData(data);
+        console.log(`[SRS DEBUG] Updated SRS entry from game: ${wordId}, box: ${entry.box}`);
+    }
 };
 
 export const getDueWords = async (filterUnitIds?: string[]): Promise<import('../types').WordCard[]> => {
@@ -630,17 +672,25 @@ export const updateDuelStats = (result: 'win' | 'loss' | 'tie', points: number) 
     if (result === 'win') {
         stats.duelWins += 1;
         stats.weekly.duelWins += 1;
+        // Each win gives 3 points
+        stats.duelPoints += 3;
+        stats.weekly.duelPoints += 3;
     } else if (result === 'loss') {
         stats.duelLosses += 1;
         stats.weekly.duelLosses += 1;
     } else if (result === 'tie') {
         stats.duelDraws += 1;
         stats.weekly.duelDraws += 1;
+        // Each tie gives 1 point
+        stats.duelPoints += 1;
+        stats.weekly.duelPoints += 1;
     }
     
-    // Update duel points (both lifetime and weekly)
-    stats.duelPoints += points;
-    stats.weekly.duelPoints += points;
+    // If points are provided separately (e.g., from percentage), add them too
+    if (points && points > 0) {
+        stats.duelPoints += points;
+        stats.weekly.duelPoints += points;
+    }
 
     saveUserStats(stats);
     console.log(`[DEBUG] Duel stats updated - wins: ${stats.duelWins}, losses: ${stats.duelLosses}, draws: ${stats.duelDraws}, points: ${stats.duelPoints}`);

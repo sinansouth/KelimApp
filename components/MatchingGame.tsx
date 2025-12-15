@@ -5,7 +5,7 @@ import { WordCard, Badge, GradeLevel } from '../types';
 import { Shuffle, RotateCcw, CheckCircle, HelpCircle, Grid3X3 } from 'lucide-react';
 import { playSound } from '../services/soundService';
 // FIX: Import `updateGameStats` to handle game-specific statistics.
-import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS } from '../services/userService';
+import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS, handleGameWordCompletion } from '../services/userService';
 import { getSmartDistractors } from '../services/contentService'; 
 import { syncLocalToCloud } from '../services/supabase';
 
@@ -113,16 +113,19 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ words, onFinish, onBack, on
           
           // --- IMMEDIATE XP UPDATE START (Centralized Value) ---
           const xpGained = XP_GAINS.matching_pair;
-          const newBadges = updateStats(xpGained, { grade }); 
+          const newBadges = updateStats(xpGained, { grade });
           updateQuestProgress('play_matching', 1);
           updateQuestProgress('earn_xp', xpGained);
           if (newBadges.length > 0 && onBadgeUnlock) newBadges.forEach(b => onBadgeUnlock(b));
+          
+          // Add word to SRS when matched
+          handleGameWordCompletion(card1.wordId);
           
           syncLocalToCloud(); // Immediate sync
           // --- IMMEDIATE XP UPDATE END ---
 
           setTimeout(() => {
-              setCards(prev => prev.map(c => 
+              setCards(prev => prev.map(c =>
                   (c.id === card1.id || c.id === card2.id) ? { ...c, isMatched: true, isFlipped: false } : c
               ));
               setFlippedCards([]);
@@ -135,7 +138,7 @@ const MatchingGame: React.FC<MatchingGameProps> = ({ words, onFinish, onBack, on
       } else {
           playSound('wrong');
           setTimeout(() => {
-              setCards(prev => prev.map(c => 
+              setCards(prev => prev.map(c =>
                   (c.id === card1.id || c.id === card2.id) ? { ...c, isFlipped: false } : c
               ));
               setFlippedCards([]);

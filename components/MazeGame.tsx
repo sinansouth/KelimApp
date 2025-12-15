@@ -5,7 +5,7 @@ import { WordCard, Badge, GradeLevel } from '../types';
 import { Ghost, Bot, CheckCircle, XCircle, ArrowRight, MapPin, ChevronUp, ChevronDown, ChevronLeft, ChevronRight as ChevronRightIcon, RotateCcw } from 'lucide-react';
 import { playSound } from '../services/soundService';
 // FIX: Import `updateGameStats` to handle game-specific statistics.
-import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS } from '../services/userService';
+import { updateStats, updateQuestProgress, updateGameStats, XP_GAINS, handleGameWordCompletion } from '../services/userService';
 import { getSmartDistractors } from '../services/contentService';
 import { syncLocalToCloud } from '../services/supabase';
 
@@ -543,6 +543,12 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
         updateQuestProgress('earn_xp', xpGained);
         updateGameStats('maze', newScore);
         updateQuestProgress('play_maze', 1);
+        
+        // Add current word to SRS when level is completed
+        if (currentWord) {
+            const wordId = currentWord.unitId ? `${currentWord.unitId}|${currentWord.english}` : currentWord.english;
+            handleGameWordCompletion(wordId);
+        }
         // --- IMMEDIATE XP UPDATE END ---
 
         syncLocalToCloud(); // Sync score
