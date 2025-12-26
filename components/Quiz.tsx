@@ -402,12 +402,9 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
 
     // Determine Joker Visibility based on Question Count
     const totalQuestions = questions.length;
-    // Logic requested:
-    // < 25: Only 50%
-    // 25 - 49: 50% + Double
-    // 50+: All
-    const showDoubleJoker = totalQuestions >= 25;
-    const showAskJoker = totalQuestions >= 50;
+    // Logic requested: Show for all quizzes regardless of length
+    const showDoubleJoker = true;
+    const showAskJoker = true;
 
     // --- RENDER ---
     if (showResults) {
@@ -595,18 +592,19 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
                 </div>
             </div>
 
+
             {/* Jokers - Fixed at bottom, separated from scroll view */}
-            {!challengeMode && (
-                <div className="p-4 pb-safe shrink-0 z-30 bg-gradient-to-t from-[var(--color-bg-card)] via-[var(--color-bg-card)] to-transparent">
-                    <div className="flex justify-center gap-3 sm:gap-4">
+            {!challengeMode && !isReviewMode && (
+                <div className="p-4 pb-32 shrink-0 z-30 bg-gradient-to-t from-[var(--color-bg-card)] via-[var(--color-bg-card)] to-transparent">
+                    <div className="flex flex-wrap justify-center gap-2 sm:gap-4">
                         {/* 50/50 Joker */}
                         <button
                             onClick={handleFiftyFifty}
                             disabled={jokersUsed.fifty || isAnswered}
-                            className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[60px] sm:min-w-[70px] ${jokersUsed.fifty ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 active:scale-95'}`}
+                            className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-2xl border-2 transition-all min-w-[55px] sm:min-w-[70px] ${jokersUsed.fifty ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-blue-200 bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 active:scale-95'}`}
                         >
-                            <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center font-black shadow-sm text-xs">50%</div>
-                            <span className="text-[9px] font-bold uppercase">Yarı</span>
+                            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center font-black shadow-sm text-[10px] sm:text-xs">50%</div>
+                            <span className="text-[8px] sm:text-[9px] font-bold uppercase">Yarı</span>
                         </button>
 
                         {/* Double Chance */}
@@ -614,10 +612,10 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
                             <button
                                 onClick={handleDoubleChance}
                                 disabled={jokersUsed.double || isAnswered}
-                                className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[60px] sm:min-w-[70px] ${jokersUsed.double ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 active:scale-95'}`}
+                                className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-2xl border-2 transition-all min-w-[55px] sm:min-w-[70px] ${jokersUsed.double ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-purple-200 bg-purple-50 text-purple-600 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:text-purple-400 active:scale-95'}`}
                             >
-                                <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm"><Zap size={14} className="fill-current" /></div>
-                                <span className="text-[9px] font-bold uppercase">Çift</span>
+                                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm"><Zap size={14} className="fill-current" /></div>
+                                <span className="text-[8px] sm:text-[9px] font-bold uppercase">Çift</span>
                             </button>
                         )}
 
@@ -626,15 +624,16 @@ const Quiz: React.FC<QuizProps> = ({ words, allWords, onRestart, onBack, onHome,
                             <button
                                 onClick={handleAskTeacher}
                                 disabled={jokersUsed.ask || isAnswered}
-                                className={`flex flex-col items-center gap-1 p-2 rounded-2xl border-2 transition-all min-w-[60px] sm:min-w-[70px] ${jokersUsed.ask ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400 active:scale-95'}`}
+                                className={`flex flex-col items-center gap-1 p-1.5 sm:p-2 rounded-2xl border-2 transition-all min-w-[55px] sm:min-w-[70px] ${jokersUsed.ask ? 'opacity-30 grayscale cursor-not-allowed border-slate-200' : 'border-orange-200 bg-orange-50 text-orange-600 hover:bg-orange-100 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-400 active:scale-95'}`}
                             >
-                                <div className="w-8 h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm"><HelpCircle size={14} /></div>
-                                <span className="text-[9px] font-bold uppercase">Hoca</span>
+                                <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-white dark:bg-slate-800 flex items-center justify-center shadow-sm"><HelpCircle size={14} /></div>
+                                <span className="text-[8px] sm:text-[9px] font-bold uppercase">Hoca</span>
                             </button>
                         )}
                     </div>
                 </div>
             )}
+
 
         </div>
     );

@@ -1,105 +1,40 @@
 
-import { getUnitData as fetchUnitDataFromSupabase, supabase, withTimeout, getGlobalAnnouncements, DbResult } from './supabase';
+import { LOCAL_VOCABULARY } from '../data/vocabularyData';
 import { WordCard, UnitDef, Announcement, GrammarTopic, Avatar, FrameDef, BackgroundDef, Badge } from '../types';
 import { UNIT_ASSETS, AVATARS, FRAMES, BACKGROUNDS, BADGES } from '../data/assets';
-import { getGrammarForUnit as getGrammarData } from '../data/grammarContent';
 
 // This service abstracts the data fetching logic.
-// It tries to fetch from Supabase first. 
-
-let allWordsCache: Record<string, WordCard[]> | null = null;
+// It now uses LOCAL_VOCABULARY for 100% offline support.
 
 export const fetchAllWords = async (): Promise<Record<string, WordCard[]>> => {
-    // 1. Varsa önbelleği direkt dön
-    if (allWordsCache && Object.keys(allWordsCache).length > 0) {
-        return allWordsCache;
-    }
-
-    // 2. İnternet yoksa boş dön, hata verme
-    if (!navigator.onLine) {
-        if (!allWordsCache) allWordsCache = {};
-        return allWordsCache;
-    }
-
-    try {
-        // 3. Buluttan çekmeyi dene ama hata olursa önemseme
-        // withTimeout artık null dönüyor, hata fırlatmıyor (supabase.ts'deki değişiklikle)
-        // Using default timeout from supabase.ts (15000ms)
-        const query = supabase.from('units').select('id, words');
-        const result = await withTimeout<DbResult<{ id: string, words: any[] }[]>>(query, 60000);
-
-        // Hata veya timeout durumunda
-        if (!result || result.error) {
-            console.warn("Cloud fetch failed or timed out, using local fallback");
-            if (!allWordsCache) allWordsCache = {};
-            return allWordsCache;
-        }
-
-        const data = result.data;
-
-        const vocabulary: Record<string, WordCard[]> = {};
-        if (data) {
-            for (const unit of data) {
-                // Ensure unitId is attached to each word card from the fetched data
-                if (Array.isArray(unit.words)) {
-                    vocabulary[unit.id] = unit.words.map((w: any) => ({ ...w, unitId: unit.id }));
-                }
-            }
-        }
-        allWordsCache = vocabulary;
-        return vocabulary;
-
-    } catch (e) {
-        console.warn("Exception during fetchAllWords:", e);
-        // Do not throw error here, return whatever we have or empty object to prevent app crash on load
-        if (!allWordsCache) allWordsCache = {};
-        return allWordsCache;
-    }
+    return LOCAL_VOCABULARY;
 };
 
 export const getVocabulary = async (): Promise<Record<string, WordCard[]>> => {
-    return allWordsCache || await fetchAllWords();
+    return LOCAL_VOCABULARY;
 };
 
 export const getWordsForUnit = async (unitId: string): Promise<WordCard[]> => {
-    // 1. Try to get from cache first
-    if (allWordsCache && allWordsCache[unitId] && allWordsCache[unitId].length > 0) {
-        return allWordsCache[unitId];
-    }
+    // Check if it's an "All in One" unit (e.g., g12all or uAll)
+    if (unitId.toLowerCase().endsWith('all')) {
+        // Find which grade this unit belongs to
+        const gradeEntry = Object.entries(UNIT_ASSETS).find(([_, units]) =>
+            units.some(u => u.id === unitId)
+        );
 
-    // 2. If not in cache (or cache empty/failed), try to fetch specifically for this unit
-    try {
-        if (navigator.onLine) {
-            console.log(`Cache miss for ${unitId}, fetching from cloud...`);
-            const query = supabase
-                .from('units')
-                .select('words')
-                .eq('id', unitId)
-                .single();
-
-            // Using default timeout from supabase.ts (15000ms)
-            const result = await withTimeout<DbResult<{ words: WordCard[] }>>(query, 30000);
-
-            if (result && !result.error && result.data) {
-                const cloudData = result.data.words;
-                if (cloudData && cloudData.length > 0) {
-                    const taggedWords = cloudData.map(w => ({ ...w, unitId }));
-
-                    // Update cache incrementally
-                    if (!allWordsCache) allWordsCache = {};
-                    allWordsCache[unitId] = taggedWords;
-
-                    return taggedWords;
-                }
-            }
+        if (gradeEntry) {
+            const [grade, _] = gradeEntry;
+            return getAllWordsForGrade(grade);
         }
-    } catch (e) {
-        console.error(`Error fetching unit data for ${unitId}:`, e);
     }
 
-    // Hata durumunda boş dizi dön, uygulama çökmesin
+    const data = LOCAL_VOCABULARY[unitId];
+    if (data) {
+        return data.map(w => ({ ...w, unitId }));
+    }
     return [];
 };
+
 
 export const getAllWordsForGrade = async (grade: string): Promise<WordCard[]> => {
     const vocabulary = await getVocabulary();
@@ -164,7 +99,7 @@ export const getUnitAssets = (): Record<string, UnitDef[]> => {
 };
 
 export const getAnnouncements = async (): Promise<Announcement[]> => {
-    return await getGlobalAnnouncements();
+    return [];
 };
 
 export const fetchDynamicContent = async () => {

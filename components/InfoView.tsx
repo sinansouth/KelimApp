@@ -109,14 +109,6 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                 <div className="absolute top-0 right-0 w-24 h-24 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2"></div>
                             </div>
 
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h3 className="text-base font-black text-slate-800 dark:text-white mb-3 flex items-center gap-2">
-                                    <Users size={18} className="text-blue-500" /> Arkadaş Sistemi
-                                </h3>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed">
-                                    Profilinden 6 haneli "Arkadaş Kodu"nu arkadaşlarınla paylaş. Onlar seni eklediğinde, sen de onları otomatik olarak eklersin! Birlikte düello yapın ve liderlik tablosunda yarışın.
-                                </p>
-                            </div>
                         </div>
                     )}
 
@@ -139,20 +131,6 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                 </div>
                             </div>
 
-                            <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex gap-4 items-start">
-                                <div className="p-3 bg-orange-100 dark:bg-orange-900/30 text-orange-600 rounded-xl shrink-0">
-                                    <Swords size={24} />
-                                </div>
-                                <div>
-                                    <h4 className="font-bold text-sm text-slate-800 dark:text-white mb-1">Düello</h4>
-                                    <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
-                                        Arkadaşlarına veya herkese açık rakiplere meydan oku! En yüksek puanı alan kazanır.
-                                    </p>
-                                    <span className="text-[10px] font-bold text-orange-500 bg-orange-50 dark:bg-orange-900/10 py-0.5 px-2 rounded">
-                                        Zafer: {XP_GAINS.duel_win} XP, Beraberlik: {XP_GAINS.duel_tie} XP
-                                    </span>
-                                </div>
-                            </div>
 
                             <div className="bg-white dark:bg-slate-900 p-4 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex gap-4 items-start">
                                 <div className="p-3 bg-green-100 dark:bg-green-900/30 text-green-600 rounded-xl shrink-0">
@@ -222,14 +200,6 @@ const InfoView: React.FC<InfoViewProps> = ({ onBack }) => {
                                 </p>
                             </div>
 
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
-                                <h4 className="flex items-center gap-2 text-slate-800 dark:text-white font-bold text-sm mb-2">
-                                    <Medal size={16} className="text-blue-500" /> Liderlik Tablosu
-                                </h4>
-                                <p className="text-xs text-slate-600 dark:text-slate-400 leading-relaxed mb-2">
-                                    Farklı kategorilerde yarış ve en iyiler arasına gir. Haftalık sıralamalar her Pazar gecesi sıfırlanır ve yeni bir yarış başlar!
-                                </p>
-                            </div>
 
                             <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm">
                                 <h4 className="flex items-center gap-2 text-slate-800 dark:text-white font-bold text-sm mb-2">

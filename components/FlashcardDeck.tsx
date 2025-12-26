@@ -567,7 +567,7 @@ const FlashcardDeck: React.FC<FlashcardDeckProps> = ({ words: initialWords, onFi
             <div className="flex-grow flex flex-col items-center justify-center w-full overflow-y-auto no-scrollbar relative z-10">
               <h3 className="text-3xl sm:text-4xl font-bold mb-4 break-words max-w-full text-white">{currentWord.turkish}</h3>
               <p className="text-sm italic mb-6 pb-3 border-b border-white/20 text-white/80">{currentWord.context}</p>
-              <div className="bg-white/10 rounded-2xl p-5 w-full backdrop-blur-sm">
+              <div className="bg-white/10 rounded-2xl p-5 w-full">
                 <p className="text-lg font-medium mb-2">"{currentWord.exampleEng}"</p>
                 <p className="text-sm font-medium text-white/80">{currentWord.exampleTr}</p>
               </div>

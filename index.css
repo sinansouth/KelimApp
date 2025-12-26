@@ -17,7 +17,10 @@ body {
   -moz-osx-font-smoothing: grayscale;
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
-  background: var(--color-bg-card);
+  background-color: var(--color-bg-main, #0f172a);
+  color: var(--color-text-main, #e6eef8);
+  font-family: var(--font-theme, 'Inter', sans-serif);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 /* Make small interactive areas more forgiving on touch devices */

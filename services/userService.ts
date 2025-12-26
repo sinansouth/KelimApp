@@ -1,79 +1,16 @@
-import { Quest, Badge, GradeLevel, ThemeType } from '../types';
+import { Quest, Badge, GradeLevel, ThemeType, UserProfile, UserStats } from '../types';
+export type { UserProfile, UserStats };
 import { BADGES, UNIT_ASSETS, FRAMES, BACKGROUNDS } from '../data/assets';
 import { getVocabulary } from './contentService';
-
-export interface UserProfile {
-    name: string;
-    grade: string;
-    avatar: string;
-    frame: string;
-    background: string;
-    theme?: ThemeType;
-    purchasedThemes: string[];
-    purchasedFrames: string[];
-    purchasedBackgrounds: string[];
-    inventory: { streakFreezes: number };
-    lastUsernameChange?: number;
-    isGuest?: boolean;
-    friendCode?: string;
-    isAdmin?: boolean;
-    updatedAt?: number; // Cloud sync için
-}
-
-export interface UserStats {
-    xp: number;
-    level: number;
-    streak: number;
-    lastStudyDate: string | null;
-    badges: string[];
-    flashcardsViewed: number;
-    quizCorrect: number;
-    quizWrong: number;
-    dailyGoal: number;
-    date: string;
-    xpBoostEndTime: number;
-    lastGoalMetDate: string | null;
-    viewedWordsToday: string[];
-    perfectQuizzes: number;
-    questsCompleted: number;
-    totalTimeSpent: number;
-
-    // Lifetime Stats
-    duelWins: number;
-    duelLosses: number;
-    duelDraws: number;
-    duelPoints: number;
-
-    // Lifetime Game High Scores
-    matchingAllTimeBest: number;
-    mazeAllTimeBest: number;
-
-
-    completedUnits: string[];
-    completedGrades: string[];
-
-    // Weekly Stats
-    weekly: {
-        weekId: string;
-        quizCorrect: number;
-        quizWrong: number;
-        cardsViewed: number;
-        matchingBestTime: number; // Actually Score
-        mazeHighScore: number;
-
-
-        duelPoints: number;
-        duelWins: number;
-        duelLosses: number;
-        duelDraws: number;
-    };
-    lastActivity?: { grade: string; unitId: string };
-    updatedAt?: number;
-}
 
 export interface AppSettings {
     soundEnabled: boolean;
     theme: ThemeType;
+}
+
+export interface SRSData {
+    box: number;
+    nextReview: number;
 }
 
 export interface SRSData {
@@ -129,22 +66,20 @@ export const getLevelForXP = (xp: number): number => Math.floor(Math.sqrt(Math.m
 
 // --- TIME UTILITIES ---
 
+// --- TIME UTILITIES ---
+
 export const getTurkeyTime = (): Date => {
-    // Current time in local
+    // Returns a Date object representing the current time in Turkey
     const now = new Date();
-    // Convert to UTC
-    const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
-    // Add 3 hours for Turkey (UTC+3)
-    return new Date(utc + (3600000 * 3));
+    const turkeyTimeStr = now.toLocaleString('en-US', { timeZone: 'Europe/Istanbul' });
+    return new Date(turkeyTimeStr);
 };
 
-// Returns YYYY-MM-DD based on local device time (For Streak)
+// Returns YYYY-MM-DD based on Turkey time (For Streak)
 export const getTodayDateString = (): string => {
-    const d = getTurkeyTime();
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const d = new Date();
+    // Use en-CA for YYYY-MM-DD format
+    return d.toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' });
 };
 
 export const getTurkeyTimestamp = (): number => {
@@ -173,8 +108,7 @@ const DEFAULT_PROFILE: UserProfile = {
     inventory: { streakFreezes: 0 },
     isGuest: true,
     friendCode: '',
-    isAdmin: false,
-    updatedAt: 0
+    isAdmin: false
 };
 
 // Calculates Week ID based on Turkey Time (UTC+3) - ISO 8601 standard
@@ -197,7 +131,7 @@ const DEFAULT_WEEKLY_STATS = {
     cardsViewed: 0,
     matchingBestTime: 0,
     mazeHighScore: 0,
-
+    wordSearchHighScore: 0,
     duelPoints: 0,
     duelWins: 0,
     duelLosses: 0,
@@ -227,11 +161,10 @@ const DEFAULT_STATS: UserStats = {
     duelPoints: 0,
     matchingAllTimeBest: 0,
     mazeAllTimeBest: 0,
-
+    wordSearchAllTimeBest: 0,
     completedUnits: [],
     completedGrades: [],
-    weekly: DEFAULT_WEEKLY_STATS,
-    updatedAt: 0
+    weekly: DEFAULT_WEEKLY_STATS
 };
 
 const DEFAULT_SETTINGS: AppSettings = {
@@ -280,23 +213,23 @@ export const getUserProfile = (): UserProfile => {
 
 export const saveUserProfile = (profile: UserProfile, sync: boolean = false) => {
     if (!profile.friendCode) profile.friendCode = generateFriendCode();
-    // Otomatik timestamp güncelle
-    profile.updatedAt = Date.now();
-
+    // sync parameter is ignored in full offline mode
     localStorage.setItem(KEYS.PROFILE, JSON.stringify(profile));
     updateLastUpdatedTimestamp();
     notifyDataChange();
+};
+
+export const overwriteLocalWithCloud = async (cloudProfile: any, cloudStats: any) => {
+    // No-op for offline mode
 };
 
 export const createGuestProfile = (grade?: string) => {
     // This function creates a fresh profile.
     // Even though "Guest" is removed, it's used to initialize new users after grade selection.
     const profile = { ...DEFAULT_PROFILE, grade: grade || '' }; // No default A1
-    profile.updatedAt = Date.now();
     saveUserProfile(profile);
 
     const stats = { ...DEFAULT_STATS };
-    stats.updatedAt = Date.now();
     saveUserStats(stats);
 
     // Clear other data
@@ -343,8 +276,6 @@ export const getUserStats = (): UserStats => {
 };
 
 export const saveUserStats = (stats: UserStats) => {
-    // Otomatik timestamp güncelle
-    stats.updatedAt = Date.now();
     localStorage.setItem(KEYS.STATS, JSON.stringify(stats));
     updateLastUpdatedTimestamp();
     notifyDataChange();
@@ -665,9 +596,9 @@ export const updateQuizStats = (correct: number, wrong: number) => {
 
 export const updateDuelStats = (result: 'win' | 'loss' | 'tie', points: number) => {
     const stats = getUserStats();
-    
+
     console.log(`Updating duel stats - result: ${result}, points: ${points}`);
-    
+
     // Update lifetime stats
     if (result === 'win') {
         stats.duelWins += 1;
@@ -685,7 +616,7 @@ export const updateDuelStats = (result: 'win' | 'loss' | 'tie', points: number) 
         stats.duelPoints += 1;
         stats.weekly.duelPoints += 1;
     }
-    
+
     // If points are provided separately (e.g., from percentage), add them too
     if (points && points > 0) {
         stats.duelPoints += points;
@@ -1205,8 +1136,8 @@ export const hasSeenTutorial = () => {
     return localStorage.getItem(KEYS.TUTORIAL_SEEN) === 'true';
 };
 
-export const markTutorialAsSeen = () => {
-    localStorage.setItem(KEYS.TUTORIAL_SEEN, 'true');
+export const markTutorialAsSeen = (seen: boolean = true) => {
+    localStorage.setItem(KEYS.TUTORIAL_SEEN, seen ? 'true' : 'false');
 };
 
 export const clearLocalUserData = () => {
@@ -1220,49 +1151,4 @@ export const clearLocalUserData = () => {
     const settings = getAppSettings();
     settings.theme = 'dark';
     saveAppSettings(settings);
-};
-
-interface CloudData {
-    profile?: UserProfile;
-    stats?: UserStats;
-    srs_data?: Record<string, SRSData>;
-}
-
-export const overwriteLocalWithCloud = (cloudData: CloudData) => {
-    if (cloudData.profile) {
-        // Restore lastUsernameChange from stats if present (hack for schema limitation)
-        if (cloudData.stats && (cloudData.stats as any).last_username_change) {
-            cloudData.profile.lastUsernameChange = (cloudData.stats as any).last_username_change;
-        }
-
-        // Fix missing inventory defaults if cloud data is incomplete
-        if (!cloudData.profile.purchasedThemes) cloudData.profile.purchasedThemes = DEFAULT_PROFILE.purchasedThemes;
-        if (!cloudData.profile.purchasedFrames) cloudData.profile.purchasedFrames = DEFAULT_PROFILE.purchasedFrames;
-        if (!cloudData.profile.purchasedBackgrounds) cloudData.profile.purchasedBackgrounds = DEFAULT_PROFILE.purchasedBackgrounds;
-        if (!cloudData.profile.inventory) cloudData.profile.inventory = DEFAULT_PROFILE.inventory;
-
-        saveUserProfile(cloudData.profile);
-        if (cloudData.profile.theme) {
-            const settings = getAppSettings();
-            settings.theme = cloudData.profile.theme;
-            saveAppSettings(settings);
-        }
-    }
-    if (cloudData.stats) {
-        saveUserStats(cloudData.stats);
-
-        // Restore extended data if present
-        if ((cloudData.stats as any).memorized_words) {
-            localStorage.setItem(KEYS.MEMORIZED, JSON.stringify((cloudData.stats as any).memorized_words));
-        }
-        if ((cloudData.stats as any).favorite_words) {
-            localStorage.setItem(KEYS.BOOKMARKS, JSON.stringify((cloudData.stats as any).favorite_words));
-        }
-    }
-
-    if (cloudData.srs_data && Object.keys(cloudData.srs_data).length > 0) {
-        saveSRSData(cloudData.srs_data);
-    }
-
-    updateLastUpdatedTimestamp();
 };

@@ -25,7 +25,8 @@ export enum AppMode {
   CUSTOM_PRACTICE = 'CUSTOM_PRACTICE',
   INFO = 'INFO',
   ANNOUNCEMENTS = 'ANNOUNCEMENTS',
-  MARKET = 'MARKET'
+  MARKET = 'MARKET',
+  SETTINGS = 'SETTINGS'
 }
 
 export interface QuizQuestion {
@@ -69,7 +70,7 @@ export interface Badge {
   description: string;
   icon: string;
   image?: string;
-  condition: (stats: import('./services/userService').UserStats, context?: BadgeContext) => boolean;
+  condition: (stats: UserStats, context?: BadgeContext) => boolean;
   unlocked: boolean;
 }
 
@@ -220,6 +221,23 @@ export interface TournamentMatch {
   winnerId?: string;
   status: 'waiting' | 'leg1_active' | 'leg2_active' | 'completed';
   updatedAt?: number;
+}
+
+export interface UserProfile {
+  name: string;
+  grade: string;
+  avatar: string;
+  frame: string;
+  background: string;
+  theme?: ThemeType;
+  purchasedThemes: string[];
+  purchasedFrames: string[];
+  purchasedBackgrounds: string[];
+  inventory: { streakFreezes: number };
+  lastUsernameChange?: number;
+  isGuest?: boolean;
+  friendCode?: string;
+  isAdmin?: boolean;
 }
 
 export interface UserStats {

@@ -276,9 +276,9 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
                     ex = valid.x;
                     ey = valid.y;
                 } else {
-                    // Search simplified
-                    ex = center;
-                    ey = center;
+                    // Search simplified - Avoid center (player spawn)
+                    ex = 1;
+                    ey = 1;
                 }
             }
 
@@ -382,10 +382,10 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
             let patience = enemy.patience;
 
             const dist = Math.abs(enemy.pos.x - targetPos.x) + Math.abs(enemy.pos.y - targetPos.y);
-            const canSeePlayer = dist < 12 && hasLineOfSight(enemy.pos, targetPos, currentGrid);
+            const canSeePlayer = dist < 8 && hasLineOfSight(enemy.pos, targetPos, currentGrid);
 
             if (canSeePlayer) {
-                newState = 'chasing'; target = targetPos; patience = 60;
+                newState = 'chasing'; target = targetPos; patience = 40;
             } else if (patience > 0) {
                 patience--; newState = 'chasing';
             } else {
@@ -543,7 +543,7 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
         updateQuestProgress('earn_xp', xpGained);
         updateGameStats('maze', newScore);
         updateQuestProgress('play_maze', 1);
-        
+
         // Add current word to SRS when level is completed
         if (currentWord) {
             const wordId = currentWord.unitId ? `${currentWord.unitId}|${currentWord.english}` : currentWord.english;
@@ -617,11 +617,22 @@ const MazeGame: React.FC<MazeGameProps> = ({ words, onFinish, onBack, onCelebrat
             )}
 
             {/* Target Word Hint */}
-            <div className="absolute bottom-4 left-0 w-full px-6 flex justify-center z-20 pointer-events-none">
+            <div className="absolute bottom-4 left-6 z-20 pointer-events-none hidden sm:flex">
                 <div className="bg-indigo-600/90 text-white px-6 py-3 rounded-2xl font-bold shadow-lg backdrop-blur-sm border border-indigo-500/50 flex flex-col items-center">
                     <span className="text-[10px] uppercase tracking-widest text-indigo-200 mb-1">HEDEF</span>
                     <span className="text-xl">{currentWord?.english}</span>
                     <span className="text-xs text-indigo-300 font-normal">{currentWord?.turkish}</span>
+                </div>
+            </div>
+
+
+
+            {/* Target Word Hint (Mobile - Top) */}
+            <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 pointer-events-none sm:hidden w-[90%]">
+                <div className="bg-indigo-600 text-white px-6 py-4 rounded-[2rem] font-black shadow-2xl border-4 border-indigo-400/50 flex flex-col items-center animate-in slide-in-from-top-4 duration-500">
+                    <span className="text-[10px] uppercase tracking-[0.2em] text-indigo-200 mb-1">SIRADAKİ KELİME</span>
+                    <span className="text-2xl tracking-tight">{currentWord?.english}</span>
+                    <span className="text-sm text-indigo-200 font-bold mt-1">{currentWord?.turkish}</span>
                 </div>
             </div>
 

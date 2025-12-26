@@ -7,6 +7,7 @@ import {
 import { getUserStats, getTotalDueCount, getMemorizedSet, getUserProfile } from '../services/userService';
 import { UnitDef, GradeLevel, StudyMode, CategoryType } from '../types';
 import { UNIT_ASSETS, GRADE_DATA } from '../data/assets';
+import { APP_CONFIG } from '../config/appConfig';
 import Mascot from './Mascot';
 import { APP_TIPS } from '../data/tips';
 
@@ -22,6 +23,7 @@ interface TopicSelectorProps {
   onStartModule: (action: 'study' | 'matching' | 'maze' | 'wordSearch' | 'quiz' | 'quiz-bookmarks' | 'quiz-memorized' | 'grammar' | 'practice-select' | 'review' | 'review-flashcards', unit: UnitDef, count?: number) => void;
   onGoHome: () => void;
   onOpenMarket: () => void;
+  onOpenInfo: () => void;
 }
 
 const TopicSelector: React.FC<TopicSelectorProps> = ({
@@ -36,6 +38,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   onStartModule,
   onGoHome,
   onOpenMarket,
+  onOpenInfo
 }) => {
 
   const [dailyDueCount, setDailyDueCount] = React.useState<number>(0);
@@ -137,7 +140,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
               <span>{memCount}</span>
             </div>
             <div className="w-full h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'rgba(0,0,0,0.1)' }}>
-              <div className="h-full bg-green-500 transition-all duration-1000" style={{ width: `${estimatedProgress}%` }}></div>
+              <div className="h-full bg-green-500 transition-all duration-1000" style={{ width: `${estimatedProgress}% ` }}></div>
             </div>
           </div>
         </div>
@@ -255,136 +258,141 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 mt-24">
-            {/* Daily Review & Last Activity */}
-            <div className="grid grid-cols-1 gap-4">
-              {/* Son Kaldığın Yer */}
-              {lastActivity && (
-                <button
-                  onClick={() => { onSelectGrade(lastActivity.grade as GradeLevel); onSelectUnit(lastActivity.unit); }}
-                  className="w-full h-auto min-h-[4.5rem] py-3 rounded-[1.5rem] px-4 relative overflow-hidden group shadow-lg border flex items-center justify-between active:scale-95 transition-transform"
-                  style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
-                >
-                  <div className="flex items-center gap-3 relative z-10">
-                    <div className="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center text-orange-400 group-hover:text-orange-300 transition-colors shrink-0">
-                      <ClockIcon size={18} />
-                    </div>
-                    <div className="text-left flex-1 min-w-0">
-                      <div className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Son Kaldığın Yer</div>
-                      <div className="font-bold text-sm leading-tight line-clamp-2" style={{ color: 'var(--color-text-main)' }}>
-                        {lastActivity.grade}. Sınıf - {lastActivity.unit.title}
-                      </div>
+        </div>
+
+        <div className="grid grid-cols-1 gap-3 mt-4 transition-all">
+          {/* Daily Review & Last Activity */}
+          <div className="grid grid-cols-1 gap-4">
+            {/* Son Kaldığın Yer */}
+            {lastActivity && (
+              <button
+                onClick={() => { onSelectGrade(lastActivity.grade as GradeLevel); onSelectUnit(lastActivity.unit); }}
+                className="w-full h-auto min-h-[4.5rem] py-3 rounded-[1.5rem] px-4 relative overflow-hidden group shadow-lg border flex items-center justify-between active:scale-95 transition-transform"
+                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+              >
+                <div className="flex items-center gap-3 relative z-10">
+                  <div className="w-9 h-9 bg-orange-500/20 rounded-full flex items-center justify-center text-orange-400 group-hover:text-orange-300 transition-colors shrink-0">
+                    <ClockIcon size={18} />
+                  </div>
+                  <div className="text-left flex-1 min-w-0">
+                    <div className="text-[9px] font-bold uppercase tracking-wide mb-0.5" style={{ color: 'var(--color-text-muted)' }}>Son Kaldığın Yer</div>
+                    <div className="font-bold text-sm leading-tight line-clamp-2" style={{ color: 'var(--color-text-main)' }}>
+                      {lastActivity.grade}. Sınıf - {lastActivity.unit.title}
                     </div>
                   </div>
-                  <ChevronRight size={18} style={{ color: 'var(--color-text-muted)' }} className="group-hover:translate-x-1 transition-transform shrink-0 ml-2" />
-                </button>
+                </div>
+                <ChevronRight size={18} style={{ color: 'var(--color-text-muted)' }} className="group-hover:translate-x-1 transition-transform shrink-0 ml-2" />
+              </button>
+            )}
+
+            {/* Daily Review */}
+            <button
+              onClick={() => onStartModule('review', { id: 'global_review', unitNo: 'Review', title: 'Günlük Tekrar', icon: <RefreshCw /> })}
+              className={`w-full h-auto min-h-[4.5rem] py-3 rounded-[1.5rem] px-4 relative overflow-hidden group shadow-lg border border-transparent flex items-center justify-between active:scale-95 transition-transform ${dailyDueCount > 0 ? 'bg-gradient-to-r from-emerald-600 to-green-500' : 'bg-green-600'}`}
+            >
+              <div className="flex items-center gap-3 relative z-10 flex-1">
+                <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-sm shrink-0">
+                  {dailyDueCount > 0 ? <RefreshCw size={18} className="animate-spin-slow" /> : <CheckCircle size={18} />}
+                </div>
+                <div className="text-left">
+                  <div className="text-[9px] font-bold text-white/80 uppercase tracking-wide mb-0.5">{dailyDueCount > 0 ? 'GÜNLÜK TEKRAR' : 'TAMAMLANDI'}</div>
+                  <div className="text-white font-black text-base leading-tight">
+                    {dailyDueCount > 0 ? 'Tekrarını Yap' : 'Tüm Tekrarlar Bitti'}
+                  </div>
+                  {dailyDueCount === 0 && (
+                    <div className="text-[9px] text-white/80 font-medium mt-0.5">Harika! Bugünlük bu kadar.</div>
+                  )}
+                </div>
+              </div>
+
+              {/* Simple Count Box (Fixed Overflow) */}
+              {dailyDueCount > 0 && (
+                <div className="relative z-10 bg-white/20 backdrop-blur-md rounded-xl px-3 py-1 border border-white/30 text-white font-black text-lg min-w-[2.5rem] text-center shadow-inner ml-2 shrink-0">
+                  {dailyDueCount}
+                </div>
               )}
-
-              {/* Daily Review */}
-              <button
-                onClick={() => onStartModule('review', { id: 'global_review', unitNo: 'Review', title: 'Günlük Tekrar', icon: <RefreshCw /> })}
-                className={`w-full h-auto min-h-[4.5rem] py-3 rounded-[1.5rem] px-4 relative overflow-hidden group shadow-lg border border-transparent flex items-center justify-between active:scale-95 transition-transform ${dailyDueCount > 0 ? 'bg-gradient-to-r from-emerald-600 to-green-500' : 'bg-green-600'}`}
-              >
-                <div className="flex items-center gap-3 relative z-10 flex-1">
-                  <div className="w-9 h-9 bg-white/20 rounded-full flex items-center justify-center text-white backdrop-blur-sm shrink-0">
-                    {dailyDueCount > 0 ? <RefreshCw size={18} className="animate-spin-slow" /> : <CheckCircle size={18} />}
-                  </div>
-                  <div className="text-left">
-                    <div className="text-[9px] font-bold text-white/80 uppercase tracking-wide mb-0.5">{dailyDueCount > 0 ? 'GÜNLÜK TEKRAR' : 'TAMAMLANDI'}</div>
-                    <div className="text-white font-black text-base leading-tight">
-                      {dailyDueCount > 0 ? 'Tekrarını Yap' : 'Tüm Tekrarlar Bitti'}
-                    </div>
-                    {dailyDueCount === 0 && (
-                      <div className="text-[9px] text-white/80 font-medium mt-0.5">Harika! Bugünlük bu kadar.</div>
-                    )}
-                  </div>
+              {dailyDueCount === 0 && (
+                <div className="relative z-10 opacity-50 shrink-0 ml-2">
+                  <CheckCircle size={28} className="text-white" />
                 </div>
-
-                {/* Simple Count Box (Fixed Overflow) */}
-                {dailyDueCount > 0 && (
-                  <div className="relative z-10 bg-white/20 backdrop-blur-md rounded-xl px-3 py-1 border border-white/30 text-white font-black text-lg min-w-[2.5rem] text-center shadow-inner ml-2 shrink-0">
-                    {dailyDueCount}
-                  </div>
-                )}
-                {dailyDueCount === 0 && (
-                  <div className="relative z-10 opacity-50 shrink-0 ml-2">
-                    <CheckCircle size={28} className="text-white" />
-                  </div>
-                )}
-              </button>
-            </div>
-
-            {/* Categories Grid */}
-            <div className="grid grid-cols-2 gap-4 pt-1">
-              <button
-                onClick={() => onSelectCategory('PRIMARY_SCHOOL')}
-                className="p-3 rounded-2xl border transition-all active:scale-95 shadow-sm group flex flex-col items-center justify-center text-center"
-                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
-              >
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)' }}
-                >
-                  <Star size={18} />
-                </div>
-                <div>
-                  <div className="font-black text-sm" style={{ color: 'var(--color-text-main)' }}>İlkokul</div>
-                  <div className="text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>2-4. Sınıflar</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => onSelectCategory('MIDDLE_SCHOOL')}
-                className="p-3 rounded-2xl border transition-all active:scale-95 shadow-sm group flex flex-col items-center justify-center text-center"
-                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
-              >
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)' }}
-                >
-                  <School size={18} />
-                </div>
-                <div>
-                  <div className="font-black text-sm" style={{ color: 'var(--color-text-main)' }}>Ortaokul</div>
-                  <div className="text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>5-8. Sınıflar</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => onSelectCategory('HIGH_SCHOOL')}
-                className="p-3 rounded-2xl border transition-all active:scale-95 shadow-sm group flex flex-col items-center justify-center text-center"
-                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
-              >
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)' }}
-                >
-                  <GraduationCap size={18} />
-                </div>
-                <div>
-                  <div className="font-black text-sm" style={{ color: 'var(--color-text-main)' }}>Lise</div>
-                  <div className="text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>9-12. Sınıflar</div>
-                </div>
-              </button>
-
-              <button
-                onClick={() => onSelectCategory('GENERAL_ENGLISH')}
-                className="p-3 rounded-2xl border transition-all active:scale-95 shadow-sm group flex flex-col items-center justify-center text-center"
-                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
-              >
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)' }}
-                >
-                  <Globe size={18} />
-                </div>
-                <div>
-                  <div className="font-black text-sm" style={{ color: 'var(--color-text-main)' }}>Genel İng.</div>
-                  <div className="text-[10px] font-bold" style={{ color: 'var(--color-text-muted)' }}>A1-C1 Seviye</div>
-                </div>
-              </button>
-            </div>
+              )}
+            </button>
           </div>
+
+          {/* Categories Grid */}
+          <div className="grid grid-cols-3 gap-3 pt-2 pb-6">
+            <button
+              onClick={() => onSelectCategory('PRIMARY_SCHOOL')}
+              className="p-4 rounded-[2rem] border-2 transition-all active:scale-95 shadow-md group flex flex-col items-center justify-center text-center"
+              style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-sm"
+                style={{ backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)' }}
+              >
+                <Star size={20} />
+              </div>
+              <div>
+                <div className="font-black text-xs sm:text-sm leading-none" style={{ color: 'var(--color-text-main)' }}>İlkokul</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => onSelectCategory('MIDDLE_SCHOOL')}
+              className="p-4 rounded-[2rem] border-2 transition-all active:scale-95 shadow-md group flex flex-col items-center justify-center text-center"
+              style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-sm"
+                style={{ backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)' }}
+              >
+                <School size={20} />
+              </div>
+              <div>
+                <div className="font-black text-xs sm:text-sm leading-none" style={{ color: 'var(--color-text-main)' }}>Ortaokul</div>
+              </div>
+            </button>
+
+            <button
+              onClick={() => onSelectCategory('HIGH_SCHOOL')}
+              className="p-4 rounded-[2rem] border-2 transition-all active:scale-95 shadow-md group flex flex-col items-center justify-center text-center"
+              style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+            >
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 transition-transform shadow-sm"
+                style={{ backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)' }}
+              >
+                <GraduationCap size={20} />
+              </div>
+              <div>
+                <div className="font-black text-xs sm:text-sm leading-none" style={{ color: 'var(--color-text-main)' }}>Lise</div>
+              </div>
+            </button>
+          </div>
+
+          <button
+            onClick={() => onSelectCategory('GENERAL_ENGLISH')}
+            className="w-full p-4 rounded-[2rem] border-2 transition-all active:scale-95 shadow-md group flex items-center justify-center gap-4 text-center mt-2"
+            style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
+          >
+            <div
+              className="w-10 h-10 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform shadow-sm"
+              style={{ backgroundColor: 'rgba(var(--color-primary-rgb), 0.1)', color: 'var(--color-primary)' }}
+            >
+              <Globe size={20} />
+            </div>
+            <div className="font-black text-sm sm:text-base" style={{ color: 'var(--color-text-main)' }}>Genel İngilizce (A1-C1) Seviyeleri</div>
+          </button>
+
+          {/* App Guide Link */}
+          <button
+            onClick={onOpenInfo}
+            className="mt-8 flex items-center gap-2 px-6 py-3 rounded-2xl bg-white/10 hover:bg-white/20 transition-colors border border-white/20 backdrop-blur-sm"
+            style={{ color: 'var(--color-text-main)' }}
+          >
+            <Lightbulb size={20} className="text-amber-400" />
+            <span className="font-bold text-sm">💡 Uygulama Rehberi</span>
+          </button>
         </div>
       </div>
     );
@@ -402,38 +410,38 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
     }
 
     return (
-      <div className="flex flex-col items-center h-full p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 w-full">
-        <h2 className="text-xl font-black mb-4 text-center mt-2" style={{ color: 'var(--color-text-main)' }}>Seviye Seçin</h2>
-        <div className="space-y-2 w-full max-w-lg pb-24">
-          {gradesToShow.map((grade) => {
-            const gradeVisual = GRADE_DATA[grade];
-            return (
-              <button
-                key={grade}
-                onClick={() => handleGradeSelect(grade)}
-                className="w-full p-4 rounded-2xl border transition-all active:scale-[0.98] text-left flex items-center gap-4 group shadow-sm hover:shadow-md relative overflow-hidden"
-                style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'rgba(255,255,255,0.1)' }}
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center shadow-sm relative z-10 shrink-0 group-hover:scale-110 transition-transform"
-                  style={{ backgroundColor: 'var(--color-bg-main)', color: 'var(--color-text-main)' }}
+      <div className="flex flex-col items-center justify-center h-full p-4 animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-y-auto">
+        <div className="w-full max-w-lg mb-8">
+          <h2 className="text-xl font-black mb-4 text-center mt-2" style={{ color: 'var(--color-text-main)' }}>Seviye Seçin</h2>
+          <div className="space-y-2 w-full max-w-lg pb-24">
+            {gradesToShow.map((grade) => {
+              const gradeVisual = GRADE_DATA[grade];
+              return (
+                <button
+                  key={grade}
+                  onClick={() => handleGradeSelect(grade)}
+                  className="w-full p-5 rounded-[2rem] border-2 transition-all active:scale-[0.98] text-left flex items-center gap-5 group shadow-md hover:shadow-lg relative overflow-hidden"
+                  style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'var(--color-border)' }}
                 >
-                  {gradeVisual?.image ? (
-                    <img src={gradeVisual.image} alt={grade} className="w-full h-full object-cover rounded-xl" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
-                  ) : (
-                    React.isValidElement(gradeVisual?.icon) ? React.cloneElement(gradeVisual.icon as React.ReactElement<any>, { size: 24 }) : <GraduationCap size={24} />
-                  )}
-                </div>
-                <div className="flex-1 relative z-10">
-                  <div className="font-black text-xl tracking-tight" style={{ color: 'var(--color-primary)' }}>{grade.length > 2 ? grade : `${grade}. Sınıf`}</div>
-                  <div className="font-bold text-xs opacity-70" style={{ color: 'var(--color-text-muted)' }}>
-                    {selectedCategory === 'GENERAL_ENGLISH' ? 'Seviye' : 'İngilizce'}
+                  <div
+                    className="w-16 h-16 rounded-2xl flex items-center justify-center shadow-inner relative z-10 shrink-0 group-hover:scale-110 transition-transform"
+                    style={{ backgroundColor: 'var(--color-bg-main)', color: 'var(--color-text-main)' }}
+                  >
+                    {gradeVisual?.image ? (
+                      <img src={gradeVisual.image} alt={grade} className="w-full h-full object-cover rounded-2xl" onError={(e) => { e.currentTarget.style.display = 'none'; }} />
+                    ) : (
+                      React.isValidElement(gradeVisual?.icon) ? React.cloneElement(gradeVisual.icon as React.ReactElement<any>, { size: 32 }) : <GraduationCap size={32} />
+                    )}
                   </div>
-                </div>
-                <ChevronRight className="opacity-30 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
-              </button>
-            );
-          })}
+                  <div className="flex-1">
+                    <div className="text-xl font-black" style={{ color: 'var(--color-text-main)' }}>{grade}. Sınıf</div>
+                    <div className="text-xs font-bold opacity-70" style={{ color: 'var(--color-text-muted)' }}>{UNIT_ASSETS[grade]?.length || 0} Ünite Bulunuyor</div>
+                  </div>
+                  <ChevronRight className="text-slate-300 group-hover:translate-x-1 transition-transform" />
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
     );
@@ -443,10 +451,10 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
   const stats = getUserStats();
 
   return (
-    <div className="w-full max-w-6xl mx-auto p-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col min-h-full">
+    <div className="w-full max-w-6xl mx-auto p-4 pb-20 animate-in fade-in slide-in-from-bottom-4 duration-500 flex flex-col h-full overflow-y-auto">
       <div className="flex items-center justify-between mb-4 px-1 shrink-0">
         <div>
-          <h2 className="text-2xl font-black tracking-tight" style={{ color: 'var(--color-primary)' }}>{selectedCategory === 'GENERAL_ENGLISH' ? selectedGrade : `${selectedGrade}. Sınıf`}</h2>
+          <h2 className="text-2xl font-black tracking-tight" style={{ color: 'var(--color-primary)' }}>{selectedCategory === 'GENERAL_ENGLISH' ? selectedGrade : `${selectedGrade}.Sınıf`}</h2>
           <p className="text-xs font-medium mt-0.5 opacity-70" style={{ color: 'var(--color-text-muted)' }}>Ünite seçip çalışmaya başla.</p>
         </div>
         <div className="hidden sm:flex flex-col items-end px-3 py-2 rounded-xl border shadow-sm backdrop-blur-sm" style={{ backgroundColor: 'var(--color-bg-card)', borderColor: 'rgba(255,255,255,0.1)' }}>
@@ -455,7 +463,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
           </div>
           <div className="flex items-center gap-2">
             <div className="w-20 h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: 'var(--color-bg-main)' }}>
-              <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, ((stats.flashcardsViewed + stats.quizCorrect + stats.quizWrong) / stats.dailyGoal) * 100)}%`, backgroundColor: 'var(--color-primary)' }}></div>
+              <div className="h-full rounded-full transition-all duration-1000 ease-out" style={{ width: `${Math.min(100, ((stats.flashcardsViewed + stats.quizCorrect + stats.quizWrong) / stats.dailyGoal) * 100)}% `, backgroundColor: 'var(--color-primary)' }}></div>
             </div>
             <span className="text-[10px] font-bold min-w-[30px] text-right" style={{ color: 'var(--color-text-main)' }}>
               {Math.min(stats.dailyGoal, stats.flashcardsViewed + stats.quizCorrect + stats.quizWrong)}/{stats.dailyGoal}
@@ -487,7 +495,7 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
                 {!isSpecialUnit && (
                   <div className="w-full flex items-center gap-2">
                     <div className="flex-1 h-1 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
-                      <div className="h-full bg-green-500" style={{ width: `${approxProgress}%` }}></div>
+                      <div className="h-full bg-green-500" style={{ width: `${approxProgress}% ` }}></div>
                     </div>
                     <div className="text-[9px] font-bold opacity-70" style={{ color: 'var(--color-text-muted)' }}>{memCount} Ezber</div>
                   </div>
@@ -496,6 +504,10 @@ const TopicSelector: React.FC<TopicSelectorProps> = ({
             </div>
           )
         })}
+      </div>
+      <div className="w-full text-center pb-8 opacity-50">
+        <div className="text-[10px] font-bold" style={{ color: 'var(--color-primary)' }}>KelimApp v{APP_CONFIG.version}</div>
+        <div className="text-[9px] font-medium" style={{ color: 'var(--color-text-muted)' }}>Made by {APP_CONFIG.developer}</div>
       </div>
     </div>
   );

@@ -13,7 +13,6 @@ const MenuModal: React.FC<MenuModalProps> = ({ onClose, onNavigate, hasUnreadAnn
   const profile = getUserProfile();
 
   const menuItems = [
-    { id: 'leaderboard', label: 'Lider Tablosu', icon: <Trophy size={24} /> },
     { id: 'market', label: 'Market', icon: <ShoppingBag size={24} /> },
     { id: 'announcements', label: 'Duyurular', icon: <Bell size={24} />, badge: hasUnreadAnnouncements },
     { id: 'info', label: 'Rehber', icon: <CircleHelp size={24} /> },
